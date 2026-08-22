@@ -54,6 +54,24 @@ function getGreeting() {
   return "Good evening";
 }
 
+function RolePill({ role }) {
+  const isAdmin = role === "society_admin" || role === "super_admin";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${
+        isAdmin
+          ? "bg-primary-fixed text-on-primary-fixed"
+          : "bg-secondary-fixed text-on-secondary-fixed"
+      }`}
+    >
+      <span className="material-symbols-outlined text-[14px]">
+        {isAdmin ? "shield_person" : "person"}
+      </span>
+      {isAdmin ? "Society Admin" : "Resident"}
+    </span>
+  );
+}
+
 function SectionTitle({ children }) {
   return (
     <h2 className="text-body-lg font-semibold text-on-surface">{children}</h2>
@@ -80,9 +98,12 @@ export default function DashboardPage() {
       </section>
 
       <section className="rounded-xl border border-outline-variant bg-surface-container-low p-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-outline">
-          Active Society
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-outline">
+            Active Society
+          </p>
+          {activeMembership && <RolePill role={activeMembership.role} />}
+        </div>
         {activeSociety ? (
           <div className="mt-2 flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-[30px]">apartment</span>
