@@ -19,6 +19,10 @@ const membershipSchema = new mongoose.Schema(
       enum: SOCIETY_ROLES,
       required: true,
     },
+    isPrimary: {
+      type: Boolean,
+      default: false,
+    },
     units: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -68,8 +68,13 @@ class SocietyController {
 
   async adminCreate(req, res, next) {
     try {
-      const society = await societyService.createByAdmin(req.body, req.userId);
-      res.status(201).json({ success: true, data: society });
+      const { society, adminAccount } = await societyService.createByAdmin(
+        req.body,
+        req.userId
+      );
+      const payload = { success: true, data: society };
+      if (adminAccount) payload.adminAccount = adminAccount;
+      res.status(201).json(payload);
     } catch (error) {
       next(error);
     }
@@ -77,8 +82,13 @@ class SocietyController {
 
   async approve(req, res, next) {
     try {
-      const society = await societyService.approve(req.params.id, req.userId);
-      res.json({ success: true, data: society });
+      const { society, adminAccount } = await societyService.approve(
+        req.params.id,
+        req.userId
+      );
+      const payload = { success: true, data: society };
+      if (adminAccount) payload.adminAccount = adminAccount;
+      res.json(payload);
     } catch (error) {
       next(error);
     }
