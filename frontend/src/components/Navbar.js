@@ -43,21 +43,30 @@ export default function Navbar() {
               Dashboard
             </Link>
           ) : (
-            <>
-              <Link
-                to="/login"
-                className="font-label-md text-label-md text-on-surface hover:text-primary transition-colors uppercase tracking-widest no-underline"
-              >
-                Sign In
-              </Link>
-              <Link
-                to="/register"
-                className="bg-on-surface text-surface-container-lowest font-label-md text-label-md px-6 py-3 rounded-none hover:bg-primary transition-colors uppercase tracking-widest no-underline"
-              >
-                Get Started
-              </Link>
-            </>
+            <Link
+              to="/login"
+              className="font-label-md text-label-md text-on-surface hover:text-primary transition-colors uppercase tracking-widest no-underline"
+            >
+              Login
+            </Link>
           )}
+          <Link
+            to="/create-society"
+            className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-lg hover:bg-inverse-surface transition-colors uppercase tracking-widest no-underline flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_business</span>
+            Create Society
+          </Link>
+        </div>
+        <div className="md:hidden">
+          <Link
+            to="/create-society"
+            aria-label="Create Society"
+            className="bg-primary text-on-primary font-label-md text-label-md px-4 py-2.5 rounded-lg transition-colors no-underline flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_business</span>
+            <span className="text-[12px] tracking-widest uppercase font-semibold">Create Society</span>
+          </Link>
         </div>
       </div>
     </nav>

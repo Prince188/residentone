@@ -17,3 +17,24 @@ export const RESIDENT_NAV_SECTIONS = [
     items: [{ label: "Help & Support", to: "/help", icon: "help" }],
   },
 ];
+
+export const ADMIN_NAV_SECTIONS = [
+  {
+    id: "platform",
+    label: "Platform",
+    items: [
+      { label: "Societies", to: "/admin/societies", icon: "apartment" },
+      {
+        label: "Pending Approvals",
+        to: "/admin/societies/pending",
+        icon: "pending_actions",
+      },
+    ],
+  },
+  {
+    id: "account",
+    label: "Account",
+    items: [{ label: "Help & Support", to: "/help", icon: "help" }],
+  },
+];
+

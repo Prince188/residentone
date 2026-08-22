@@ -6,6 +6,7 @@ const { Unit } = require("../modules/unit/unit.model");
 const { Membership } = require("../modules/membership/membership.model");
 
 const DEMO_EMAIL = "rahul@example.com";
+const ADMIN_EMAIL = "admin@residentone.com";
 
 async function seed() {
   await connectDatabase();
@@ -18,6 +19,18 @@ async function seed() {
       phone: "+919800000001",
       passwordHash: "Password@123",
     });
+  }
+
+  let admin = await User.findOne({ email: ADMIN_EMAIL });
+  if (!admin) {
+    admin = await User.create({
+      name: "ResidentOne Admin",
+      email: ADMIN_EMAIL,
+      phone: "+919800000000",
+      passwordHash: "Password@123",
+      role: "super_admin",
+    });
+    console.log(`Seeded super admin: ${ADMIN_EMAIL} / Password@123`);
   }
 
   const societySpecs = [
@@ -50,7 +63,15 @@ async function seed() {
   for (const spec of societySpecs) {
     let society = await Society.findOne({ name: spec.name });
     if (!society) {
-      society = await Society.create(spec);
+      society = await Society.create({
+        ...spec,
+        status: "active",
+        source: "manual",
+      });
+    } else if (!society.status || society.status !== "active") {
+      society.status = "active";
+      society.source = society.source || "manual";
+      await society.save();
     }
 
     let unit = await Unit.findOne({ societyId: society._id, label: spec.unit.label });
@@ -65,6 +86,29 @@ async function seed() {
     );
 
     console.log(`Seeded: ${society.name} -> ${unit.label} (membership ${membership._id})`);
+  }
+
+  const pendingSpec = {
+    name: "Green Valley CHS",
+    societyType: "apartment",
+    address: "7 Green Valley Road",
+    city: "Pune",
+    state: "Maharashtra",
+    pincode: "411045",
+    totalUnits: 120,
+    contactPersonName: "Priya Deshmukh",
+    contactPhone: "+919812345678",
+    contactEmail: "priya@greenvalleychs.in",
+  };
+
+  let pendingSociety = await Society.findOne({ name: pendingSpec.name, status: "pending" });
+  if (!pendingSociety) {
+    pendingSociety = await Society.create({
+      ...pendingSpec,
+      status: "pending",
+      source: "public_registration",
+    });
+    console.log(`Seeded pending registration: ${pendingSociety.name} (${pendingSociety._id})`);
   }
 
   await mongoose.disconnect();

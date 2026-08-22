@@ -12,6 +12,12 @@ import ContactPage from "./features/landing/ContactPage";
 import FeaturesPage from "./features/landing/FeaturesPage";
 import LoginPage from "./features/auth/LoginPage";
 import RegisterPage from "./features/auth/RegisterPage";
+import CreateSocietyPage from "./features/society/CreateSocietyPage";
+import SuperAdminRoute from "./components/SuperAdminRoute";
+import AdminSocietiesPage from "./features/admin/AdminSocietiesPage";
+import PendingApprovalsPage from "./features/admin/PendingApprovalsPage";
+import AdminCreateSocietyPage from "./features/admin/AdminCreateSocietyPage";
+import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MaintenancePage from "./features/maintenance/MaintenancePage";
 import PaymentsPage from "./features/payments/PaymentsPage";
@@ -41,6 +47,7 @@ function App() {
             <Route path="/features" element={<PublicLayout><FeaturesPage /></PublicLayout>} />
             <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
             <Route path="/register" element={<PublicLayout><RegisterPage /></PublicLayout>} />
+            <Route path="/create-society" element={<PublicLayout><CreateSocietyPage /></PublicLayout>} />
             <Route
               element={
                 <ProtectedRoute>
@@ -63,6 +70,22 @@ function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/help" element={<HelpPage />} />
+              <Route
+                path="/admin/societies"
+                element={<SuperAdminRoute><AdminSocietiesPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/societies/pending"
+                element={<SuperAdminRoute><PendingApprovalsPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/societies/new"
+                element={<SuperAdminRoute><AdminCreateSocietyPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/societies/:id"
+                element={<SuperAdminRoute><AdminSocietyDetailPage /></SuperAdminRoute>}
+              />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

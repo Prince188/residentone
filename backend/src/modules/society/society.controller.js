@@ -1,6 +1,24 @@
 const societyService = require("./society.service");
+const membershipService = require("../membership/membership.service");
 
 class SocietyController {
+  async registerPublic(req, res, next) {
+    try {
+      const society = await societyService.registerPublic(req.body);
+      res.status(201).json({
+        success: true,
+        data: {
+          societyId: society._id,
+          status: society.status,
+          name: society.name,
+          createdAt: society.createdAt,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getById(req, res, next) {
     try {
       const society = await societyService.findById(req.params.id);
@@ -10,6 +28,20 @@ class SocietyController {
           error: { code: "NOT_FOUND", message: "Society not found" },
         });
       }
+
+      if (req.accountRole !== "super_admin") {
+        const membership = await membershipService.findByUserAndSociety(
+          req.userId,
+          req.params.id
+        );
+        if (!membership) {
+          return res.status(403).json({
+            success: false,
+            error: { code: "FORBIDDEN", message: "You do not have access to this society" },
+          });
+        }
+      }
+
       res.json({ success: true, data: society });
     } catch (error) {
       next(error);
@@ -18,21 +50,74 @@ class SocietyController {
 
   async list(req, res, next) {
     try {
-      const { city, isActive } = req.query;
-      const filters = {};
-      if (city) filters.city = city;
-      if (isActive !== undefined) filters.isActive = isActive === "true";
-      const societies = await societyService.findAll(filters);
+      const societies = await societyService.listForAdmin(req.query);
       res.json({ success: true, data: societies });
     } catch (error) {
       next(error);
     }
   }
 
-  async create(req, res, next) {
+  async stats(req, res, next) {
     try {
-      const society = await societyService.create(req.body);
+      const stats = await societyService.stats();
+      res.json({ success: true, data: stats });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminCreate(req, res, next) {
+    try {
+      const society = await societyService.createByAdmin(req.body, req.userId);
       res.status(201).json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async approve(req, res, next) {
+    try {
+      const society = await societyService.approve(req.params.id, req.userId);
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reject(req, res, next) {
+    try {
+      const society = await societyService.reject(
+        req.params.id,
+        req.userId,
+        req.body.reason
+      );
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async suspend(req, res, next) {
+    try {
+      const society = await societyService.updateStatus(
+        req.params.id,
+        req.userId,
+        "suspend"
+      );
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async activate(req, res, next) {
+    try {
+      const society = await societyService.updateStatus(
+        req.params.id,
+        req.userId,
+        "activate"
+      );
+      res.json({ success: true, data: society });
     } catch (error) {
       next(error);
     }
@@ -40,7 +125,10 @@ class SocietyController {
 
   async update(req, res, next) {
     try {
-      const society = await societyService.update(req.params.id, req.body);
+      const society = await societyService.update(req.params.id, {
+        ...req.body,
+        updatedBy: req.userId,
+      });
       if (!society) {
         return res.status(404).json({
           success: false,

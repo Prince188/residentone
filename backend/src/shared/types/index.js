@@ -8,9 +8,13 @@ const SOCIETY_ROLES = [
   "security_guard",
 ];
 
-const ACCOUNT_ROLES = ["resident"];
+const ACCOUNT_ROLES = ["resident", "super_admin"];
 
 const DEFAULT_ACCOUNT_ROLE = "resident";
+
+const SOCIETY_STATUSES = ["pending", "active", "rejected", "suspended"];
+
+const SOCIETY_TYPES = ["apartment", "row_house", "mixed"];
 
 const PROPERTY_TYPES = ["flat", "row_house"];
 
@@ -30,4 +34,6 @@ module.exports = {
   ACCOUNT_ROLES,
   DEFAULT_ACCOUNT_ROLE,
   PROPERTY_TYPES,
+  SOCIETY_STATUSES,
+  SOCIETY_TYPES,
 };

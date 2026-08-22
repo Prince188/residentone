@@ -1,5 +1,9 @@
 import { Link, NavLink } from "react-router-dom";
-import { RESIDENT_NAV_SECTIONS } from "../../config/navigation";
+import useAuthStore from "../../stores/auth.store";
+import {
+  RESIDENT_NAV_SECTIONS,
+  ADMIN_NAV_SECTIONS,
+} from "../../config/navigation";
 
 function NavItem({ item, isCollapsed, onNavigate }) {
   return (
@@ -24,6 +28,11 @@ function NavItem({ item, isCollapsed, onNavigate }) {
 }
 
 export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, onDrawerClose }) {
+  const user = useAuthStore((state) => state.user);
+  const isPlatformAdmin = user?.role === "super_admin";
+  const navSections = isPlatformAdmin ? ADMIN_NAV_SECTIONS : RESIDENT_NAV_SECTIONS;
+  const homePath = isPlatformAdmin ? "/admin/societies" : "/dashboard";
+
   return (
     <>
       {isDrawerOpen && (
@@ -40,7 +49,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
         } md:translate-x-0 ${isCollapsed ? "md:w-20" : "md:w-64"}`}
       >
         <div className="flex h-16 shrink-0 items-center gap-2 border-b border-outline-variant px-4">
-          <Link to="/dashboard" className="flex items-center gap-2 no-underline">
+          <Link to={homePath} className="flex items-center gap-2 no-underline">
             <span className="material-symbols-outlined text-primary text-[28px]">apartment</span>
             <span
               className={`text-[20px] font-bold tracking-tight text-on-surface ${
@@ -63,7 +72,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
         </div>
 
         <nav className="flex flex-1 flex-col gap-8 overflow-y-auto px-4 py-6">
-          {RESIDENT_NAV_SECTIONS.map((section) => (
+          {navSections.map((section) => (
             <div key={section.id}>
               <p
                 className={`mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-outline ${

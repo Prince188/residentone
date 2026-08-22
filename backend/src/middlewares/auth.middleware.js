@@ -17,6 +17,7 @@ function authenticate(req, _res, next) {
     req.userId = decoded.userId;
     req.societyId = decoded.societyId;
     req.role = decoded.role;
+    req.accountRole = decoded.role === "super_admin" ? "super_admin" : null;
 
     const store = createContext({
       userId: decoded.userId,
@@ -48,4 +49,11 @@ function requireRole(...allowedRoles) {
   };
 }
 
-module.exports = { authenticate, requireSociety, requireRole };
+function requirePlatformAdmin(req, _res, next) {
+  if (req.accountRole !== "super_admin") {
+    return next(new AppError("Super Admin access required", 403));
+  }
+  next();
+}
+
+module.exports = { authenticate, requireSociety, requireRole, requirePlatformAdmin };

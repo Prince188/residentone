@@ -34,7 +34,7 @@ class AuthService {
     const { password, ...rest } = data;
     const user = await userService.create({
       ...rest,
-      role: rest.role || DEFAULT_ACCOUNT_ROLE,
+      role: DEFAULT_ACCOUNT_ROLE,
       passwordHash: password,
     });
 
@@ -60,7 +60,7 @@ class AuthService {
     const tokens = this.generateTokens({
       userId: user._id.toString(),
       societyId: null,
-      role: null,
+      role: user.role,
     });
 
     const userObj = user.toObject();
@@ -78,7 +78,7 @@ class AuthService {
       const tokens = this.generateTokens({
         userId: decoded.userId,
         societyId: decoded.societyId,
-        role: decoded.role,
+        role: user.role,
       });
 
       return tokens;

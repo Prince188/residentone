@@ -1,8 +1,12 @@
 import { Link } from "react-router-dom";
+import useAuthStore from "../../stores/auth.store";
 import SocietySelector from "./SocietySelector";
 import UserMenu from "./UserMenu";
 
 export default function Header({ onMenuClick }) {
+  const user = useAuthStore((state) => state.user);
+  const isPlatformAdmin = user?.role === "super_admin";
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 md:gap-4 border-b border-outline-variant bg-surface-container-lowest px-margin-mobile md:px-margin-desktop">
       <button
@@ -23,7 +27,23 @@ export default function Header({ onMenuClick }) {
       </Link>
 
       <div className="min-w-0 flex-1 flex justify-start md:justify-center">
-        <SocietySelector />
+        {isPlatformAdmin ? (
+          <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 md:px-3 md:py-2">
+            <span className="material-symbols-outlined shrink-0 text-primary text-[22px] hidden sm:block">
+              admin_panel_settings
+            </span>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-body-sm font-semibold text-on-surface">
+                ResidentOne
+              </span>
+              <span className="hidden sm:block truncate text-label-sm text-on-surface-variant">
+                Super Admin Dashboard
+              </span>
+            </span>
+          </div>
+        ) : (
+          <SocietySelector />
+        )}
       </div>
 
       <div className="shrink-0 flex items-center gap-1 md:gap-2">
