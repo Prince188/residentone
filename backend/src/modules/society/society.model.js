@@ -72,6 +72,10 @@ const societySchema = new mongoose.Schema(
     approvedAt: {
       type: Date,
     },
+    societyAdmin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

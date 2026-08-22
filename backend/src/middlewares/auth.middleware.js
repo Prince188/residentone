@@ -16,8 +16,13 @@ function authenticate(req, _res, next) {
     const decoded = jwt.verify(token, config.jwt.accessSecret);
     req.userId = decoded.userId;
     req.societyId = decoded.societyId;
-    req.role = decoded.role;
-    req.accountRole = decoded.role === "super_admin" ? "super_admin" : null;
+    req.roles = Array.isArray(decoded.role)
+      ? decoded.role
+      : decoded.role
+        ? [decoded.role]
+        : [];
+    req.role = req.roles;
+    req.accountRole = req.roles.includes("super_admin") ? "super_admin" : null;
 
     const store = createContext({
       userId: decoded.userId,
@@ -42,7 +47,8 @@ function requireSociety(req, _res, next) {
 
 function requireRole(...allowedRoles) {
   return (req, _res, next) => {
-    if (!req.role || !allowedRoles.includes(req.role)) {
+    const roles = Array.isArray(req.role) ? req.role : req.role ? [req.role] : [];
+    if (!roles.some((r) => allowedRoles.includes(r))) {
       return next(new AppError("Insufficient permissions", 403));
     }
     next();

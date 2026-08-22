@@ -5,7 +5,7 @@ import UserMenu from "./UserMenu";
 
 export default function Header({ onMenuClick }) {
   const user = useAuthStore((state) => state.user);
-  const isPlatformAdmin = user?.role === "super_admin";
+  const isPlatformAdmin = user?.role?.includes("super_admin");
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 md:gap-4 border-b border-outline-variant bg-surface-container-lowest px-margin-mobile md:px-margin-desktop">

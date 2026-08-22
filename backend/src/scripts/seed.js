@@ -28,7 +28,7 @@ async function seed() {
       email: ADMIN_EMAIL,
       phone: "+919800000000",
       passwordHash: "Password@123",
-      role: "super_admin",
+      role: ["super_admin"],
     });
     console.log(`Seeded super admin: ${ADMIN_EMAIL} / Password@123`);
   }

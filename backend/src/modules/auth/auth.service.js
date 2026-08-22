@@ -34,7 +34,7 @@ class AuthService {
     const { password, ...rest } = data;
     const user = await userService.create({
       ...rest,
-      role: DEFAULT_ACCOUNT_ROLE,
+      role: [DEFAULT_ACCOUNT_ROLE],
       passwordHash: password,
     });
 

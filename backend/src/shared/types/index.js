@@ -8,7 +8,7 @@ const SOCIETY_ROLES = [
   "security_guard",
 ];
 
-const ACCOUNT_ROLES = ["resident", "super_admin"];
+const ACCOUNT_ROLES = ["resident", "society_admin", "super_admin"];
 
 const DEFAULT_ACCOUNT_ROLE = "resident";
 

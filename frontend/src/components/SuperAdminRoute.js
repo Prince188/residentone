@@ -9,7 +9,7 @@ export default function SuperAdminRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role !== "super_admin") {
+  if (!user?.role?.includes("super_admin")) {
     return <Navigate to="/dashboard" replace />;
   }
 

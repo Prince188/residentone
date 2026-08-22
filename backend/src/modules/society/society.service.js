@@ -130,6 +130,10 @@ class SocietyService {
       });
     }
 
+    await User.findByIdAndUpdate(user._id, {
+      $addToSet: { role: "society_admin" },
+    });
+
     await Membership.findOneAndUpdate(
       { userId: user._id, societyId: society._id },
       {
@@ -138,6 +142,10 @@ class SocietyService {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    await Society.findByIdAndUpdate(society._id, {
+      societyAdmin: user._id,
+    });
 
     return {
       userId: user._id,

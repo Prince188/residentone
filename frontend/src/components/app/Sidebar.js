@@ -29,7 +29,7 @@ function NavItem({ item, isCollapsed, onNavigate }) {
 
 export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, onDrawerClose }) {
   const user = useAuthStore((state) => state.user);
-  const isPlatformAdmin = user?.role === "super_admin";
+  const isPlatformAdmin = user?.role?.includes("super_admin");
   const navSections = isPlatformAdmin ? ADMIN_NAV_SECTIONS : RESIDENT_NAV_SECTIONS;
   const homePath = isPlatformAdmin ? "/admin/societies" : "/dashboard";
 
