@@ -130,9 +130,9 @@ class SocietyService {
       });
     }
 
-    await User.findByIdAndUpdate(user._id, {
-      $addToSet: { role: "society_admin" },
-    });
+    const roles = Array.isArray(user.role) ? [...user.role] : user.role ? [user.role] : [];
+    if (!roles.includes("society_admin")) roles.push("society_admin");
+    await User.findByIdAndUpdate(user._id, { role: roles });
 
     await Membership.findOneAndUpdate(
       { userId: user._id, societyId: society._id },
