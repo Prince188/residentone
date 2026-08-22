@@ -25,6 +25,7 @@ export default function PendingApprovalsPage() {
   const [approveTarget, setApproveTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [actionError, setActionError] = useState("");
+  const [approvedAccount, setApprovedAccount] = useState(null);
 
   const pendingQuery = useQuery({
     queryKey: ["societies", "pending"],
@@ -33,10 +34,12 @@ export default function PendingApprovalsPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id) => approveSociety(id),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["societies"] });
       queryClient.invalidateQueries({ queryKey: ["society-stats"] });
       closeDialogs();
+      const account = response?.data?.adminAccount;
+      if (account) setApprovedAccount(account);
     },
     onError: (error) =>
       setActionError(extractApiError(error, "Failed to approve society.")),
@@ -70,6 +73,41 @@ export default function PendingApprovalsPage() {
           with a reason.
         </p>
       </div>
+
+      {approvedAccount && (
+        <section className="rounded-xl border border-tertiary-fixed bg-tertiary-fixed/30 px-4 py-4">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-primary">manage_accounts</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-body-sm font-semibold text-on-surface">
+                {approvedAccount.name} is now the Primary Society Admin
+                {approvedAccount.accountCreated
+                  ? " — share these login details with them:"
+                  : ` (${approvedAccount.email}) can now manage the society with their existing account.`}
+              </p>
+              {approvedAccount.accountCreated && (
+                <div className="mt-2 inline-flex flex-col gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3">
+                  <span className="text-label-sm text-on-surface">
+                    Email: <strong>{approvedAccount.email}</strong>
+                  </span>
+                  <span className="text-label-sm text-on-surface">
+                    Temporary password:{" "}
+                    <strong className="break-all">{approvedAccount.temporaryPassword}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setApprovedAccount(null)}
+              aria-label="Dismiss"
+              className="text-on-surface-variant hover:text-on-surface cursor-pointer"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-outline-variant bg-surface-container-lowest">
         <div className="flex items-center justify-between border-b border-outline-variant p-4">
