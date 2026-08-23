@@ -72,6 +72,17 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
         </div>
 
         <nav className="flex flex-1 flex-col gap-8 overflow-y-auto px-4 py-6">
+          <Link
+            to="/"
+            onClick={onDrawerClose}
+            title={isCollapsed ? "Go to Home" : undefined}
+            className={`flex items-center gap-3 rounded-lg bg-primary px-3 py-2.5 text-body-sm font-semibold text-on-primary no-underline transition-colors hover:bg-primary/90 ${
+              isCollapsed ? "md:justify-center md:px-0" : ""
+            }`}
+          >
+            <span className="material-symbols-outlined shrink-0 text-[20px]">home</span>
+            <span className={`truncate ${isCollapsed ? "md:hidden" : ""}`}>Go to Home</span>
+          </Link>
           {navSections.map((section) => (
             <div key={section.id}>
               <p
