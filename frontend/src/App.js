@@ -60,6 +60,8 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/houses" element={<ManageHousesPage />} />
+              <Route path="/houses/:unitId" element={<HouseDetailPage />} />
               <Route path="/maintenance" element={<MaintenancePage />} />
               <Route path="/payments" element={<PaymentsPage />} />
               <Route path="/complaints" element={<ComplaintsPage />} />

@@ -23,6 +23,10 @@ const quickActions = [
   { icon: "pool", label: "Book Amenity", to: "/amenities" },
 ];
 
+const adminQuickActions = [
+  { icon: "apartment", label: "Manage Houses", to: "/houses" },
+];
+
 const exploreFeatures = [
   { icon: "pool", title: "Amenities", description: "Book shared facilities", to: "/amenities" },
   { icon: "folder_open", title: "Documents", description: "Records & forms", to: "/documents" },
@@ -84,6 +88,11 @@ export default function DashboardPage() {
   const activeMembership = useSocietyStore(selectActiveMembership);
   const activeUnit = useSocietyStore(selectPrimaryUnit);
 
+  const isAdmin =
+    activeMembership?.role === "society_admin" ||
+    activeMembership?.role === "super_admin";
+  const actions = isAdmin ? [...adminQuickActions, ...quickActions] : quickActions;
+
   const firstName = user?.name?.split(" ")[0] || "there";
 
   return (
@@ -138,7 +147,7 @@ export default function DashboardPage() {
       <section>
         <SectionTitle>Quick Actions</SectionTitle>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {quickActions.map((action) => (
+          {actions.map((action) => (
             <QuickActionCard key={action.label} {...action} />
           ))}
         </div>
