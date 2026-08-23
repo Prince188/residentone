@@ -28,6 +28,9 @@ import AmenitiesPage from "./features/amenities/AmenitiesPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
 import DirectoryPage from "./features/directory/DirectoryPage";
+import ManageHousesPage from "./features/houses/ManageHousesPage";
+import HouseDetailPage from "./features/houses/HouseDetailPage";
+import HouseInvitePage from "./features/houses/HouseInvitePage";
 import MyUnitPage from "./features/my-unit/MyUnitPage";
 import EmergencyContactsPage from "./features/emergency/EmergencyContactsPage";
 import ProfilePage from "./features/profile/ProfilePage";
@@ -48,6 +51,7 @@ function App() {
             <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
             <Route path="/register" element={<PublicLayout><RegisterPage /></PublicLayout>} />
             <Route path="/create-society" element={<PublicLayout><CreateSocietyPage /></PublicLayout>} />
+            <Route path="/house-invite/:token" element={<PublicLayout><HouseInvitePage /></PublicLayout>} />
             <Route
               element={
                 <ProtectedRoute>

@@ -9,6 +9,7 @@ const authRoutes = require("./modules/auth/auth.routes");
 const userRoutes = require("./modules/user/user.routes");
 const societyRoutes = require("./modules/society/society.routes");
 const membershipRoutes = require("./modules/membership/membership.routes");
+const unitRoutes = require("./modules/unit/unit.routes");
 const healthRoutes = require("./modules/health/health.routes");
 
 const app = express();
@@ -23,6 +24,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/societies", societyRoutes);
 app.use("/api/v1/memberships", membershipRoutes);
+app.use("/api/v1/units", unitRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

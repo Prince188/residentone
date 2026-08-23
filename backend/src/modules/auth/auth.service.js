@@ -50,8 +50,13 @@ class AuthService {
     return { user: userWithoutPassword, ...tokens };
   }
 
-  async login(email, password) {
-    const user = await userService.findByEmailWithPassword(email);
+  async login(identifier, password) {
+    const value = String(identifier || "").trim();
+    const isEmail = value.includes("@");
+    const user = isEmail
+      ? await userService.findByEmailWithPassword(value.toLowerCase())
+      : await userService.findByPhoneWithPassword(value);
+
     if (!user) throw new AppError("Invalid credentials", 401);
 
     const isPasswordValid = await user.comparePassword(password);

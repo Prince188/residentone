@@ -28,6 +28,23 @@ const unitSchema = new mongoose.Schema(
       required: [true, "Door number is required"],
       trim: true,
     },
+    unitNumber: {
+      type: Number,
+      default: null,
+    },
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    inviteToken: {
+      type: String,
+      default: null,
+    },
+    inviteExpiresAt: {
+      type: Date,
+      default: null,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -37,6 +54,7 @@ const unitSchema = new mongoose.Schema(
 );
 
 unitSchema.index({ label: 1 });
+unitSchema.index({ inviteToken: 1 }, { unique: true, sparse: true });
 
 tenantPlugin(unitSchema);
 

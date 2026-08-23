@@ -9,6 +9,10 @@ class UserService {
     return User.findOne({ email }).select("+passwordHash");
   }
 
+  async findByPhoneWithPassword(phone) {
+    return User.findOne({ phone }).select("+passwordHash");
+  }
+
   async findByPhone(phone) {
     return User.findOne({ phone });
   }
