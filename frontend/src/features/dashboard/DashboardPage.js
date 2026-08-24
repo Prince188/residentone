@@ -7,6 +7,7 @@ import useSocietyStore, {
   selectPrimaryUnit,
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
+import { getActiveMaintenance } from "../../lib/maintenance";
 
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
@@ -158,6 +159,19 @@ export default function DashboardPage() {
   });
   const recentNotices = noticesQuery.data || [];
 
+  const activeMaintenance = getActiveMaintenance();
+  let maintenanceAlert = null;
+  if (activeMaintenance) {
+    const dueDate = new Date(activeMaintenance.dueDate);
+    const isOverdue = dueDate.setHours(23, 59, 59) < Date.now();
+    maintenanceAlert = {
+      overdue: isOverdue,
+      text: `${activeMaintenance.month} ${activeMaintenance.year} maintenance · ₹${activeMaintenance.amount.toLocaleString("en-IN")} — ${
+        isOverdue ? "overdue" : "due"
+      } by ${dueDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`,
+    };
+  }
+
   const firstName = user?.name?.split(" ")[0] || "there";
 
   return (
@@ -198,6 +212,32 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+
+      {maintenanceAlert && (
+        <Link
+          to="/maintenance"
+          className={`flex items-center gap-3 rounded-xl border px-4 py-3 no-underline transition-colors ${
+            maintenanceAlert.overdue
+              ? "border-red-200 bg-red-50 hover:bg-red-100"
+              : "border-amber-200 bg-amber-50 hover:bg-amber-100"
+          }`}
+        >
+          <span
+            className={`material-symbols-outlined shrink-0 text-[22px] ${
+              maintenanceAlert.overdue ? "text-red-700" : "text-amber-700"
+            }`}
+          >
+            {maintenanceAlert.overdue ? "error" : "notification_important"}
+          </span>
+          <p className="min-w-0 flex-1 text-body-sm font-semibold text-on-surface">
+            Pay your maintenance — {maintenanceAlert.text}
+          </p>
+          <span className="hidden shrink-0 items-center gap-1 text-label-md text-primary sm:inline-flex">
+            Pay Now
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </span>
+        </Link>
+      )}
 
       {isAdmin && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}
 

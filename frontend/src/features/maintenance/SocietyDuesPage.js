@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { getHouseCards, extractApiError } from "../../lib/houses";
+import { MONTHS, saveMaintenance } from "../../lib/maintenance";
 
 const ADMIN_ROLES = ["super_admin", "society_admin"];
 
@@ -49,12 +50,13 @@ export const DUES_STATUS = {
   },
 };
 
-// Mock dues status per unit until maintenance API is wired
-function getDuesStatuses(units) {
+// Mock dues status per unit until maintenance API is wired.
+// periodOffset shifts the mock pattern so each month/year looks different.
+export function getDuesStatuses(units, periodOffset = 0) {
   const order = ["paid", "pending", "overdue", "late_paid"];
   const statuses = {};
   units.forEach((unit, index) => {
-    statuses[unit.id] = order[index % order.length];
+    statuses[unit.id] = order[(index + periodOffset) % order.length];
   });
   return statuses;
 }
@@ -99,15 +101,15 @@ export const MOCK_DUE_DETAILS = {
   },
 };
 
-function DuesCard({ house, statusKey }) {
+function DuesCard({ house, statusKey, period }) {
   const status = DUES_STATUS[statusKey];
-  const details = MOCK_DUE_DETAILS[statusKey];
   const isSettled = statusKey === "paid" || statusKey === "late_paid";
+  const monthLabel = `${MONTHS[period.m]} ${period.y}`;
   const dateLine = isSettled
-    ? `Paid on ${details.paidOn}`
+    ? `Paid on 05 ${monthLabel}`
     : statusKey === "overdue"
-      ? `Overdue since ${details.dueDate}`
-      : `Due by ${details.dueDate}`;
+      ? `Overdue since 15 ${monthLabel}`
+      : `Due by 15 ${monthLabel}`;
   return (
     <Link
       to={`/dues/${house.id}`}
@@ -146,6 +148,17 @@ export default function SocietyDuesPage() {
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [showCreate, setShowCreate] = useState(false);
+  const [toast, setToast] = useState("");
+
+  // Past-period selector (strictly before the current month)
+  const now = new Date();
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const [period, setPeriod] = useState({
+    m: lastMonthDate.getMonth(),
+    y: lastMonthDate.getFullYear(),
+  });
+  const periodOffset = (period.y * 12 + period.m) % 4;
 
   const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
 
@@ -156,7 +169,10 @@ export default function SocietyDuesPage() {
   });
 
   const houses = useMemo(() => housesQuery.data || [], [housesQuery.data]);
-  const statuses = useMemo(() => getDuesStatuses(houses), [houses]);
+  const statuses = useMemo(
+    () => getDuesStatuses(houses, periodOffset),
+    [houses, periodOffset]
+  );
 
   const counts = useMemo(() => {
     const base = { paid: 0, pending: 0, overdue: 0, late_paid: 0 };
@@ -213,19 +229,76 @@ export default function SocietyDuesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
-      <section>
-        <Link
-          to="/dashboard"
-          className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+      <section className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link
+            to="/dashboard"
+            className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            Dashboard
+          </Link>
+          <h1 className="page-title">Manage Maintenance</h1>
+          <p className="page-subtitle">
+            {activeSociety ? `${activeSociety.name} · ` : ""}
+            Maintenance payment status for every house
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md text-on-primary no-underline transition-opacity hover:opacity-90"
         >
-          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-          Dashboard
-        </Link>
-        <h1 className="page-title">Manage Maintenance</h1>
-        <p className="page-subtitle">
-          {activeSociety ? `${activeSociety.name} · ` : ""}
-          Maintenance payment status for every house
-        </p>
+          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+          Create Maintenance
+        </button>
+      </section>
+
+      {toast && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-body-sm font-semibold text-emerald-800">
+          <span className="material-symbols-outlined text-[20px]">check_circle</span>
+          {toast}
+        </div>
+      )}
+
+      <section className="flex flex-wrap items-center gap-2">
+        <span className="text-label-md text-on-surface-variant">Period</span>
+        <select
+          value={period.m}
+          onChange={(e) => setPeriod((p) => ({ ...p, m: Number(e.target.value) }))}
+          className={`rounded-lg border px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+            period.m === lastMonthDate.getMonth() && period.y === lastMonthDate.getFullYear()
+              ? "border-outline"
+              : "border-outline-variant bg-surface-container-lowest"
+          }`}
+        >
+          {MONTHS.map((label, mIdx) => {
+            const disabled = period.y === now.getFullYear() && mIdx >= now.getMonth();
+            return (
+              <option key={label} value={mIdx} disabled={disabled}>
+                {label}
+                {disabled ? " (upcoming)" : ""}
+              </option>
+            );
+          })}
+        </select>
+        <select
+          value={period.y}
+          onChange={(e) =>
+            setPeriod((p) => {
+              const y = Number(e.target.value);
+              const m = y === now.getFullYear() ? Math.min(p.m, now.getMonth() - 1) : p.m;
+              return { m, y };
+            })
+          }
+          className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          {Array.from({ length: 3 }, (_, i) => now.getFullYear() - 2 + i).map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
       </section>
 
       {housesQuery.isError && (
@@ -297,13 +370,174 @@ export default function SocietyDuesPage() {
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
                 {filtered.map((house) => (
-                  <DuesCard key={house.id} house={house} statusKey={statuses[house.id]} />
+                  <DuesCard
+                    key={house.id}
+                    house={house}
+                    statusKey={statuses[house.id]}
+                    period={period}
+                  />
                 ))}
               </div>
             )}
           </section>
         </>
       )}
+
+      {showCreate && (
+        <CreateMaintenanceModal
+          onClose={() => setShowCreate(false)}
+          onCreate={(record) => {
+            saveMaintenance(record);
+            setShowCreate(false);
+            setToast(
+              `Maintenance created for ${record.month} ${record.year}. Members will see a payment alert on their dashboard.`
+            );
+            setTimeout(() => setToast(""), 5000);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateMaintenanceModal({ onClose, onCreate }) {
+  const today = new Date();
+  const [month, setMonth] = useState(today.getMonth());
+  const [year, setYear] = useState(today.getFullYear());
+  const [dueDate, setDueDate] = useState("");
+  const [amount, setAmount] = useState("");
+  const [error, setError] = useState("");
+
+  const years = [today.getFullYear(), today.getFullYear() + 1];
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!amount || Number(amount) <= 0) {
+      setError("Enter a valid amount.");
+      return;
+    }
+    if (!dueDate) {
+      setError("Select a due date.");
+      return;
+    }
+    onCreate({ month: MONTHS[month], year, dueDate, amount: Number(amount) });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-body-lg font-semibold text-on-surface">Create Maintenance</h2>
+            <p className="page-subtitle">
+              Members will see a payment alert on their dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-high"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="cm-month" className="mb-1 block text-label-sm text-on-surface-variant">
+                Month
+              </label>
+              <select
+                id="cm-month"
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {MONTHS.map((label, mIdx) => (
+                  <option key={label} value={mIdx}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="cm-year" className="mb-1 block text-label-sm text-on-surface-variant">
+                Year
+              </label>
+              <select
+                id="cm-year"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="cm-due" className="mb-1 block text-label-sm text-on-surface-variant">
+              Due Date
+            </label>
+            <input
+              id="cm-due"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="cm-amount" className="mb-1 block text-label-sm text-on-surface-variant">
+              Amount (₹)
+            </label>
+            <input
+              id="cm-amount"
+              type="number"
+              min="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="e.g. 2500"
+              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">
+              {error}
+            </p>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface transition-colors hover:border-primary hover:text-primary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-label-md text-on-primary transition-opacity hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-[18px]">send</span>
+              Create
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
