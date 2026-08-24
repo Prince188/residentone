@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getHouse,
-  checkOwnerByPhone,
+  searchUsersByQuery,
   assignOwnerToHouse,
   unassignOwnerFromHouse,
   createHouseInviteLink,
@@ -20,8 +20,8 @@ function OwnerForm({ house }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [checkedUser, setCheckedUser] = useState(null);
-  const [checkedPhone, setCheckedPhone] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [pickedUser, setPickedUser] = useState(false);
   const [formError, setFormError] = useState("");
   const [assignedResult, setAssignedResult] = useState(null);
   const [invite, setInvite] = useState(null);
@@ -32,26 +32,24 @@ function OwnerForm({ house }) {
     queryClient.invalidateQueries({ queryKey: ["my-societies"] });
   };
 
-  const resetCheck = () => {
-    setCheckedUser(null);
-    setCheckedPhone("");
-    setAssignedResult(null);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(phone.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [phone]);
 
-  const checkMutation = useMutation({
-    mutationFn: () => checkOwnerByPhone(house.id, phone),
-    onSuccess: (response) => {
-      setFormError("");
-      setCheckedUser(response.data.data.user);
-      setCheckedPhone(phone.trim());
-      if (!response.data.data.exists) setName("");
-    },
-    onError: (error) => {
-      setCheckedUser(null);
-      setCheckedPhone("");
-      setFormError(extractApiError(error, "Could not verify this number."));
-    },
+  const isSearching = debouncedQuery.length >= 3;
+
+  const searchQuery = useQuery({
+    queryKey: ["owner-search", debouncedQuery],
+    queryFn: async () => (await searchUsersByQuery(debouncedQuery)).data.data,
+    enabled: isSearching,
   });
+
+  const matches = pickedUser ? [] : searchQuery.data || [];
+  const showDropdown =
+    !pickedUser && isSearching && matches.length > 0 && !searchQuery.isFetching;
+  const digitsTyped = phone.replace(/\D/g, "");
+  const canSubmit = name.trim().length > 0 && digitsTyped.length >= 10;
 
   const assignMutation = useMutation({
     mutationFn: (payload) => assignOwnerToHouse(house.id, payload),
@@ -74,18 +72,25 @@ function OwnerForm({ house }) {
       setFormError(extractApiError(error, "Could not generate invite link.")),
   });
 
-  const handleAssignExisting = () => {
-    if (!checkedUser) return;
-    assignMutation.mutate({ phone: checkedPhone });
+  const handleSelectUser = (user) => {
+    setPhone(user.phone);
+    setName(user.name || "");
+    setEmail(user.email && !user.email.endsWith("@residentone.local") ? user.email : "");
+    setPickedUser(true);
+    setFormError("");
   };
 
-  const handleAssignNew = (e) => {
+  const handleAssign = (e) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setFormError("Name is required to create a new account.");
+    if (!canSubmit) {
+      setFormError("Enter the owner's full name and a valid phone number.");
       return;
     }
-    assignMutation.mutate({ name: name.trim(), phone: checkedPhone, email: email.trim() });
+    assignMutation.mutate({
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+    });
   };
 
   if (assignedResult) {
@@ -121,119 +126,103 @@ function OwnerForm({ house }) {
       <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6">
         <h3 className="text-headline-sm text-on-surface">Assign Owner</h3>
         <p className="mt-1 text-body-sm text-on-surface-variant">
-          Enter the owner&apos;s phone number. If they already have a ResidentOne
-          account we will reuse it; otherwise an account is created automatically.
+          Fill in the owner&apos;s details below. If the phone number already
+          has a ResidentOne account we reuse it; otherwise an account is
+          created automatically.
         </p>
 
         {formError && (
           <p className="mt-3 text-body-sm text-error">{formError}</p>
         )}
 
-        <div className="mt-4 flex items-end gap-3">
-          <div className="flex-1">
-            <FormField id="phone" label="Owner Phone Number" required>
+        <form onSubmit={handleAssign} className="mt-4 space-y-stack-md">
+          <div className="relative">
+            <FormField id="phone" label="Phone Number" required>
               <input
                 id="phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                onBlur={() => phone.trim() && phone.trim() !== checkedPhone && !checkedUser && checkMutation.mutate()}
-                placeholder="9876543210"
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setPickedUser(false);
+                }}
+                placeholder="Type to search existing accounts, e.g. 91062..."
                 className={inputClass}
-                disabled={checkMutation.isPending || Boolean(checkedPhone)}
+                autoComplete="off"
               />
             </FormField>
-          </div>
-          {!checkedPhone && (
-            <button
-              type="button"
-              onClick={() => checkMutation.mutate()}
-              disabled={!phone.trim() || checkMutation.isPending}
-              className="rounded-lg bg-primary-fixed px-4 py-2 text-label-md text-on-primary-fixed transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {checkMutation.isPending ? "Checking..." : "Check"}
-            </button>
-          )}
-          {checkedPhone && (
-            <button
-              type="button"
-              onClick={() => {
-                setPhone("");
-                resetCheck();
-                setEmail("");
-              }}
-              className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface-variant hover:bg-surface-container-low"
-            >
-              Change
-            </button>
-          )}
-        </div>
 
-        {checkedUser && (
-          <div className="mt-4 rounded-lg border border-outline-variant bg-secondary-fixed p-4">
-            <p className="flex items-center gap-2 text-label-md font-semibold text-success">
-              <span className="material-symbols-outlined text-[18px]">person_search</span>
-              Existing account found
-            </p>
-            <p className="mt-2 text-body-md text-on-surface">{checkedUser.name}</p>
-            <p className="text-body-sm text-on-surface-variant">
-              {checkedUser.phone}
-              {checkedUser.email ? ` · ${checkedUser.email}` : ""}
-            </p>
-            <p className="mt-2 text-label-sm text-outline">
-              Their existing credentials will continue to work.
-            </p>
-            <button
-              type="button"
-              onClick={handleAssignExisting}
-              disabled={assignMutation.isPending}
-              className="mt-3 rounded-lg bg-inverse-surface px-4 py-2 text-label-md text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {assignMutation.isPending ? "Assigning..." : `Assign House ${house.label}`}
-            </button>
-          </div>
-        )}
+            {isSearching && searchQuery.isFetching && (
+              <p className="absolute right-3 top-9 text-label-sm text-on-surface-variant">
+                Searching...
+              </p>
+            )}
 
-        {checkedPhone && !checkedUser && (
-          <form onSubmit={handleAssignNew} className="mt-4 space-y-stack-md">
-            <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3 text-body-sm text-on-surface-variant">
-              No account found. A new one will be created — login username and
-              password will both be <strong>{checkedPhone}</strong>.
-            </div>
-            <FormField id="owner-name" label="Owner Full Name" required>
-              <input
-                id="owner-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Rahul Sharma"
-                className={inputClass}
-                required
-              />
-            </FormField>
-            <FormField
+            {showDropdown && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-lg">
+                <p className="border-b border-outline-variant bg-surface-container-low px-4 py-1.5 text-label-sm text-on-surface-variant">
+                  Matching accounts — click to autofill
+                </p>
+                {matches.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => handleSelectUser(user)}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-secondary-fixed"
+                  >
+                    <span className="material-symbols-outlined text-[20px] text-primary">
+                      person
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-body-md text-on-surface">
+                        {user.name}
+                      </span>
+                      <span className="block truncate text-body-sm text-on-surface-variant">
+                        {user.phone}
+                        {user.email ? ` · ${user.email}` : ""}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <FormField id="owner-name" label="Owner Full Name" required>
+            <input
+              id="owner-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Rahul Sharma"
+              className={inputClass}
+              required
+            />
+          </FormField>
+
+          <FormField
+            id="owner-email"
+            label="Email (optional)"
+            hint="If left blank, a placeholder email is generated."
+          >
+            <input
               id="owner-email"
-              label="Email (optional)"
-              hint="If left blank, a placeholder email is generated."
-            >
-              <input
-                id="owner-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="rahul@example.com"
-                className={inputClass}
-              />
-            </FormField>
-            <button
-              type="submit"
-              disabled={assignMutation.isPending}
-              className="rounded-lg bg-inverse-surface px-4 py-2 text-label-md text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {assignMutation.isPending ? "Creating & assigning..." : "Create Account & Assign"}
-            </button>
-          </form>
-        )}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="rahul@example.com"
+              className={inputClass}
+            />
+          </FormField>
+
+          <button
+            type="submit"
+            disabled={!canSubmit || assignMutation.isPending}
+            className="rounded-lg bg-inverse-surface px-4 py-2 text-label-md text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {assignMutation.isPending ? "Assigning..." : `Assign House ${house.label}`}
+          </button>
+        </form>
       </section>
 
       <section className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-6">

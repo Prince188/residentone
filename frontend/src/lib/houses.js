@@ -2,8 +2,8 @@ import api from "./api";
 
 export const getHouseCards = () => api.get("/units");
 export const getHouse = (unitId) => api.get(`/units/${unitId}`);
-export const checkOwnerByPhone = (unitId, phone) =>
-  api.post(`/units/${unitId}/check-owner`, { phone });
+export const searchUsersByQuery = (q) =>
+  api.get("/units/search-users", { params: { q } });
 export const assignOwnerToHouse = (unitId, payload) =>
   api.post(`/units/${unitId}/assign-owner`, payload);
 export const unassignOwnerFromHouse = (unitId) =>

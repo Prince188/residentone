@@ -6,25 +6,22 @@ import useSocietyStore, {
   selectPrimaryUnit,
 } from "../../stores/society.store";
 import SummaryCard from "../../components/cards/SummaryCard";
-import QuickActionCard from "../../components/cards/QuickActionCard";
 import FeatureCard from "../../components/cards/FeatureCard";
 
 const summaryCards = [
   { icon: "build", label: "Maintenance", value: "₹2,500 Due", hint: "Next due in 12 days", to: "/maintenance", tone: "warning" },
-  { icon: "payments", label: "Payments", value: "Paid", hint: "Last receipt: Jun 2026", to: "/payments", tone: "success" },
-  { icon: "report_problem", label: "Open Complaints", value: "2", hint: "1 in progress", to: "/complaints", tone: "default" },
   { icon: "badge", label: "Today's Visitors", value: "1", hint: "1 expected entry", to: "/visitors", tone: "default" },
 ];
 
 const quickActions = [
-  { icon: "payments", label: "Pay Maintenance", to: "/payments" },
+  { icon: "payments", label: "Pay Maintenance", to: "/maintenance" },
   { icon: "report_problem", label: "Raise Complaint", to: "/complaints" },
-  { icon: "person_add", label: "Add Visitor", to: "/visitors" },
   { icon: "pool", label: "Book Amenity", to: "/amenities" },
 ];
 
 const adminQuickActions = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
+  { icon: "request_quote", label: "Society Dues", to: "/dues" },
 ];
 
 const exploreFeatures = [
@@ -42,6 +39,7 @@ const recentNotices = [
     title: "Annual General Meeting",
     excerpt: "Society meeting scheduled for Sunday, 10 AM at the clubhouse.",
     date: "2 days ago",
+    featured: true,
   },
   {
     id: 2,
@@ -64,8 +62,8 @@ function RolePill({ role }) {
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${
         isAdmin
-          ? "bg-primary-fixed text-on-primary-fixed"
-          : "bg-secondary-fixed text-on-secondary-fixed"
+          ? "bg-on-primary-fixed text-primary"
+          : "bg-white/20 text-white"
       }`}
     >
       <span className="material-symbols-outlined text-[14px]">
@@ -79,6 +77,49 @@ function RolePill({ role }) {
 function SectionTitle({ children }) {
   return (
     <h2 className="text-body-lg font-semibold text-on-surface">{children}</h2>
+  );
+}
+
+function HeroActionChip({ icon, label, to, highlight }) {
+  return (
+    <Link
+      to={to}
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-label-md no-underline transition-colors ${
+        highlight
+          ? "bg-white text-primary hover:bg-primary-fixed"
+          : "border border-white/30 bg-white/10 text-white hover:bg-white/25"
+      }`}
+    >
+      <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      {label}
+    </Link>
+  );
+}
+
+function NoticeItem({ title, excerpt, date, featured }) {
+  return (
+    <article
+      className={`flex gap-3 rounded-xl border p-4 transition-colors ${
+        featured
+          ? "border-primary-fixed bg-primary-fixed/40 hover:bg-primary-fixed/60"
+          : "border-outline-variant bg-surface-container-lowest hover:border-outline"
+      }`}
+    >
+      <span
+        className={`material-symbols-outlined mt-0.5 shrink-0 text-[22px] ${
+          featured ? "text-primary" : "text-on-surface-variant"
+        }`}
+      >
+        campaign
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="truncate text-body-md font-semibold text-on-surface">{title}</h3>
+          <span className="shrink-0 text-label-sm text-outline">{date}</span>
+        </div>
+        <p className="mt-0.5 text-body-sm text-on-surface-variant">{excerpt}</p>
+      </div>
+    </article>
   );
 }
 
@@ -97,96 +138,89 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-stack-lg">
-      <section>
-        <h1 className="text-headline-md text-on-surface">
-          {getGreeting()}, {firstName} 👋
-        </h1>
-        <p className="mt-1 text-body-md text-on-surface-variant">
-          Here is what is happening in your society today.
-        </p>
-      </section>
-
-      <section className="rounded-xl border border-outline-variant bg-surface-container-low p-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-outline">
-            Active Society
-          </p>
+      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-6 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-headline-md text-white">
+              {getGreeting()}, {firstName} 👋
+            </h1>
+            <p className="mt-1 text-body-sm text-primary-fixed-dim">
+              Here is what is happening in your society today.
+            </p>
+          </div>
           {activeMembership && <RolePill role={activeMembership.role} />}
         </div>
-        {activeSociety ? (
-          <div className="mt-2 flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-[30px]">apartment</span>
+
+        <div className="mt-4 flex items-center gap-3 border-t border-white/15 pt-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+            <span className="material-symbols-outlined text-white text-[26px]">apartment</span>
+          </span>
+          {activeSociety ? (
             <div className="min-w-0">
-              <p className="truncate text-body-lg font-semibold text-on-surface">
+              <p className="truncate text-body-lg font-semibold text-white">
                 {activeSociety.name}
               </p>
-              <p className="truncate text-body-sm text-on-surface-variant">
+              <p className="truncate text-label-md text-primary-fixed-dim">
                 {activeUnit ? activeUnit.label : "No unit assigned"}
                 {activeMembership?.units?.length > 1 && (
                   <> · +{activeMembership.units.length - 1} more unit(s)</>
                 )}
               </p>
             </div>
-          </div>
-        ) : (
-          <p className="mt-2 text-body-md text-on-surface-variant">
-            You are not linked to any society yet. Contact your society admin to get added.
-          </p>
-        )}
-      </section>
-
-      <section>
-        <SectionTitle>Overview</SectionTitle>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {summaryCards.map((card) => (
-            <SummaryCard key={card.label} {...card} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionTitle>Quick Actions</SectionTitle>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {actions.map((action) => (
-            <QuickActionCard key={action.label} {...action} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionTitle>Explore Society</SectionTitle>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {exploreFeatures.map((feature) => (
-            <FeatureCard key={feature.title} {...feature} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <div className="flex items-center justify-between">
-          <SectionTitle>Recent Notices</SectionTitle>
-          <Link to="/notices" className="text-label-md text-primary hover:underline">
-            View all
-          </Link>
-        </div>
-        <div className="mt-3 space-y-3">
-          {recentNotices.map((notice) => (
-            <article
-              key={notice.id}
-              className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-body-md font-semibold text-on-surface">{notice.title}</h3>
-                <span className="shrink-0 text-label-sm text-outline">{notice.date}</span>
-              </div>
-              <p className="mt-1 text-body-sm text-on-surface-variant">{notice.excerpt}</p>
-            </article>
-          ))}
-          {recentNotices.length === 0 && (
-            <p className="text-body-sm text-on-surface-variant">No notices yet.</p>
+          ) : (
+            <p className="text-body-sm text-primary-fixed-dim">
+              You are not linked to any society yet. Contact your society admin to get added.
+            </p>
           )}
         </div>
+
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          {actions.map((action, index) => (
+            <HeroActionChip key={action.label} {...action} highlight={index === 0} />
+          ))}
+        </div>
       </section>
+
+      <div className="grid grid-cols-1 gap-stack-lg lg:grid-cols-3">
+        <div className="space-y-stack-lg lg:col-span-2">
+          <section>
+            <SectionTitle>Overview</SectionTitle>
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {summaryCards.map((card) => (
+                <SummaryCard key={card.label} {...card} />
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between">
+              <SectionTitle>Recent Notices</SectionTitle>
+              <Link to="/notices" className="text-label-md text-primary hover:underline">
+                View all
+              </Link>
+            </div>
+            <div className="mt-3 space-y-3">
+              {recentNotices.map((notice) => (
+                <NoticeItem key={notice.id} {...notice} />
+              ))}
+              {recentNotices.length === 0 && (
+                <p className="text-body-sm text-on-surface-variant">No notices yet.</p>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-stack-lg">
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+            <SectionTitle>Explore Society</SectionTitle>
+            <div className="mt-3 space-y-2">
+              {exploreFeatures.map((feature) => (
+                <FeatureCard key={feature.title} {...feature} />
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

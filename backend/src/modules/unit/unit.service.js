@@ -13,6 +13,10 @@ function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function findUserByPhone(phone) {
   const digits = normalizePhone(phone);
   if (!digits) return null;
@@ -148,6 +152,34 @@ class UnitService {
       passwordHash: normalizePhone(payload.phone),
     });
     return { user: created, credentialsCreated: true };
+  }
+
+  async searchUsers(query) {
+    const raw = String(query || "").trim();
+    if (!raw) return [];
+
+    const digits = normalizePhone(raw);
+    const conditions = [];
+    if (digits.length >= 3) {
+      conditions.push({ phone: { $regex: escapeRegExp(digits) } });
+    }
+    if (/[a-zA-Z]/.test(raw)) {
+      const rx = new RegExp(escapeRegExp(raw), "i");
+      conditions.push({ name: rx });
+      conditions.push({ email: rx });
+    }
+    if (conditions.length === 0) return [];
+
+    const users = await User.find({ $or: conditions })
+      .select("name email phone")
+      .limit(8)
+      .lean();
+    return users.map((u) => ({
+      id: u._id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+    }));
   }
 
   async checkOwner(societyId, unitId, phone) {

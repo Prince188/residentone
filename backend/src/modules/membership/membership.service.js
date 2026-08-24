@@ -47,6 +47,9 @@ class MembershipService {
             block: unit.block || null,
             floor: unit.floor || null,
             doorNo: unit.doorNo,
+            isOwner: Boolean(
+              unit.ownerId && String(unit.ownerId) === String(membership.userId)
+            ),
           })),
       }));
   }

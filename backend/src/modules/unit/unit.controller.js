@@ -23,6 +23,15 @@ class UnitController {
     }
   }
 
+  async searchUsers(req, res, next) {
+    try {
+      const users = await unitService.searchUsers(req.query.q);
+      res.json({ success: true, data: users });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async checkOwner(req, res, next) {
     try {
       const result = await unitService.checkOwner(

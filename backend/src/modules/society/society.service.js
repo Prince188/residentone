@@ -4,6 +4,7 @@ const { Society } = require("./society.model");
 const { User } = require("../user/user.model");
 const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
+const unitService = require("../unit/unit.service");
 
 class SocietyService {
   async findById(id) {
@@ -101,6 +102,7 @@ class SocietyService {
       }
       throw error;
     }
+    await unitService.ensureUnitsForSociety(society._id);
     return { society, adminAccount };
   }
 
@@ -187,6 +189,7 @@ class SocietyService {
     if (!society) {
       throw new AppError("Society is no longer pending", 409);
     }
+    await unitService.ensureUnitsForSociety(society._id);
     return { society, adminAccount };
   }
 

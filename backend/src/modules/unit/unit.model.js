@@ -54,7 +54,14 @@ const unitSchema = new mongoose.Schema(
 );
 
 unitSchema.index({ label: 1 });
-unitSchema.index({ inviteToken: 1 }, { unique: true, sparse: true });
+unitSchema.index({ societyId: 1, label: 1 }, { unique: true });
+unitSchema.index(
+  { inviteToken: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { inviteToken: { $type: "string" } },
+  }
+);
 
 tenantPlugin(unitSchema);
 

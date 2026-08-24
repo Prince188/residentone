@@ -20,7 +20,9 @@ import AdminCreateSocietyPage from "./features/admin/AdminCreateSocietyPage";
 import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MaintenancePage from "./features/maintenance/MaintenancePage";
-import PaymentsPage from "./features/payments/PaymentsPage";
+import MaintenanceDetailPage from "./features/maintenance/MaintenanceDetailPage";
+import SocietyDuesPage from "./features/maintenance/SocietyDuesPage";
+import SocietyDueDetailPage from "./features/maintenance/SocietyDueDetailPage";
 import ComplaintsPage from "./features/complaints/ComplaintsPage";
 import VisitorsPage from "./features/visitors/VisitorsPage";
 import NoticesPage from "./features/notices/NoticesPage";
@@ -63,7 +65,9 @@ function App() {
               <Route path="/houses" element={<ManageHousesPage />} />
               <Route path="/houses/:unitId" element={<HouseDetailPage />} />
               <Route path="/maintenance" element={<MaintenancePage />} />
-              <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/maintenance/:unitId" element={<MaintenanceDetailPage />} />
+              <Route path="/dues" element={<SocietyDuesPage />} />
+              <Route path="/dues/:unitId" element={<SocietyDueDetailPage />} />
               <Route path="/complaints" element={<ComplaintsPage />} />
               <Route path="/visitors" element={<VisitorsPage />} />
               <Route path="/notices" element={<NoticesPage />} />

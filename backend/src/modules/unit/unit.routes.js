@@ -30,6 +30,11 @@ router.get(
   (req, res, next) => unitController.list(req, res, next)
 );
 router.get(
+  "/search-users",
+  requireRole("super_admin", "society_admin"),
+  (req, res, next) => unitController.searchUsers(req, res, next)
+);
+router.get(
   "/:unitId",
   requireRole("super_admin", "society_admin"),
   (req, res, next) => unitController.getById(req, res, next)

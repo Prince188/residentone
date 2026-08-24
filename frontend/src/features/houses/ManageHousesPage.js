@@ -146,7 +146,11 @@ export default function ManageHousesPage() {
 
       {housesQuery.isSuccess && (
         <>
-          {filtered.length === 0 ? (
+          {houses.length === 0 ? (
+            <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center text-body-md text-on-surface-variant">
+              No houses found for this society.
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center text-body-md text-on-surface-variant">
               No houses match your search.
             </div>
