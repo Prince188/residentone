@@ -79,7 +79,7 @@ export default function MaintenancePage() {
   const statuses = getUnitStatuses(units);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-stack-lg">
+    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
       <section>
         <h1 className="text-headline-md text-on-surface">Maintenance</h1>
         <p className="mt-1 text-body-sm text-on-surface-variant">

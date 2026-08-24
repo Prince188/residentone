@@ -52,7 +52,7 @@ export default function AdminCreateSocietyPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-stack-lg">
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <div>
         <Link
           to="/admin/societies"
@@ -61,8 +61,8 @@ export default function AdminCreateSocietyPage() {
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Back to Societies
         </Link>
-        <h1 className="mt-2 text-headline-md text-on-surface">Create Society</h1>
-        <p className="mt-1 text-body-md text-on-surface-variant">
+        <h1 className="page-title mt-2">Create Society</h1>
+        <p className="page-subtitle">
           Manually register a society. It becomes active immediately.
         </p>
       </div>

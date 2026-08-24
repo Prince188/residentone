@@ -62,17 +62,17 @@ export default function CreateNoticePage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-stack-lg">
+    <div className="mx-auto max-w-2xl space-y-5 sm:space-y-6">
       <section>
         <Link
-          to="/notices"
+          to="/dashboard"
           className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
         >
           <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-          Notices
+          Dashboard
         </Link>
-        <h1 className="mt-1 text-headline-md text-on-surface">Create Notice</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
+        <h1 className="page-title mt-1">Create Notice</h1>
+        <p className="page-subtitle">
           This notice will be visible to every member of the society.
         </p>
       </section>
@@ -124,7 +124,7 @@ export default function CreateNoticePage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/notices")}
+            onClick={() => navigate("/dashboard")}
             className="rounded-full border border-outline-variant px-5 py-2.5 text-label-md text-on-surface transition-colors hover:border-primary hover:text-primary"
           >
             Cancel

@@ -3,49 +3,9 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
 import { getHouseCards, getHouse, extractApiError } from "../../lib/houses";
-import { DUES_STATUS } from "./SocietyDuesPage";
+import { DUES_STATUS, MOCK_DUE_DETAILS } from "./SocietyDuesPage";
 
 const ADMIN_ROLES = ["super_admin", "society_admin"];
-
-// Mock payment record per unit until maintenance API is wired
-const MOCK_PAYMENT = {
-  paid: {
-    period: "Jul 2026",
-    amount: 2500,
-    dueDate: "15 Jul 2026",
-    paidOn: "05 Jul 2026",
-    method: "UPI",
-    receiptNo: "RCPT-2026-0074",
-    note: "Paid on time",
-  },
-  pending: {
-    period: "Jul 2026",
-    amount: 2500,
-    dueDate: "15 Jul 2026",
-    paidOn: null,
-    method: null,
-    receiptNo: null,
-    note: "Due in 12 days",
-  },
-  overdue: {
-    period: "Jun – Jul 2026",
-    amount: 5000,
-    dueDate: "15 Jun 2026",
-    paidOn: null,
-    method: null,
-    receiptNo: null,
-    note: "Overdue since 15 Jun 2026 · Late fee ₹100 applicable",
-  },
-  late_paid: {
-    period: "May 2026",
-    amount: 2500,
-    dueDate: "15 May 2026",
-    paidOn: "28 May 2026",
-    method: "Bank Transfer",
-    receiptNo: "RCPT-2026-0052",
-    note: "Paid 13 days after due date · Late fee ₹100 charged",
-  },
-};
 
 function formatAmount(value) {
   return `₹${value.toLocaleString("en-IN")}`;
@@ -103,7 +63,7 @@ export default function SocietyDueDetailPage() {
 
   if (housesQuery.isLoading || houseDetailQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-stack-lg">
+      <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
         <div className="h-8 w-40 animate-pulse rounded bg-surface-container-high" />
         <div className="h-48 animate-pulse rounded-2xl bg-surface-container-high" />
       </div>
@@ -142,21 +102,21 @@ export default function SocietyDueDetailPage() {
   const allHouses = housesQuery.data || [];
   const statusKey = order[allHouses.findIndex((h) => h.id === unitId) % order.length] || "pending";
   const status = DUES_STATUS[statusKey];
-  const payment = MOCK_PAYMENT[statusKey];
+  const payment = MOCK_DUE_DETAILS[statusKey];
   const isSettled = statusKey === "paid" || statusKey === "late_paid";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-stack-lg">
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/dues"
           className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
         >
           <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-          Society Dues
+          Manage Maintenance
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-headline-md text-on-surface">House {house.label}</h1>
+          <h1 className="page-title">House {house.label}</h1>
           <span
             className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${status.pill}`}
           >
@@ -164,13 +124,13 @@ export default function SocietyDueDetailPage() {
             {status.label}
           </span>
         </div>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
+        <p className="page-subtitle">
           Owner: {house.owner ? `${house.owner.name}${house.owner.phone ? ` · ${house.owner.phone}` : ""}` : "Not assigned"}
         </p>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
-        <div className={`p-6 sm:p-8 ${isSettled ? "bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900" : "bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed"}`}>
+        <div className={`p-4 sm:p-6 ${isSettled ? "bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900" : "bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed"}`}>
           <p className="text-label-md uppercase tracking-[0.14em] text-white/70">
             {payment.period} Maintenance
           </p>

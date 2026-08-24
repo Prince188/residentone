@@ -1,7 +1,7 @@
 export default function SettingsPage() {
   return (
     <div>
-      <h1 className="text-headline-md text-on-surface">Settings</h1>
+      <h1 className="page-title">Settings</h1>
     </div>
   );
 }

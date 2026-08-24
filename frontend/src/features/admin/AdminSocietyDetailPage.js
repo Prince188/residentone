@@ -97,7 +97,7 @@ export default function AdminSocietyDetailPage() {
 
   if (societyQuery.isError || !society) {
     return (
-      <div className="space-y-stack-lg">
+      <div className="space-y-5 sm:space-y-6">
         <div className="p-10 text-center text-body-sm text-error">
           Failed to load society details.
         </div>
@@ -120,7 +120,7 @@ export default function AdminSocietyDetailPage() {
     activateMutation.isPending;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-stack-lg">
+    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
       <div>
         <Link
           to="/admin/societies"
@@ -130,7 +130,7 @@ export default function AdminSocietyDetailPage() {
           Back to Societies
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-headline-md text-on-surface">{society.name}</h1>
+          <h1 className="page-title">{society.name}</h1>
           <StatusBadge status={society.status} />
         </div>
       </div>

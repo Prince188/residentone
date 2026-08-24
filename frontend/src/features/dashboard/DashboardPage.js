@@ -6,22 +6,16 @@ import useSocietyStore, {
   selectActiveMembership,
   selectPrimaryUnit,
 } from "../../stores/society.store";
-import SummaryCard from "../../components/cards/SummaryCard";
 import { getNotices, timeAgo } from "../../lib/notices";
-
-const summaryCards = [
-  { icon: "build", label: "Maintenance", value: "₹2,500 Due", hint: "Next due in 12 days", to: "/maintenance", tone: "warning" },
-  { icon: "badge", label: "Today's Visitors", value: "1", hint: "1 expected entry", to: "/visitors", tone: "default" },
-];
 
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
-  { icon: "request_quote", label: "Society Dues", to: "/dues" },
+  { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
 ];
 
 const generalCards = [
-  { icon: "payments", label: "Pay Dues", to: "/maintenance" },
+  { icon: "payments", label: "Pay Maintenance", to: "/maintenance" },
   { icon: "report_problem", label: "Complaints", to: "/complaints" },
   { icon: "badge", label: "Visitors", to: "/visitors" },
   { icon: "campaign", label: "Notices", to: "/notices" },
@@ -86,7 +80,7 @@ function SquareCard({ icon, label, to, tint }) {
       >
         <span className="material-symbols-outlined text-[20px] sm:text-[24px]">{icon}</span>
       </span>
-      <span className="w-full truncate px-0.5 text-center text-[10px] font-semibold leading-tight text-on-surface sm:text-xs">
+      <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[10px] font-semibold leading-tight text-on-surface line-clamp-2 sm:text-xs">
         {label}
       </span>
     </Link>
@@ -97,7 +91,7 @@ function CardSection({ title, cards, variant = "general" }) {
   const cols =
     cards.length <= 4
       ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-6"
-      : "grid-cols-4 sm:grid-cols-5 lg:grid-cols-10";
+      : "grid-cols-4 sm:grid-cols-5 lg:grid-cols-8";
   return (
     <section>
       <SectionTitle>{title}</SectionTitle>
@@ -208,15 +202,6 @@ export default function DashboardPage() {
       {isAdmin && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}
 
       <CardSection title="General" cards={generalCards} />
-
-      <section>
-        <SectionTitle>Overview</SectionTitle>
-        <div className="mt-2 grid grid-cols-2 gap-3 sm:mt-3 sm:gap-4">
-          {summaryCards.map((card) => (
-            <SummaryCard key={card.label} {...card} />
-          ))}
-        </div>
-      </section>
 
       <section>
         <div className="flex items-center justify-between">

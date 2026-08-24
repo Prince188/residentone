@@ -57,7 +57,7 @@ export default function MaintenanceDetailPage() {
 
   if (!unit) {
     return (
-      <div className="mx-auto max-w-4xl space-y-stack-lg">
+      <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-[40px] text-error">lock</span>
           <h1 className="mt-3 text-headline-sm text-on-surface">House not found</h1>
@@ -81,7 +81,7 @@ export default function MaintenanceDetailPage() {
   const isPaid = statusKey === "paid";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-stack-lg">
+    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/maintenance"
@@ -91,7 +91,7 @@ export default function MaintenanceDetailPage() {
           Maintenance
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-headline-md text-on-surface">House {unit.label}</h1>
+          <h1 className="page-title">House {unit.label}</h1>
           <span
             className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${status.pill}`}
           >
@@ -99,7 +99,7 @@ export default function MaintenanceDetailPage() {
             {status.label}
           </span>
         </div>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
+        <p className="page-subtitle">
           {unit.isOwner ? "Owner" : "Renter"}
           {(unit.block || unit.floor) &&
             ` · ${[unit.block, unit.floor].filter(Boolean).join(" · ")}`}
@@ -107,7 +107,7 @@ export default function MaintenanceDetailPage() {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
-        <div className="bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-6 sm:p-8">
+        <div className="bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-4 sm:p-6">
           <p className="text-label-md uppercase tracking-[0.14em] text-primary-fixed-dim">
             Current Due
           </p>

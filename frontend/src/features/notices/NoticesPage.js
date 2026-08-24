@@ -44,11 +44,11 @@ export default function NoticesPage() {
   const notices = noticesQuery.data || [];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-stack-lg">
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-headline-md text-on-surface">Notices</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <h1 className="page-title">Notices</h1>
+          <p className="page-subtitle">
             Announcements from your society admin.
           </p>
         </div>

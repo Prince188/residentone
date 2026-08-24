@@ -10,3 +10,12 @@
     @apply font-display;
   }
 }
+
+@layer components {
+  .page-title {
+    @apply text-[22px] font-bold leading-snug text-on-surface sm:text-headline-md;
+  }
+  .page-subtitle {
+    @apply mt-0.5 text-xs text-on-surface-variant sm:mt-1 sm:text-body-sm;
+  }
+}

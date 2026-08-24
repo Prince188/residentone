@@ -70,11 +70,11 @@ export default function AdminSocietiesPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-stack-lg">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-headline-md text-on-surface">Societies</h1>
-          <p className="mt-1 text-body-md text-on-surface-variant">
+          <h1 className="page-title">Societies</h1>
+          <p className="page-subtitle">
             Manage society registrations across the ResidentOne platform.
           </p>
         </div>

@@ -122,7 +122,7 @@ function OwnerForm({ house }) {
   }
 
   return (
-    <div className="space-y-stack-lg">
+    <div className="space-y-5 sm:space-y-6">
       <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6">
         <h3 className="text-headline-sm text-on-surface">Assign Owner</h3>
         <p className="mt-1 text-body-sm text-on-surface-variant">
@@ -309,7 +309,7 @@ export default function HouseDetailPage() {
 
   if (houseQuery.isError || !house) {
     return (
-      <div className="mx-auto max-w-3xl space-y-stack-lg">
+      <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
         <div className="p-10 text-center text-body-md text-error">
           {extractApiError(houseQuery.error, "House not found.")}
         </div>
@@ -323,7 +323,7 @@ export default function HouseDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-stack-lg">
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/houses"
@@ -337,7 +337,7 @@ export default function HouseDetailPage() {
             {house.isAssigned ? "home" : "home_work"}
           </span>
           <div>
-            <h1 className="text-headline-md text-on-surface">House {house.label}</h1>
+            <h1 className="page-title">House {house.label}</h1>
             <p className="text-body-sm text-on-surface-variant">
               {house.societyName}
               {house.block ? ` · Block ${house.block}` : ""}

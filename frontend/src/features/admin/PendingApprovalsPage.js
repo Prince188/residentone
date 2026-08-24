@@ -65,10 +65,10 @@ export default function PendingApprovalsPage() {
   const societies = pendingQuery.data || [];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-stack-lg">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <div>
-        <h1 className="text-headline-md text-on-surface">Pending Approvals</h1>
-        <p className="mt-1 text-body-md text-on-surface-variant">
+        <h1 className="page-title">Pending Approvals</h1>
+        <p className="page-subtitle">
           Society registrations waiting for review. Approve to activate or reject
           with a reason.
         </p>

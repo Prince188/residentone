@@ -98,7 +98,7 @@ export default function ManageHousesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-stack-lg">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link
@@ -108,8 +108,8 @@ export default function ManageHousesPage() {
             <span className="material-symbols-outlined text-[16px]">arrow_back</span>
             Dashboard
           </Link>
-          <h1 className="text-headline-md text-on-surface">Manage Houses</h1>
-          <p className="mt-1 text-body-md text-on-surface-variant">
+          <h1 className="page-title">Manage Houses</h1>
+          <p className="page-subtitle">
             {activeSociety ? activeSociety.name : ""} ·{" "}
             {housesQuery.isLoading
               ? "Loading houses..."

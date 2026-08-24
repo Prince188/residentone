@@ -59,8 +59,55 @@ function getDuesStatuses(units) {
   return statuses;
 }
 
+// Mock due details per unit until maintenance API is wired
+export const MOCK_DUE_DETAILS = {
+  paid: {
+    period: "Jul 2026",
+    amount: 2500,
+    dueDate: "15 Jul 2026",
+    paidOn: "05 Jul 2026",
+    method: "UPI",
+    receiptNo: "RCPT-2026-0074",
+    note: "Paid on time",
+  },
+  pending: {
+    period: "Jul 2026",
+    amount: 2500,
+    dueDate: "15 Jul 2026",
+    paidOn: null,
+    method: null,
+    receiptNo: null,
+    note: "Due in 12 days",
+  },
+  overdue: {
+    period: "Jun – Jul 2026",
+    amount: 5000,
+    dueDate: "15 Jun 2026",
+    paidOn: null,
+    method: null,
+    receiptNo: null,
+    note: "Overdue since 15 Jun 2026 · Late fee ₹100 applicable",
+  },
+  late_paid: {
+    period: "May 2026",
+    amount: 2500,
+    dueDate: "15 May 2026",
+    paidOn: "28 May 2026",
+    method: "Bank Transfer",
+    receiptNo: "RCPT-2026-0052",
+    note: "Paid 13 days after due date · Late fee ₹100 charged",
+  },
+};
+
 function DuesCard({ house, statusKey }) {
   const status = DUES_STATUS[statusKey];
+  const details = MOCK_DUE_DETAILS[statusKey];
+  const isSettled = statusKey === "paid" || statusKey === "late_paid";
+  const dateLine = isSettled
+    ? `Paid on ${details.paidOn}`
+    : statusKey === "overdue"
+      ? `Overdue since ${details.dueDate}`
+      : `Due by ${details.dueDate}`;
   return (
     <Link
       to={`/dues/${house.id}`}
@@ -85,6 +132,10 @@ function DuesCard({ house, statusKey }) {
       </p>
       <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
         {house.owner ? house.owner.name : "No owner assigned"}
+      </p>
+      <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-semibold text-on-surface-variant">
+        <span className="material-symbols-outlined shrink-0 text-[13px]">event</span>
+        {dateLine}
       </p>
     </Link>
   );
@@ -161,7 +212,7 @@ export default function SocietyDuesPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-stack-lg">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/dashboard"
@@ -170,8 +221,8 @@ export default function SocietyDuesPage() {
           <span className="material-symbols-outlined text-[16px]">arrow_back</span>
           Dashboard
         </Link>
-        <h1 className="text-headline-md text-on-surface">Society Dues</h1>
-        <p className="mt-1 text-body-md text-on-surface-variant">
+        <h1 className="page-title">Manage Maintenance</h1>
+        <p className="page-subtitle">
           {activeSociety ? `${activeSociety.name} · ` : ""}
           Maintenance payment status for every house
         </p>

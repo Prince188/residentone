@@ -1,7 +1,7 @@
 export default function EmergencyContactsPage() {
   return (
     <div>
-      <h1 className="text-headline-md text-on-surface">Emergency Contacts</h1>
+      <h1 className="page-title">Emergency Contacts</h1>
     </div>
   );
 }
