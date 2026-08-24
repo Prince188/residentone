@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, {
   selectActiveSociety,
@@ -6,6 +7,7 @@ import useSocietyStore, {
   selectPrimaryUnit,
 } from "../../stores/society.store";
 import SummaryCard from "../../components/cards/SummaryCard";
+import { getNotices, timeAgo } from "../../lib/notices";
 
 const summaryCards = [
   { icon: "build", label: "Maintenance", value: "₹2,500 Due", hint: "Next due in 12 days", to: "/maintenance", tone: "warning" },
@@ -15,6 +17,7 @@ const summaryCards = [
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
   { icon: "request_quote", label: "Society Dues", to: "/dues" },
+  { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
 ];
 
 const generalCards = [
@@ -39,22 +42,6 @@ const CARD_TINTS = [
   "bg-cyan-100 text-cyan-700",
   "bg-indigo-100 text-indigo-700",
   "bg-teal-100 text-teal-700",
-];
-
-const recentNotices = [
-  {
-    id: 1,
-    title: "Annual General Meeting",
-    excerpt: "Society meeting scheduled for Sunday, 10 AM at the clubhouse.",
-    date: "2 days ago",
-    featured: true,
-  },
-  {
-    id: 2,
-    title: "Water Tank Cleaning",
-    excerpt: "Water supply will be paused on Saturday between 9 AM and 12 PM.",
-    date: "5 days ago",
-  },
 ];
 
 function getGreeting() {
@@ -106,7 +93,7 @@ function SquareCard({ icon, label, to, tint }) {
   );
 }
 
-function CardSection({ title, cards }) {
+function CardSection({ title, cards, variant = "general" }) {
   const cols =
     cards.length <= 4
       ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-6"
@@ -120,7 +107,7 @@ function CardSection({ title, cards }) {
             key={card.label}
             {...card}
             tint={
-              cards === adminCards
+              variant === "admin"
                 ? "bg-primary/10 text-primary"
                 : CARD_TINTS[index % CARD_TINTS.length]
             }
@@ -131,7 +118,7 @@ function CardSection({ title, cards }) {
   );
 }
 
-function NoticeItem({ title, excerpt, date, featured }) {
+function NoticeItem({ title, body, createdAt, featured }) {
   return (
     <article
       className={`flex gap-3 rounded-xl border p-3 transition-colors sm:p-4 ${
@@ -150,10 +137,10 @@ function NoticeItem({ title, excerpt, date, featured }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="truncate text-body-sm font-semibold text-on-surface sm:text-body-md">{title}</h3>
-          <span className="shrink-0 text-[11px] text-outline sm:text-label-sm">{date}</span>
+          <span className="shrink-0 text-[11px] text-outline sm:text-label-sm">{timeAgo(createdAt)}</span>
         </div>
         <p className="mt-0.5 line-clamp-1 text-label-sm text-on-surface-variant sm:line-clamp-none sm:text-body-sm">
-          {excerpt}
+          {body}
         </p>
       </div>
     </article>
@@ -169,6 +156,13 @@ export default function DashboardPage() {
   const isAdmin =
     activeMembership?.role === "society_admin" ||
     activeMembership?.role === "super_admin";
+
+  const noticesQuery = useQuery({
+    queryKey: ["notices", activeSociety?.id, "recent"],
+    queryFn: async () => (await getNotices(2)).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const recentNotices = noticesQuery.data || [];
 
   const firstName = user?.name?.split(" ")[0] || "there";
 
@@ -211,7 +205,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {isAdmin && <CardSection title="Society Admin" cards={adminCards} />}
+      {isAdmin && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}
 
       <CardSection title="General" cards={generalCards} />
 
@@ -232,11 +226,22 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="mt-2 space-y-2 sm:mt-3 sm:space-y-3">
-          {recentNotices.map((notice) => (
-            <NoticeItem key={notice.id} {...notice} />
+          {noticesQuery.isLoading &&
+            Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-high" />
+            ))}
+          {recentNotices.map((notice, index) => (
+            <NoticeItem key={notice.id} {...notice} featured={index === 0} />
           ))}
-          {recentNotices.length === 0 && (
-            <p className="text-body-sm text-on-surface-variant">No notices yet.</p>
+          {noticesQuery.isSuccess && recentNotices.length === 0 && (
+            <p className="text-body-sm text-on-surface-variant">
+              No notices yet.
+              {isAdmin && (
+                <Link to="/notices/new" className="ml-1 text-primary hover:underline">
+                  Publish the first one.
+                </Link>
+              )}
+            </p>
           )}
         </div>
       </section>

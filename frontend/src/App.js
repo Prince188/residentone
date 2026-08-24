@@ -26,6 +26,7 @@ import SocietyDueDetailPage from "./features/maintenance/SocietyDueDetailPage";
 import ComplaintsPage from "./features/complaints/ComplaintsPage";
 import VisitorsPage from "./features/visitors/VisitorsPage";
 import NoticesPage from "./features/notices/NoticesPage";
+import CreateNoticePage from "./features/notices/CreateNoticePage";
 import AmenitiesPage from "./features/amenities/AmenitiesPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
@@ -71,6 +72,7 @@ function App() {
               <Route path="/complaints" element={<ComplaintsPage />} />
               <Route path="/visitors" element={<VisitorsPage />} />
               <Route path="/notices" element={<NoticesPage />} />
+              <Route path="/notices/new" element={<CreateNoticePage />} />
               <Route path="/amenities" element={<AmenitiesPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />
