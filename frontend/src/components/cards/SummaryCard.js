@@ -12,7 +12,7 @@ export default function SummaryCard({ icon, label, value, hint, to, tone = "defa
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-5 transition-colors hover:border-primary no-underline"
+      className="group flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-colors hover:border-primary no-underline sm:gap-3 sm:p-5"
     >
       <div className="flex items-center justify-between">
         <span className="material-symbols-outlined text-[22px] text-on-surface-variant group-hover:text-primary transition-colors">
