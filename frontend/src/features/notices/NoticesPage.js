@@ -13,29 +13,60 @@ function NoticeCard({ notice, onOpen }) {
   return (
     <article
       onClick={() => onOpen(notice)}
-      className={`h-40 cursor-pointer overflow-hidden rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
+      className={`group relative flex h-40 cursor-pointer select-none flex-col overflow-hidden rounded-xl border p-4 pl-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:h-44 sm:p-5 sm:pl-6 ${
         notice.isLatest
-          ? "border-primary-fixed bg-primary-fixed/40"
-          : "border-outline-variant bg-surface-container-lowest hover:border-outline"
+          ? "border-primary bg-primary-fixed/50"
+          : "border-outline-variant bg-surface-container-lowest hover:border-primary/40"
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="line-clamp-1 text-body-md font-semibold text-on-surface">
-          {notice.title}
-        </h3>
-        <span className="shrink-0 text-label-sm text-outline">{timeAgo(notice.createdAt)}</span>
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1.5 transition-colors ${
+          notice.isLatest
+            ? "bg-primary"
+            : "bg-outline-variant group-hover:bg-primary"
+        }`}
+      />
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={`material-symbols-outlined flex shrink-0 items-center justify-center rounded-full p-2 text-[18px] ${
+              notice.isLatest
+                ? "bg-primary text-on-primary"
+                : "bg-secondary-fixed text-primary"
+            }`}
+          >
+            campaign
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-body-lg font-semibold text-on-surface">
+              {notice.title}
+            </h3>
+            <p className="mt-0.5 flex items-center gap-1.5 truncate text-label-sm text-outline">
+              <span className="shrink-0">{timeAgo(notice.createdAt)}</span>
+              <span aria-hidden="true" className="text-outline-variant">·</span>
+              <span className="truncate">{notice.authorName}</span>
+            </p>
+          </div>
+        </div>
+        {notice.isLatest && (
+          <span className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-label-sm font-semibold text-on-primary">
+            Latest
+          </span>
+        )}
       </div>
-      <p className="mt-1 line-clamp-3 text-body-sm text-on-surface-variant">
+
+      <p className="mt-3 line-clamp-2 text-body-sm leading-relaxed text-on-surface-variant">
         {notice.body}
       </p>
-      <p className="mt-2 flex items-center gap-1 text-label-sm text-outline">
-        <span className="material-symbols-outlined text-[14px]">person</span>
-        {notice.authorName}
-      </p>
-      <p className="mt-1 flex items-center justify-end gap-1 text-label-sm text-primary">
-        Read more
-        <span className="material-symbols-outlined text-[14px]">open_in_full</span>
-      </p>
+
+      <div className="mt-auto flex items-center justify-end gap-1 pt-2 text-label-md font-medium text-primary">
+        Read full notice
+        <span className="material-symbols-outlined text-[16px] transition-transform duration-200 group-hover:translate-x-1">
+          arrow_forward
+        </span>
+      </div>
     </article>
   );
 }

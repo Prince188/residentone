@@ -50,13 +50,13 @@ function RolePill({ role }) {
   const isAdmin = role === "society_admin" || role === "super_admin";
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-label-sm font-semibold shadow-sm ${
         isAdmin
-          ? "bg-on-primary-fixed text-primary"
-          : "bg-white/20 text-white"
+          ? "bg-white text-primary"
+          : "bg-white/20 text-white backdrop-blur-sm"
       }`}
     >
-      <span className="material-symbols-outlined text-[14px]">
+      <span className="material-symbols-outlined text-[15px]">
         {isAdmin ? "shield_person" : "person"}
       </span>
       {isAdmin ? "Society Admin" : "Resident"}
@@ -66,7 +66,10 @@ function RolePill({ role }) {
 
 function SectionTitle({ children }) {
   return (
-    <h2 className="text-body-md font-semibold text-on-surface sm:text-body-lg">{children}</h2>
+    <h2 className="flex items-center gap-2 text-body-md font-semibold text-on-surface sm:text-body-lg">
+      <span aria-hidden="true" className="h-4 w-1 rounded-full bg-primary" />
+      {children}
+    </h2>
   );
 }
 
@@ -74,12 +77,12 @@ function SquareCard({ icon, label, to, tint }) {
   return (
     <Link
       to={to}
-      className="group flex flex-col items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-2 no-underline transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-surface-container-low hover:shadow-sm sm:gap-2 sm:p-3"
+      className="group flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 no-underline transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-lg active:translate-y-0"
     >
       <span
-        className={`flex h-9 w-9 items-center justify-center rounded-lg transition-transform group-hover:scale-105 sm:h-11 sm:w-11 ${tint}`}
+        className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-110 group-active:scale-95 sm:h-12 sm:w-12 ${tint}`}
       >
-        <span className="material-symbols-outlined text-[20px] sm:text-[24px]">{icon}</span>
+        <span className="material-symbols-outlined text-[22px] sm:text-[26px]">{icon}</span>
       </span>
       <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[10px] font-semibold leading-tight text-on-surface line-clamp-2 sm:text-xs">
         {label}
@@ -96,7 +99,7 @@ function CardSection({ title, cards, variant = "general" }) {
   return (
     <section>
       <SectionTitle>{title}</SectionTitle>
-      <div className={`mt-2 grid gap-2 sm:mt-3 sm:gap-3 ${cols}`}>
+      <div className={`mt-2 grid gap-2.5 sm:mt-3 sm:gap-3 ${cols}`}>
         {cards.map((card, index) => (
           <SquareCard
             key={card.label}
@@ -116,15 +119,21 @@ function CardSection({ title, cards, variant = "general" }) {
 function NoticeItem({ title, body, createdAt, featured }) {
   return (
     <article
-      className={`flex gap-3 rounded-xl border p-3 transition-colors sm:p-4 ${
+      className={`relative flex gap-3 overflow-hidden rounded-xl border p-4 pl-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
         featured
-          ? "border-primary-fixed bg-primary-fixed/40 hover:bg-primary-fixed/60"
-          : "border-outline-variant bg-surface-container-lowest hover:border-outline"
+          ? "border-primary bg-primary-fixed/40"
+          : "border-outline-variant bg-surface-container-lowest hover:border-primary/40"
       }`}
     >
       <span
-        className={`material-symbols-outlined mt-0.5 shrink-0 text-[18px] sm:text-[22px] ${
-          featured ? "text-primary" : "text-on-surface-variant"
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1.5 ${
+          featured ? "bg-primary" : "bg-outline-variant"
+        }`}
+      />
+      <span
+        className={`material-symbols-outlined mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full text-[18px] ${
+          featured ? "bg-primary text-on-primary" : "bg-secondary-fixed text-primary"
         }`}
       >
         campaign
@@ -187,38 +196,47 @@ export default function DashboardPage() {
   const firstName = user?.name?.split(" ")[0] || "there";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-4 sm:rounded-2xl sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="mx-auto max-w-6xl space-y-6 sm:space-y-7">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-5 shadow-lg sm:p-7">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-20 right-28 h-40 w-40 rounded-full bg-white/5"
+        />
+
+        <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-[22px] font-bold leading-snug text-white sm:text-headline-md">
-              {getGreeting()}, {firstName} 👋
-            </h1>
-            <p className="mt-0.5 text-xs text-primary-fixed-dim sm:text-body-sm">
-              Here is what is happening in your society today.
+            <p className="text-xs font-medium uppercase tracking-widest text-white/70 sm:text-label-sm">
+              {getGreeting()}
             </p>
+            <h1 className="mt-1 text-headline-md font-bold leading-snug text-white sm:text-headline-lg">
+              {firstName}
+            </h1>
           </div>
           {activeMembership && <RolePill role={activeMembership.role} />}
         </div>
 
-        <div className="mt-3 flex items-center gap-3 border-t border-white/15 pt-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 sm:h-11 sm:w-11 sm:rounded-xl">
-            <span className="material-symbols-outlined text-[22px] text-white sm:text-[26px]">apartment</span>
+        <div className="relative mt-5 flex items-center gap-3 rounded-xl bg-white/10 p-3.5 ring-1 ring-white/20 backdrop-blur-sm sm:p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 sm:h-12 sm:w-12">
+            <span className="material-symbols-outlined text-[24px] text-white sm:text-[28px]">apartment</span>
           </span>
           {activeSociety ? (
             <div className="min-w-0">
-              <p className="truncate text-body-sm font-semibold text-white sm:text-body-lg">
+              <p className="truncate text-body-md font-semibold text-white sm:text-body-lg">
                 {activeSociety.name}
               </p>
-              <p className="truncate text-[11px] text-primary-fixed-dim sm:text-label-md">
-                {activeUnit ? activeUnit.label : "No unit assigned"}
+              <p className="truncate text-[11px] text-white/75 sm:text-label-md">
+                {activeUnit ? `Unit ${activeUnit.label}` : "No unit assigned"}
                 {activeMembership?.units?.length > 1 && (
                   <> · +{activeMembership.units.length - 1} more unit(s)</>
                 )}
               </p>
             </div>
           ) : (
-            <p className="text-xs text-primary-fixed-dim sm:text-body-sm">
+            <p className="text-xs text-white/80 sm:text-body-sm">
               You are not linked to any society yet. Contact your society admin to get added.
             </p>
           )}
@@ -228,25 +246,32 @@ export default function DashboardPage() {
       {maintenanceAlert && (
         <Link
           to="/maintenance"
-          className={`flex items-center gap-3 rounded-xl border px-4 py-3 no-underline transition-colors ${
+          className={`group flex items-center gap-3 rounded-xl border px-4 py-3.5 no-underline shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
             maintenanceAlert.overdue
               ? "border-red-200 bg-red-50 hover:bg-red-100"
               : "border-amber-200 bg-amber-50 hover:bg-amber-100"
           }`}
         >
           <span
-            className={`material-symbols-outlined shrink-0 text-[22px] ${
-              maintenanceAlert.overdue ? "text-red-700" : "text-amber-700"
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${
+              maintenanceAlert.overdue ? "bg-error" : "bg-amber-500"
             }`}
           >
-            {maintenanceAlert.overdue ? "error" : "notification_important"}
+            <span className="material-symbols-outlined text-[22px]">
+              {maintenanceAlert.overdue ? "error" : "notification_important"}
+            </span>
           </span>
-          <p className="min-w-0 flex-1 text-body-sm font-semibold text-on-surface">
-            Pay your maintenance — {maintenanceAlert.text}
+          <p className="min-w-0 flex-1 text-body-sm font-semibold text-on-surface sm:text-body-md">
+            Pay your maintenance
+            <span className="block truncate text-label-sm font-normal text-on-surface-variant sm:text-label-md">
+              {maintenanceAlert.text}
+            </span>
           </p>
-          <span className="hidden shrink-0 items-center gap-1 text-label-md text-primary sm:inline-flex">
+          <span className="hidden shrink-0 items-center gap-1 text-label-md font-semibold text-primary sm:inline-flex">
             Pay Now
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            <span className="material-symbols-outlined text-[16px] transition-transform duration-200 group-hover:translate-x-1">
+              arrow_forward
+            </span>
           </span>
         </Link>
       )}
@@ -258,11 +283,17 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between">
           <SectionTitle>Recent Notices</SectionTitle>
-          <Link to="/notices" className="text-label-sm text-primary hover:underline sm:text-label-md">
+          <Link
+            to="/notices"
+            className="group inline-flex items-center gap-1 rounded-full border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-sm font-medium text-primary no-underline transition-colors hover:bg-secondary-fixed sm:text-label-md"
+          >
             View all
+            <span className="material-symbols-outlined text-[15px] transition-transform duration-200 group-hover:translate-x-0.5">
+              arrow_forward
+            </span>
           </Link>
         </div>
-        <div className="mt-2 space-y-2 sm:mt-3 sm:space-y-3">
+        <div className="mt-3 space-y-2.5 sm:space-y-3">
           {noticesQuery.isLoading &&
             Array.from({ length: 2 }).map((_, i) => (
               <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-high" />
@@ -271,14 +302,14 @@ export default function DashboardPage() {
             <NoticeItem key={notice.id} {...notice} featured={index === 0} />
           ))}
           {noticesQuery.isSuccess && recentNotices.length === 0 && (
-            <p className="text-body-sm text-on-surface-variant">
+            <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
               No notices yet.
               {isAdmin && (
                 <Link to="/notices/new" className="ml-1 text-primary hover:underline">
                   Publish the first one.
                 </Link>
               )}
-            </p>
+            </div>
           )}
         </div>
       </section>
