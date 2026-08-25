@@ -1,69 +1,51 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
-import { UNIT_STATUS, getUnitStatuses } from "./MaintenancePage";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  STATUS_UI,
+  extractApiError,
+  formatAmount,
+  formatDate,
+  getCycleUnitDetail,
+  getUnitHistory,
+} from "../../lib/maintenance";
 
-const MOCK_DUES = {
-  paid: { amount: 0, periodLabel: "Jul 2026", hint: "Paid on 05 Jul 2026" },
-  pending: { amount: 2500, periodLabel: "Jul 2026", hint: "Due by 15 Jul 2026 (in 12 days)" },
-  overdue: { amount: 5000, periodLabel: "Jun – Jul 2026", hint: "Overdue since 15 Jun 2026" },
-};
-
-const MOCK_RECEIPTS = [
-  { id: 1, period: "Jun 2026", amount: 2500, paidOn: "05 Jun 2026", receiptNo: "RCPT-2026-0062", method: "UPI" },
-  { id: 2, period: "May 2026", amount: 2500, paidOn: "04 May 2026", receiptNo: "RCPT-2026-0047", method: "Bank Transfer" },
-  { id: 3, period: "Apr 2026", amount: 2500, paidOn: "07 Apr 2026", receiptNo: "RCPT-2026-0031", method: "UPI" },
-];
-
-function formatAmount(value) {
-  return `₹${value.toLocaleString("en-IN")}`;
-}
-
-function ReceiptRow({ receipt }) {
+function DetailRow({ label, value }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-colors hover:border-outline">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-tertiary-fixed text-on-tertiary-fixed">
-        <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+    <div className="flex items-baseline justify-between gap-3 border-b border-outline-variant py-2.5 last:border-b-0">
+      <span className="shrink-0 text-label-md text-on-surface-variant">{label}</span>
+      <span className="truncate text-right text-body-sm font-semibold text-on-surface">
+        {value || "—"}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-body-md font-semibold text-on-surface">
-          {receipt.period} Maintenance
-        </p>
-        <p className="truncate text-label-sm text-on-surface-variant">
-          {receipt.receiptNo} · Paid on {receipt.paidOn} · {receipt.method}
-        </p>
-      </div>
-      <p className="shrink-0 text-body-md font-semibold text-on-surface">
-        {formatAmount(receipt.amount)}
-      </p>
-      <button
-        type="button"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition-colors hover:border-primary hover:text-primary"
-        title="Download receipt"
-      >
-        <span className="material-symbols-outlined text-[18px]">download</span>
-      </button>
     </div>
   );
 }
 
 export default function MaintenanceDetailPage() {
   const { unitId } = useParams();
-  const activeMembership = useSocietyStore(selectActiveMembership);
+  const [searchParams] = useSearchParams();
+  const cycleId = searchParams.get("cycle");
   const [showHistory, setShowHistory] = useState(false);
+  const [showPayNotice, setShowPayNotice] = useState(false);
 
-  const units = activeMembership?.units || [];
-  const unit = units.find((u) => u.id === unitId) || null;
+  const detailQuery = useQuery({
+    queryKey: ["maintenance", "unit-detail", cycleId, unitId],
+    queryFn: async () => (await getCycleUnitDetail(cycleId, unitId)).data.data,
+    enabled: Boolean(cycleId && unitId),
+  });
 
-  if (!unit) {
+  const historyQuery = useQuery({
+    queryKey: ["maintenance", "unit-history", unitId],
+    queryFn: async () => (await getUnitHistory(unitId)).data.data,
+    enabled: Boolean(unitId),
+  });
+
+  if (!cycleId) {
     return (
-      <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+      <div className="mx-auto max-w-3xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
-          <span className="material-symbols-outlined text-[40px] text-error">lock</span>
-          <h1 className="mt-3 text-headline-sm text-on-surface">House not found</h1>
-          <p className="mt-1 text-body-md text-on-surface-variant">
-            This house is not assigned to you.
-          </p>
+          <h1 className="page-title">Missing period</h1>
+          <p className="page-subtitle">Open this page from the Maintenance grid.</p>
           <Link
             to="/maintenance"
             className="mt-4 inline-block text-label-md text-primary no-underline hover:underline"
@@ -75,13 +57,35 @@ export default function MaintenanceDetailPage() {
     );
   }
 
-  const statusKey = getUnitStatuses(units)[unit.id] || "pending";
-  const status = UNIT_STATUS[statusKey];
-  const due = MOCK_DUES[statusKey];
-  const isPaid = statusKey === "paid";
+  if (detailQuery.isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+        <div className="h-8 w-40 animate-pulse rounded bg-surface-container-high" />
+        <div className="h-48 animate-pulse rounded-2xl bg-surface-container-high" />
+      </div>
+    );
+  }
+
+  if (detailQuery.isError) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-3">
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
+          {extractApiError(detailQuery.error, "Failed to load your dues.")}
+        </div>
+        <Link to="/maintenance" className="inline-block text-label-md text-primary hover:underline">
+          Back to Maintenance
+        </Link>
+      </div>
+    );
+  }
+
+  const record = detailQuery.data;
+  const status = STATUS_UI[record.status];
+  const isSettled = ["paid", "late_paid"].includes(record.status);
+  const history = historyQuery.data || [];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/maintenance"
@@ -91,7 +95,7 @@ export default function MaintenanceDetailPage() {
           Maintenance
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="page-title">House {unit.label}</h1>
+          <h1 className="page-title">House {record.label}</h1>
           <span
             className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${status.pill}`}
           >
@@ -99,30 +103,34 @@ export default function MaintenanceDetailPage() {
             {status.label}
           </span>
         </div>
-        <p className="page-subtitle">
-          {unit.isOwner ? "Owner" : "Renter"}
-          {(unit.block || unit.floor) &&
-            ` · ${[unit.block, unit.floor].filter(Boolean).join(" · ")}`}
-        </p>
+        <p className="page-subtitle">{record.isOwner ? "Owner" : "Renter"}</p>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
-        <div className="bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-4 sm:p-6">
-          <p className="text-label-md uppercase tracking-[0.14em] text-primary-fixed-dim">
-            Current Due
-          </p>
+        <div
+          className={`p-4 sm:p-6 ${
+            isSettled
+              ? "bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900"
+              : record.status === "overdue"
+                ? "bg-gradient-to-br from-red-600 via-red-700 to-red-900"
+                : "bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed"
+          }`}
+        >
+          <p className="text-label-md uppercase tracking-[0.14em] text-white/70">Current Due</p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-headline-md font-bold text-white">
-                {isPaid ? "All caught up" : formatAmount(due.amount)}
+                {isSettled ? "All caught up" : formatAmount(record.cycle.amount)}
               </p>
-              <p className="mt-1 text-label-md text-primary-fixed-dim">
-                {due.periodLabel} · {due.hint}
+              <p className="mt-1 text-label-md text-white/70">
+                Due by {formatDate(record.cycle.dueDate)}
+                {!isSettled && record.status === "overdue" && " · Please clear your dues"}
               </p>
             </div>
-            {!isPaid && (
+            {!isSettled && (
               <button
                 type="button"
+                onClick={() => setShowPayNotice(true)}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed"
               >
                 <span className="material-symbols-outlined text-[18px]">payments</span>
@@ -130,6 +138,12 @@ export default function MaintenanceDetailPage() {
               </button>
             )}
           </div>
+          {showPayNotice && !isSettled && (
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-label-md text-white">
+              <span className="material-symbols-outlined text-[16px]">info</span>
+              Online payments via Razorpay are coming soon. Please pay offline for now — the admin will mark it as paid.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-3 divide-x divide-outline-variant border-t border-outline-variant">
@@ -140,24 +154,36 @@ export default function MaintenanceDetailPage() {
           <div className="p-4">
             <p className="text-label-sm uppercase tracking-[0.1em] text-on-surface-variant">Your Role</p>
             <p className="mt-1 text-body-md font-semibold text-on-surface">
-              {unit.isOwner ? "Owner" : "Renter"}
+              {record.isOwner ? "Owner" : "Renter"}
             </p>
           </div>
           <div className="p-4">
             <p className="text-label-sm uppercase tracking-[0.1em] text-on-surface-variant">Monthly</p>
-            <p className="mt-1 text-body-md font-semibold text-on-surface">{formatAmount(2500)}</p>
+            <p className="mt-1 text-body-md font-semibold text-on-surface">
+              {formatAmount(record.cycle.amount)}
+            </p>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5">
+        <h2 className="text-body-lg font-semibold text-on-surface">Payment Details</h2>
+        <div className="mt-2">
+          <DetailRow
+            label="Period"
+            value={`${new Date(record.cycle.year, record.cycle.month - 1).toLocaleDateString("en-IN", { month: "long" })} ${record.cycle.year}`}
+          />
+          <DetailRow label="Amount" value={formatAmount(record.cycle.amount)} />
+          <DetailRow label="Due Date" value={formatDate(record.cycle.dueDate)} />
+          <DetailRow label="Paid On" value={formatDate(record.paidOn)} />
+          <DetailRow label="Payment Method" value={record.method} />
+          <DetailRow label="Receipt No." value={record.receiptNo} />
         </div>
       </section>
 
       <section>
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-body-lg font-semibold text-on-surface">Payment History</h2>
-            <p className="text-label-sm text-on-surface-variant">
-              Past maintenance receipts for House {unit.label}
-            </p>
-          </div>
+          <h2 className="text-body-lg font-semibold text-on-surface">Payment History</h2>
           <button
             type="button"
             onClick={() => setShowHistory((prev) => !prev)}
@@ -177,12 +203,43 @@ export default function MaintenanceDetailPage() {
 
         {showHistory && (
           <div className="mt-3 space-y-3">
-            {MOCK_RECEIPTS.map((receipt) => (
-              <ReceiptRow key={receipt.id} receipt={receipt} />
-            ))}
-            {MOCK_RECEIPTS.length === 0 && (
-              <p className="text-body-sm text-on-surface-variant">No receipts yet.</p>
+            {history.length === 0 && (
+              <p className="text-body-sm text-on-surface-variant">No maintenance cycles yet.</p>
             )}
+            {history.map((row) => {
+              const rowStatus = STATUS_UI[row.status];
+              return (
+                <div
+                  key={row.cycleId}
+                  className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
+                >
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${rowStatus.iconBox}`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-md font-semibold text-on-surface">
+                      {new Date(row.year, row.month - 1).toLocaleDateString("en-IN", {
+                        month: "long",
+                        year: "numeric",
+                      })}{" "}
+                      · {formatAmount(row.amount)}
+                    </p>
+                    <p className="truncate text-label-sm text-on-surface-variant">
+                      {row.paidOn
+                        ? `Paid on ${formatDate(row.paidOn)}${row.method ? ` · ${row.method}` : ""}`
+                        : `Due by ${formatDate(row.dueDate)}`}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-label-sm font-semibold ${rowStatus.pill}`}
+                  >
+                    {rowStatus.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

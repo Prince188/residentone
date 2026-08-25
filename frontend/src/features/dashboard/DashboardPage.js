@@ -7,7 +7,7 @@ import useSocietyStore, {
   selectPrimaryUnit,
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
-import { getActiveMaintenance } from "../../lib/maintenance";
+import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
@@ -159,17 +159,29 @@ export default function DashboardPage() {
   });
   const recentNotices = noticesQuery.data || [];
 
-  const activeMaintenance = getActiveMaintenance();
+  const maintenanceQuery = useQuery({
+    queryKey: ["maintenance", "latest"],
+    queryFn: async () => (await getLatestCycle()).data.data,
+    enabled: Boolean(activeSociety),
+  });
+
+  const latestCycle = maintenanceQuery.data;
   let maintenanceAlert = null;
-  if (activeMaintenance) {
-    const dueDate = new Date(activeMaintenance.dueDate);
-    const isOverdue = dueDate.setHours(23, 59, 59) < Date.now();
-    maintenanceAlert = {
-      overdue: isOverdue,
-      text: `${activeMaintenance.month} ${activeMaintenance.year} maintenance · ₹${activeMaintenance.amount.toLocaleString("en-IN")} — ${
-        isOverdue ? "overdue" : "due"
-      } by ${dueDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`,
-    };
+  if (latestCycle) {
+    const myUnits = latestCycle.myUnits || [];
+    const allSettled =
+      myUnits.length > 0 &&
+      myUnits.every((u) => ["paid", "late_paid"].includes(u.status));
+    if (!allSettled) {
+      const dueDate = new Date(latestCycle.dueDate);
+      const isOverdue = dueDate.setHours(23, 59, 59) < Date.now();
+      maintenanceAlert = {
+        overdue: isOverdue,
+        text: `${latestCycle.month} ${latestCycle.year} · ${formatAmount(latestCycle.amount)} per house — ${
+          isOverdue ? "overdue" : "due"
+        } by ${formatDate(latestCycle.dueDate)}`,
+      };
+    }
   }
 
   const firstName = user?.name?.split(" ")[0] || "there";

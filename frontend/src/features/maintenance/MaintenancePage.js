@@ -1,57 +1,24 @@
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import {
+  STATUS_UI,
+  extractApiError,
+  formatAmount,
+  formatDate,
+  getLatestCycle,
+} from "../../lib/maintenance";
 
-export const UNIT_STATUS = {
-  paid: {
-    label: "Paid",
-    card: "border-emerald-200 bg-emerald-50",
-    stripe: "bg-emerald-500",
-    iconBox: "bg-emerald-100 text-emerald-700",
-    pill: "bg-emerald-100 text-emerald-800",
-    icon: "check_circle",
-    colorClass: "text-emerald-700",
-  },
-  pending: {
-    label: "Pending",
-    card: "border-amber-200 bg-amber-50",
-    stripe: "bg-amber-500",
-    iconBox: "bg-amber-100 text-amber-700",
-    pill: "bg-amber-100 text-amber-800",
-    icon: "schedule",
-    colorClass: "text-amber-700",
-  },
-  overdue: {
-    label: "Overdue",
-    card: "border-red-200 bg-red-50",
-    stripe: "bg-red-500",
-    iconBox: "bg-red-100 text-red-700",
-    pill: "bg-red-100 text-red-800",
-    icon: "error",
-    colorClass: "text-red-700",
-  },
-};
-
-// Mock payment status per unit until maintenance API is wired
-export function getUnitStatuses(units) {
-  const statuses = {};
-  units.forEach((unit, index) => {
-    statuses[unit.id] = index % 3 === 0 ? "overdue" : index % 3 === 1 ? "pending" : "paid";
-  });
-  return statuses;
-}
-
-function UnitCard({ unit, statusKey }) {
-  const status = UNIT_STATUS[statusKey];
+function UnitCard({ unit, cycleId }) {
+  const status = STATUS_UI[unit.status] || STATUS_UI.pending;
   return (
     <Link
-      to={`/maintenance/${unit.id}`}
+      to={`/maintenance/${unit.unitId}?cycle=${cycleId}`}
       className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${status.card}`}
     >
       <span className={`absolute inset-y-0 left-0 w-1.5 ${status.stripe}`} />
       <div className="flex items-start justify-between gap-2">
-        <span
-          className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox}`}
-        >
+        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox}`}>
           <span className="material-symbols-outlined text-[22px]">
             {unit.isOwner ? "home" : "home_work"}
           </span>
@@ -63,9 +30,7 @@ function UnitCard({ unit, statusKey }) {
           {status.label}
         </span>
       </div>
-      <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">
-        House {unit.label}
-      </p>
+      <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">House {unit.label}</p>
       <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
         {unit.isOwner ? "Owner" : "Renter"}
       </p>
@@ -76,28 +41,69 @@ function UnitCard({ unit, statusKey }) {
 export default function MaintenancePage() {
   const activeMembership = useSocietyStore(selectActiveMembership);
   const units = activeMembership?.units || [];
-  const statuses = getUnitStatuses(units);
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
-      <section>
-        <h1 className="text-headline-md text-on-surface">Maintenance</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
-          Select a house to view dues and manage payments.
-        </p>
-      </section>
+  const latestQuery = useQuery({
+    queryKey: ["maintenance", "latest"],
+    queryFn: async () => (await getLatestCycle()).data.data,
+  });
 
-      {units.length === 0 ? (
+  if (!units.length) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+        <section>
+          <h1 className="page-title">Maintenance</h1>
+          <p className="page-subtitle">Track dues and manage your maintenance payments.</p>
+        </section>
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-[40px] text-on-surface-variant">home_work</span>
           <p className="mt-3 text-body-md text-on-surface-variant">
             You are not assigned to any house yet. Contact your society admin to get added.
           </p>
         </div>
-      ) : (
+      </div>
+    );
+  }
+
+  const cycle = latestQuery.data;
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+      <section>
+        <h1 className="page-title">Maintenance</h1>
+        <p className="page-subtitle">
+          {cycle
+            ? `${new Date(cycle.year, cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · ${formatAmount(cycle.amount)} per house · due by ${formatDate(cycle.dueDate)}`
+            : "Select a house to view dues."}
+        </p>
+      </section>
+
+      {latestQuery.isLoading && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {units.map((u) => (
+            <div key={u.id} className="h-36 animate-pulse rounded-xl bg-surface-container-high" />
+          ))}
+        </div>
+      )}
+
+      {latestQuery.isError && (
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
+          {extractApiError(latestQuery.error, "Failed to load maintenance dues.")}
+        </div>
+      )}
+
+      {latestQuery.isSuccess && !cycle && (
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
+          <span className="material-symbols-outlined text-[40px] text-on-surface-variant">event_available</span>
+          <p className="mt-3 text-body-md text-on-surface-variant">
+            No maintenance has been raised yet. You will see dues here once your society admin creates one.
+          </p>
+        </div>
+      )}
+
+      {cycle && cycle.myUnits && cycle.myUnits.length > 0 && (
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {units.map((unit) => (
-            <UnitCard key={unit.id} unit={unit} statusKey={statuses[unit.id] || "pending"} />
+          {cycle.myUnits.map((unit) => (
+            <UnitCard key={unit.unitId} unit={unit} cycleId={cycle.id} />
           ))}
         </section>
       )}
