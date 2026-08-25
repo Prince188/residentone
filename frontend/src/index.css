@@ -3,11 +3,20 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply font-body text-on-surface;
+    font-optical-sizing: auto;
   }
   h1, h2, h3 {
-    @apply font-display;
+    @apply font-display tracking-tight;
+  }
+  ::selection {
+    @apply bg-primary text-on-primary;
   }
 }
 

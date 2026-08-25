@@ -17,15 +17,15 @@ const adminCards = [
 
 const generalCards = [
   { icon: "payments", label: "Pay Maintenance", to: "/maintenance" },
-  { icon: "report_problem", label: "Complaints", to: "/complaints" },
-  { icon: "badge", label: "Visitors", to: "/visitors" },
-  { icon: "campaign", label: "Notices", to: "/notices" },
-  { icon: "pool", label: "Amenities", to: "/amenities" },
-  { icon: "folder_open", label: "Documents", to: "/documents" },
-  { icon: "how_to_vote", label: "Polls", to: "/polls" },
-  { icon: "groups", label: "Directory", to: "/directory" },
   { icon: "home_work", label: "My Unit", to: "/my-unit" },
+  { icon: "campaign", label: "Notices", to: "/notices" },
+  { icon: "badge", label: "Visitors", to: "/visitors" },
+  { icon: "report_problem", label: "Complaints", to: "/complaints" },
+  { icon: "pool", label: "Amenities", to: "/amenities" },
+  { icon: "how_to_vote", label: "Polls", to: "/polls" },
+  { icon: "folder_open", label: "Documents", to: "/documents" },
   { icon: "emergency", label: "Emergency", to: "/emergency-contacts" },
+  { icon: "groups", label: "Directory", to: "/directory" },
 ];
 
 const CARD_TINTS = [
@@ -84,7 +84,7 @@ function SquareCard({ icon, label, to, tint }) {
       >
         <span className="material-symbols-outlined text-[22px] sm:text-[26px]">{icon}</span>
       </span>
-      <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[10px] font-semibold leading-tight text-on-surface line-clamp-2 sm:text-xs">
+      <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[11px] font-semibold leading-tight text-on-surface line-clamp-2 sm:text-[13px]">
         {label}
       </span>
     </Link>
