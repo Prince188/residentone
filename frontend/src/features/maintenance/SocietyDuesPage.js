@@ -388,7 +388,19 @@ export default function SocietyDuesPage() {
 
           {cycle && units.length > 0 && (
             <>
-              <section className="flex flex-wrap gap-2">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                aria-label="Filter houses by status"
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden"
+              >
+                {filterOptions.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
+                    {opt.label} ({opt.count})
+                  </option>
+                ))}
+              </select>
+              <section className="hidden flex-wrap gap-2 sm:flex">
                 {filterOptions.map((opt) => {
                   const activeClass =
                     opt.key === "all"

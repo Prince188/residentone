@@ -67,6 +67,7 @@ export default function ManageHousesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedHouse, setSelectedHouse] = useState(null);
 
   const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
@@ -80,16 +81,22 @@ export default function ManageHousesPage() {
   const houses = housesQuery.data || [];
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return houses;
-    const q = search.trim().toLowerCase();
-    return houses.filter(
-      (h) =>
-        String(h.label).toLowerCase().includes(q) ||
-        (h.owner?.name || "").toLowerCase().includes(q) ||
-        (h.tenant?.name || "").toLowerCase().includes(q) ||
-        (h.owner?.phone || h.tenant?.phone || "").includes(q)
-    );
-  }, [houses, search]);
+    let result = houses;
+    if (statusFilter === "owner") result = result.filter((h) => h.isAssigned);
+    else if (statusFilter === "renter") result = result.filter((h) => !h.isAssigned && h.isRented);
+    else if (statusFilter === "vacant") result = result.filter((h) => !h.isAssigned && !h.isRented);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(
+        (h) =>
+          String(h.label).toLowerCase().includes(q) ||
+          (h.owner?.name || "").toLowerCase().includes(q) ||
+          (h.tenant?.name || "").toLowerCase().includes(q) ||
+          (h.owner?.phone || h.tenant?.phone || "").includes(q)
+      );
+    }
+    return result;
+  }, [houses, search, statusFilter]);
 
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
 
@@ -132,12 +139,54 @@ export default function ManageHousesPage() {
               : `${assignedCount} of ${houses.length} houses assigned`}
           </p>
         </div>
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-xs space-y-2">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter houses"
+            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden"
+          >
+            {STATUS_FILTERS.map((filter) => (
+              <option key={filter.id} value={filter.id}>
+                {filter.label} (
+                {filter.id === "all" && houses.length}
+                {filter.id === "owner" &&
+                  houses.filter((h) => h.isAssigned).length}
+                {filter.id === "renter" &&
+                  houses.filter((h) => !h.isAssigned && h.isRented).length}
+                {filter.id === "vacant" &&
+                  houses.filter((h) => !h.isAssigned && !h.isRented).length}
+                )
+              </option>
+            ))}
+          </select>
+          <div className="hidden flex-wrap gap-1.5 sm:flex">
+            {STATUS_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setStatusFilter(filter.id)}
+                className={`rounded-full border px-3 py-1 text-label-md transition-colors ${
+                  statusFilter === filter.id
+                    ? "border-inverse-surface bg-inverse-surface text-white"
+                    : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-secondary-fixed"
+                }`}
+              >
+                {filter.label}
+                {filter.id === "owner" &&
+                  ` (${houses.filter((h) => h.isAssigned).length})`}
+                {filter.id === "renter" &&
+                  ` (${houses.filter((h) => !h.isAssigned && h.isRented).length})`}
+                {filter.id === "vacant" &&
+                  ` (${houses.filter((h) => !h.isAssigned && !h.isRented).length})`}
+              </button>
+            ))}
+          </div>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search house no. or owner..."
+            placeholder="Search house no. or resident..."
             className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -168,7 +217,7 @@ export default function ManageHousesPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center text-body-md text-on-surface-variant">
-              No houses match your search.
+              No houses match your search or filter.
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
