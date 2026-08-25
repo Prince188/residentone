@@ -6,6 +6,7 @@ const { validate } = require("../../middlewares/validate.middleware");
 const {
   checkOwnerSchema,
   assignOwnerSchema,
+  inviteLinkSchema,
   inviteSubmitSchema,
 } = require("./unit.validation");
 
@@ -59,6 +60,7 @@ router.post(
 router.post(
   "/:unitId/invite-link",
   requireRole("super_admin", "society_admin"),
+  validate(inviteLinkSchema),
   (req, res, next) => unitController.createInviteLink(req, res, next)
 );
 

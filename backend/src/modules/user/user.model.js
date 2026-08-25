@@ -28,6 +28,22 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       select: false,
     },
+    occupation: {
+      type: String,
+      trim: true,
+      maxlength: [100, "Occupation cannot exceed 100 characters"],
+      default: "",
+    },
+    familyMembers: {
+      type: Number,
+      min: [0, "Family members cannot be negative"],
+      max: [50, "Family members cannot exceed 50"],
+      default: null,
+    },
+    vehicles: {
+      type: [String],
+      default: [],
+    },
     role: {
       type: [String],
       enum: ACCOUNT_ROLES,

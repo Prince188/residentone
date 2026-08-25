@@ -72,7 +72,7 @@ class MaintenanceService {
   async getCycleUnits(societyId, cycle) {
     const units = await Unit.find({ societyId, isActive: true })
       .populate("ownerId", "name phone")
-      .sort({ label: 1 })
+      .sort({ unitNumber: 1, label: 1 })
       .lean();
 
     const payments = await MaintenancePayment.find({

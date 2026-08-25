@@ -8,8 +8,8 @@ export const assignOwnerToHouse = (unitId, payload) =>
   api.post(`/units/${unitId}/assign-owner`, payload);
 export const unassignOwnerFromHouse = (unitId) =>
   api.post(`/units/${unitId}/unassign-owner`);
-export const createHouseInviteLink = (unitId) =>
-  api.post(`/units/${unitId}/invite-link`);
+export const createHouseInviteLink = (unitId, data) =>
+  api.post(`/units/${unitId}/invite-link`, data);
 export const getHouseInvitePreview = (token) => api.get(`/units/invite/${token}`);
 export const submitHouseInvite = (token, payload) =>
   api.post(`/units/invite/${token}`, payload);

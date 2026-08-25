@@ -11,6 +11,15 @@ class MembershipController {
     }
   }
 
+  async directory(req, res, next) {
+    try {
+      const members = await membershipService.getDirectory(req.societyId);
+      res.json({ success: true, data: members });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async list(req, res, next) {
     try {
       const members = await membershipService.findBySociety(req.params.societyId);

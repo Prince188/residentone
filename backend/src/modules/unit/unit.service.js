@@ -67,6 +67,7 @@ class UnitService {
     return Unit.find({ societyId })
       .sort({ unitNumber: 1, label: 1 })
       .populate("ownerId", "name email phone")
+      .populate("tenantId", "name email phone")
       .lean();
   }
 
@@ -78,9 +79,13 @@ class UnitService {
       block: unit.block || null,
       floor: unit.floor || null,
       isAssigned: Boolean(unit.ownerId),
+      isRented: Boolean(unit.tenantId),
       hasPendingInvite: Boolean(unit.inviteToken && unit.inviteExpiresAt && new Date(unit.inviteExpiresAt) > new Date()),
       owner: unit.ownerId
         ? { id: unit.ownerId._id, name: unit.ownerId.name, email: unit.ownerId.email, phone: unit.ownerId.phone }
+        : null,
+      tenant: unit.tenantId
+        ? { id: unit.tenantId._id, name: unit.tenantId.name, email: unit.tenantId.email, phone: unit.tenantId.phone }
         : null,
     };
   }
@@ -97,6 +102,7 @@ class UnitService {
   async getUnitDetail(societyId, unitId) {
     const unit = await this.findUnitInSociety(societyId, unitId);
     const populated = await unit.populate("ownerId", "name email phone");
+    await populated.populate("tenantId", "name email phone");
     const [card, society] = await Promise.all([
       Promise.resolve(this.mapUnitCard(populated)),
       Society.findById(societyId).select("name").lean(),
@@ -104,13 +110,13 @@ class UnitService {
     return { ...card, societyName: society ? society.name : null };
   }
 
-  async linkOwnerToUnit(user, unit) {
+  async linkOwnerToUnit(user, unit, desiredRole = "owner") {
     let membership = await Membership.findOne({ userId: user._id, societyId: unit.societyId });
     if (!membership) {
       return Membership.create({
         userId: user._id,
         societyId: unit.societyId,
-        role: "owner",
+        role: desiredRole,
         units: [unit._id],
       });
     }
@@ -118,11 +124,26 @@ class UnitService {
     if (!membership.units.some((u) => String(u) === String(unit._id))) {
       membership.units.push(unit._id);
     }
-    if (ROLE_HIERARCHY[membership.role] < ROLE_HIERARCHY.owner) {
-      membership.role = "owner";
+    if (ROLE_HIERARCHY[membership.role] < ROLE_HIERARCHY[desiredRole]) {
+      membership.role = desiredRole;
     }
     membership.isActive = true;
     return membership.save();
+  }
+
+  async applyResidentProfile(userId, payload) {
+    const update = {};
+    if (Array.isArray(payload.vehicles)) {
+      update.vehicles = payload.vehicles.map((v) => String(v).trim().toUpperCase()).filter(Boolean);
+    }
+    if (payload.occupation !== undefined && payload.occupation !== null) {
+      update.occupation = String(payload.occupation).trim();
+    }
+    if (payload.familyMembers !== undefined && payload.familyMembers !== null && payload.familyMembers !== "") {
+      update.familyMembers = Number(payload.familyMembers);
+    }
+    if (Object.keys(update).length === 0) return;
+    await User.findByIdAndUpdate(userId, { $set: update });
   }
 
   async createOrFindOwner(payload) {
@@ -194,18 +215,36 @@ class UnitService {
 
   async assignOwner(societyId, unitId, payload) {
     const unit = await this.findUnitInSociety(societyId, unitId);
-    if (unit.ownerId) {
+    const isRenter = payload.residentType === "renter";
+
+    if (isRenter) {
+      if (unit.ownerId || unit.tenantId) {
+        throw new AppError("This house is already occupied", 409);
+      }
+    } else if (unit.ownerId) {
       throw new AppError("This house already has an owner assigned", 409);
+    } else if (unit.tenantId) {
+      throw new AppError(
+        "A renter already lives here. Remove them before assigning an owner.",
+        409
+      );
     }
 
     const { user, credentialsCreated } = await this.createOrFindOwner(payload);
-    await this.linkOwnerToUnit(user, unit);
+    await this.applyResidentProfile(user._id, payload);
 
-    unit.ownerId = user._id;
+    if (isRenter) {
+      await this.linkOwnerToUnit(user, unit, "tenant");
+      unit.tenantId = user._id;
+    } else {
+      await this.linkOwnerToUnit(user, unit, "owner");
+      unit.ownerId = user._id;
+    }
     unit.inviteToken = null;
     unit.inviteExpiresAt = null;
     await unit.save();
     await unit.populate("ownerId", "name email phone");
+    await unit.populate("tenantId", "name email phone");
 
     return {
       unit: this.mapUnitCard(unit),
@@ -213,27 +252,30 @@ class UnitService {
       loginUsername: user.phone,
       temporaryPassword: credentialsCreated ? normalizePhone(user.phone) : null,
       message: credentialsCreated
-        ? `Owner account created. Login username and password are both ${user.phone}.`
+        ? `${isRenter ? "Renter" : "Owner"} account created. Login username and password are both ${user.phone}.`
         : `${user.name} already had an account. Their existing credentials still work.`,
     };
   }
 
   async unassignOwner(societyId, unitId) {
     const unit = await this.findUnitInSociety(societyId, unitId);
-    if (!unit.ownerId) {
-      throw new AppError("This house has no owner assigned", 409);
+    const residentId = unit.ownerId || unit.tenantId;
+    if (!residentId) {
+      throw new AppError("This house has no resident assigned", 409);
     }
 
+    const role = unit.ownerId ? "owner" : "tenant";
     await Membership.updateOne(
-      { userId: unit.ownerId, societyId },
+      { userId: residentId, societyId },
       { $pull: { units: unit._id } }
     );
-    const membership = await Membership.findOne({ userId: unit.ownerId, societyId }).lean();
-    if (membership && membership.role === "owner" && (!membership.units || membership.units.length === 0)) {
+    const membership = await Membership.findOne({ userId: residentId, societyId }).lean();
+    if (membership && membership.role === role && (!membership.units || membership.units.length === 0)) {
       await Membership.findByIdAndUpdate(membership._id, { isActive: false });
     }
 
     unit.ownerId = null;
+    unit.tenantId = null;
     unit.inviteToken = null;
     unit.inviteExpiresAt = null;
     await unit.save();
@@ -241,14 +283,15 @@ class UnitService {
     return this.mapUnitCard(unit);
   }
 
-  async createInviteLink(societyId, unitId, frontendUrl) {
+  async createInviteLink(societyId, unitId, frontendUrl, residentType = "owner") {
     const unit = await this.findUnitInSociety(societyId, unitId);
-    if (unit.ownerId) {
-      throw new AppError("This house already has an owner assigned", 409);
+    if (unit.ownerId || unit.tenantId) {
+      throw new AppError("This house already has a resident assigned", 409);
     }
 
     unit.inviteToken = crypto.randomBytes(24).toString("hex");
     unit.inviteExpiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    unit.inviteResidentType = residentType === "renter" ? "renter" : "owner";
     await unit.save();
 
     const base = (frontendUrl || "").replace(/\/$/, "");
@@ -267,6 +310,7 @@ class UnitService {
     return {
       societyName: society ? society.name : "",
       houseNumber: unit.label,
+      residentType: unit.inviteResidentType || "owner",
     };
   }
 
@@ -280,11 +324,18 @@ class UnitService {
     }
 
     const { user, credentialsCreated } = await this.createOrFindOwner(payload);
-    await this.linkOwnerToUnit(user, unit);
+    await this.applyResidentProfile(user._id, payload);
 
-    unit.ownerId = user._id;
+    const isRenter = (unit.inviteResidentType || "owner") === "renter";
+    await this.linkOwnerToUnit(user, unit, isRenter ? "tenant" : "owner");
+    if (isRenter) {
+      unit.tenantId = user._id;
+    } else {
+      unit.ownerId = user._id;
+    }
     unit.inviteToken = null;
     unit.inviteExpiresAt = null;
+    unit.inviteResidentType = "owner";
     await unit.save();
 
     return {

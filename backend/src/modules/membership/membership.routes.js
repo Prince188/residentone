@@ -12,6 +12,14 @@ router.get("/my-societies", authenticate, (req, res, next) =>
 );
 
 router.get(
+  "/directory",
+  authenticate,
+  resolveSocietyContext,
+  requireSociety,
+  (req, res, next) => membershipController.directory(req, res, next)
+);
+
+router.get(
   "/",
   authenticate,
   resolveSocietyContext,

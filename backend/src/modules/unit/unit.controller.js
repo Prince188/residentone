@@ -75,7 +75,8 @@ class UnitController {
       const result = await unitService.createInviteLink(
         req.societyId,
         req.params.unitId,
-        config.cors.origin
+        config.cors.origin,
+        req.body.residentType
       );
       res.json({ success: true, data: result });
     } catch (error) {

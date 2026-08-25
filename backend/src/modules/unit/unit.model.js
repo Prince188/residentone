@@ -37,6 +37,11 @@ const unitSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     inviteToken: {
       type: String,
       default: null,
@@ -44,6 +49,11 @@ const unitSchema = new mongoose.Schema(
     inviteExpiresAt: {
       type: Date,
       default: null,
+    },
+    inviteResidentType: {
+      type: String,
+      enum: ["owner", "renter"],
+      default: "owner",
     },
     isActive: {
       type: Boolean,

@@ -6,46 +6,60 @@ import useSocietyStore, {
   selectActiveSociety,
 } from "../../stores/society.store";
 import { getHouseCards, extractApiError } from "../../lib/houses";
+import AssignHouseModal from "./AssignHouseModal";
 
 const ADMIN_ROLES = ["super_admin", "society_admin"];
 
-function HouseCard({ house }) {
+const STATUS_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "owner", label: "Owned" },
+  { id: "renter", label: "Rented" },
+  { id: "vacant", label: "Vacant" },
+];
+
+function HouseCard({ house, onClick }) {
+  const status = house.isAssigned
+    ? "Owned"
+    : house.isRented
+      ? "Rented"
+      : "Vacant";
   return (
-    <Link
-      to={`/houses/${house.id}`}
-      className={`block rounded-xl border p-4 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${
-        house.isAssigned
+    <button
+      type="button"
+      onClick={onClick}
+      className={`block w-full rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md ${
+        house.isAssigned || house.isRented
           ? "border-success bg-secondary-fixed"
           : "border-outline-variant bg-surface-container-lowest"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="material-symbols-outlined text-[26px] text-primary">
-          {house.isAssigned ? "home" : "home_work"}
+          {house.isAssigned || house.isRented ? "home" : "home_work"}
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${
-            house.isAssigned
+            house.isAssigned || house.isRented
               ? "bg-primary-fixed text-on-primary-fixed"
               : "bg-surface-container-high text-on-surface-variant"
           }`}
         >
-          {house.isAssigned ? "Owned" : "Vacant"}
+          {status}
         </span>
       </div>
       <p className="mt-3 text-headline-sm font-semibold text-on-surface">
         House {house.label}
       </p>
       <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
-        {house.owner ? house.owner.name : "No owner assigned"}
+        {(house.owner || house.tenant)?.name || "No resident assigned"}
       </p>
-      {house.hasPendingInvite && !house.isAssigned && (
+      {house.hasPendingInvite && !house.isAssigned && !house.isRented && (
         <p className="mt-1 flex items-center gap-1 text-label-sm text-primary">
           <span className="material-symbols-outlined text-[14px]">link</span>
           Invite link sent
         </p>
       )}
-    </Link>
+    </button>
   );
 }
 
@@ -53,6 +67,7 @@ export default function ManageHousesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
+  const [selectedHouse, setSelectedHouse] = useState(null);
 
   const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
 
@@ -71,11 +86,12 @@ export default function ManageHousesPage() {
       (h) =>
         String(h.label).toLowerCase().includes(q) ||
         (h.owner?.name || "").toLowerCase().includes(q) ||
-        (h.owner?.phone || "").includes(q)
+        (h.tenant?.name || "").toLowerCase().includes(q) ||
+        (h.owner?.phone || h.tenant?.phone || "").includes(q)
     );
   }, [houses, search]);
 
-  const assignedCount = houses.filter((h) => h.isAssigned).length;
+  const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
 
   if (!isAdmin) {
     return (
@@ -157,11 +173,23 @@ export default function ManageHousesPage() {
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               {filtered.map((house) => (
-                <HouseCard key={house.id} house={house} />
+                <HouseCard
+                  key={house.id}
+                  house={house}
+                  onClick={() => setSelectedHouse(house)}
+                />
               ))}
             </div>
           )}
         </>
+      )}
+
+      {selectedHouse && (
+        <AssignHouseModal
+          key={selectedHouse.id}
+          house={selectedHouse}
+          onClose={() => setSelectedHouse(null)}
+        />
       )}
     </div>
   );

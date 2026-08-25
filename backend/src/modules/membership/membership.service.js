@@ -15,6 +15,51 @@ class MembershipService {
     return Membership.find({ societyId, isActive: true }).populate("userId", "name email phone");
   }
 
+  async getDirectory(societyId) {
+    const members = await Membership.find({ societyId, isActive: true })
+      .populate("userId", "name")
+      .populate("units", "label unitNumber")
+      .lean();
+
+    const NO_ORDER = Number.MAX_SAFE_INTEGER;
+    const entries = [];
+    for (const m of members) {
+      if (!m.userId) continue;
+      const houses = (m.units || [])
+        .slice()
+        .sort(
+          (a, b) => (a.unitNumber ?? NO_ORDER) - (b.unitNumber ?? NO_ORDER)
+        );
+      if (houses.length === 0) {
+        entries.push({
+          id: String(m._id),
+          name: m.userId.name,
+          role: m.role,
+          house: null,
+          unitNumber: NO_ORDER,
+        });
+        continue;
+      }
+      for (const u of houses) {
+        entries.push({
+          id: `${m._id}-${u._id}`,
+          name: m.userId.name,
+          role: m.role,
+          house: u.label,
+          unitNumber: u.unitNumber ?? NO_ORDER,
+        });
+      }
+    }
+
+    return entries
+      .sort(
+        (a, b) =>
+          a.unitNumber - b.unitNumber ||
+          String(a.name).localeCompare(String(b.name))
+      )
+      .map(({ id, name, role, house }) => ({ id, name, role, house }));
+  }
+
   async findByUser(userId) {
     return Membership.find({ userId, isActive: true }).populate("societyId", "name city");
   }
