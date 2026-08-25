@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, {
@@ -8,25 +9,81 @@ import { getNotices, extractApiError, timeAgo } from "../../lib/notices";
 
 const ADMIN_ROLES = ["super_admin", "society_admin"];
 
-function NoticeCard({ notice }) {
+function NoticeCard({ notice, onOpen }) {
   return (
     <article
-      className={`rounded-xl border p-4 transition-colors sm:p-5 ${
+      onClick={() => onOpen(notice)}
+      className={`h-40 cursor-pointer overflow-hidden rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
         notice.isLatest
           ? "border-primary-fixed bg-primary-fixed/40"
           : "border-outline-variant bg-surface-container-lowest hover:border-outline"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="text-body-md font-semibold text-on-surface">{notice.title}</h3>
+        <h3 className="line-clamp-1 text-body-md font-semibold text-on-surface">
+          {notice.title}
+        </h3>
         <span className="shrink-0 text-label-sm text-outline">{timeAgo(notice.createdAt)}</span>
       </div>
-      <p className="mt-1 text-body-sm text-on-surface-variant">{notice.body}</p>
+      <p className="mt-1 line-clamp-3 text-body-sm text-on-surface-variant">
+        {notice.body}
+      </p>
       <p className="mt-2 flex items-center gap-1 text-label-sm text-outline">
         <span className="material-symbols-outlined text-[14px]">person</span>
         {notice.authorName}
       </p>
+      <p className="mt-1 flex items-center justify-end gap-1 text-label-sm text-primary">
+        Read more
+        <span className="material-symbols-outlined text-[14px]">open_in_full</span>
+      </p>
     </article>
+  );
+}
+
+function NoticeDetailModal({ notice, onClose }) {
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
+  if (!notice) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={notice.title}
+        className="relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xl"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 rounded-full p-1 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        >
+          <span className="material-symbols-outlined text-[22px]">close</span>
+        </button>
+        <div className="flex items-center gap-2 text-label-sm text-outline">
+          <span className="material-symbols-outlined text-[16px]">campaign</span>
+          {timeAgo(notice.createdAt)}
+        </div>
+        <h2 className="mt-2 pr-8 text-headline-sm font-semibold text-on-surface">
+          {notice.title}
+        </h2>
+        <p className="mt-4 whitespace-pre-line text-body-md text-on-surface-variant">
+          {notice.body}
+        </p>
+        <p className="mt-6 flex items-center gap-1 border-t border-outline-variant pt-3 text-label-sm text-outline">
+          <span className="material-symbols-outlined text-[14px]">person</span>
+          Posted by {notice.authorName}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -34,6 +91,7 @@ export default function NoticesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const [selectedNotice, setSelectedNotice] = useState(null);
 
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id],
@@ -93,11 +151,20 @@ export default function NoticesPage() {
             </div>
           ) : (
             notices.map((notice, index) => (
-              <NoticeCard key={notice.id} notice={{ ...notice, isLatest: index === 0 }} />
+              <NoticeCard
+                key={notice.id}
+                notice={{ ...notice, isLatest: index === 0 }}
+                onOpen={setSelectedNotice}
+              />
             ))
           )}
         </section>
       )}
+
+      <NoticeDetailModal
+        notice={selectedNotice}
+        onClose={() => setSelectedNotice(null)}
+      />
     </div>
   );
 }
