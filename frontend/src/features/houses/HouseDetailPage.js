@@ -349,29 +349,43 @@ export default function HouseDetailPage() {
 
       {unassignError && <p className="text-body-sm text-error">{unassignError}</p>}
 
-      {house.isAssigned ? (
-        <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-headline-sm text-on-surface">Current Owner</h3>
-              <p className="mt-2 text-body-lg font-semibold text-on-surface">
-                {house.owner?.name}
-              </p>
-              <p className="text-body-md text-on-surface-variant">{house.owner?.phone}</p>
-              {house.owner?.email && !house.owner.email.endsWith("@residentone.local") && (
-                <p className="text-body-sm text-on-surface-variant">{house.owner.email}</p>
-              )}
+      {house.isAssigned || house.isRented ? (
+        <section className="space-y-4">
+          <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
+            <p className="flex items-center gap-1 text-label-sm font-semibold uppercase tracking-wide text-primary"><span className="material-symbols-outlined text-[16px]">home</span> House {house.label}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-body-sm">
+              <span className="text-on-surface-variant">Door: <b className="text-on-surface">{house.doorNo || "-"}</b></span>
+              {house.block && <span className="text-on-surface-variant">Block: <b className="text-on-surface">{house.block}</b></span>}
+              {house.floor && <span className="text-on-surface-variant">Floor: <b className="text-on-surface">{house.floor}</b></span>}
+              {house.propertyType && <span className="text-on-surface-variant">Type: <b className="text-on-surface">{house.propertyType}</b></span>}
             </div>
-            <span className="material-symbols-outlined text-[40px] text-success">verified_user</span>
           </div>
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-headline-sm text-on-surface">{house.isAssigned ? "Current Owner" : "Current Renter"}</h3>
+                <p className="mt-2 text-body-lg font-semibold text-on-surface">{(house.owner || house.tenant)?.name}</p>
+                <p className="flex items-center gap-1 text-body-md text-on-surface-variant"><span className="material-symbols-outlined text-[16px]">call</span> {(house.owner || house.tenant)?.phone}</p>
+                {(house.owner || house.tenant)?.email && !(house.owner || house.tenant).email.endsWith("@residentone.local") && (
+                  <p className="flex items-center gap-1 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[14px]">mail</span> {(house.owner || house.tenant)?.email}</p>
+                )}
+              </div>
+              <span className="material-symbols-outlined text-[40px] text-success">verified_user</span>
+            </div>
+            <div className="mt-4 grid gap-2 rounded-lg bg-surface-container-lowest p-3 text-body-sm">
+              <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">work</span> Occupation: <b>{(house.owner || house.tenant)?.occupation || "—"}</b></p>
+              <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members: <b>{(house.owner || house.tenant)?.familyMembers ?? "—"}</b></p>
+              <div className="flex items-start gap-2"><span className="material-symbols-outlined text-[16px] text-primary mt-0.5">directions_car</span><div><p>Vehicles ({(house.owner || house.tenant)?.vehicles?.length || 0}):</p>{(house.owner || house.tenant)?.vehicles?.length ? (house.owner || house.tenant).vehicles.map((v,i)=><span key={i} className="mr-1 mt-1 inline-block rounded-full bg-secondary-fixed px-2 py-0.5 font-mono text-label-sm font-bold tracking-widest">{v}</span>) : <b>— No vehicles</b>}</div></div>
+            </div>
           <button
             type="button"
             onClick={() => setConfirmUnassign(true)}
             className="mt-5 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low"
           >
             <span className="material-symbols-outlined text-[18px]">person_remove</span>
-            Remove Owner
+            Remove {house.isAssigned ? "Owner" : "Renter"}
           </button>
+          </div>
 
           <ConfirmDialog
             open={confirmUnassign}

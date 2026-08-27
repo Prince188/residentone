@@ -11,6 +11,7 @@ import {
 
 function UnitCard({ unit, cycleId }) {
   const status = STATUS_UI[unit.status] || STATUS_UI.pending;
+  const displayAmount = unit.amount || unit.totalAmount;
   return (
     <Link
       to={`/maintenance/${unit.unitId}?cycle=${cycleId}`}
@@ -32,7 +33,7 @@ function UnitCard({ unit, cycleId }) {
       </div>
       <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">House {unit.label}</p>
       <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
-        {unit.isOwner ? "Owner" : "Renter"}
+        {unit.isOwner ? "Owner" : unit.isTenant ? "Renter" : unit.houseRole === "owner" ? "Owner" : "Renter"} {displayAmount ? `· ${formatAmount(displayAmount)}` : ""}
       </p>
     </Link>
   );
@@ -79,7 +80,7 @@ export default function MaintenancePage() {
         <h1 className="page-title">Maintenance</h1>
         <p className="page-subtitle">
           {cycle
-            ? `${new Date(cycle.year, cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · ${formatAmount(cycle.amount)} per house · due by ${formatDate(cycle.dueDate)}`
+            ? `${new Date(cycle.year, cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · Owner ${formatAmount(cycle.ownerAmount || cycle.amount)} / Renter ${formatAmount(cycle.renterAmount || cycle.amount)} · due by ${formatDate(cycle.dueDate)}`
             : "Select a house to view dues."}
         </p>
       </section>

@@ -104,7 +104,7 @@ export default function MaintenanceDetailPage() {
             {status.label}
           </span>
         </div>
-        <p className="page-subtitle">{record.isOwner ? "Owner" : "Renter"}</p>
+        <p className="page-subtitle">{record.isOwner ? "Owner" : record.isTenant ? "Renter" : record.houseRole === "owner" ? "Owner" : "Renter"} · {formatAmount(record.amount || record.dueAmount || record.cycle.amount)} {record.isOwner ? "(Owner rate)" : record.isTenant ? "(Renter rate)" : ""}</p>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
@@ -121,7 +121,7 @@ export default function MaintenanceDetailPage() {
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-headline-md font-bold text-white">
-                {isSettled ? "All caught up" : formatAmount(record.cycle.amount)}
+                {isSettled ? "All caught up" : formatAmount(record.amount || record.dueAmount || record.cycle.amount)}
               </p>
               <p className="mt-1 text-label-md text-white/70">
                 Due by {formatDate(record.cycle.dueDate)}
@@ -201,13 +201,13 @@ export default function MaintenanceDetailPage() {
           <div className="p-4">
             <p className="text-label-sm uppercase tracking-[0.1em] text-on-surface-variant">Your Role</p>
             <p className="mt-1 text-body-md font-semibold text-on-surface">
-              {record.isOwner ? "Owner" : "Renter"}
+              {record.isOwner ? "Owner" : record.isTenant ? "Renter" : record.houseRole === "owner" ? "Owner" : "Renter"}
             </p>
           </div>
           <div className="p-4">
-            <p className="text-label-sm uppercase tracking-[0.1em] text-on-surface-variant">Monthly</p>
+            <p className="text-label-sm uppercase tracking-[0.1em] text-on-surface-variant">Monthly ({record.isOwner ? "Owner" : "Renter"})</p>
             <p className="mt-1 text-body-md font-semibold text-on-surface">
-              {formatAmount(record.cycle.amount)}
+              {formatAmount(record.amount || record.dueAmount || record.cycle.amount)}
             </p>
           </div>
         </div>

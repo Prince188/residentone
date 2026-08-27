@@ -3,6 +3,20 @@ const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 
 class MaintenanceService {
+  // helper: get amount for a specific unit (owner vs renter) - DB driven
+  getAmountForUnit(cycle, unit) {
+    // unit may be populated or raw
+    const hasOwner = unit && (unit.ownerId || unit.owner);
+    const hasTenant = unit && (unit.tenantId || unit.tenant);
+    // If tenant exists and no owner, treat as renter; else owner
+    const isRenterUnit = !hasOwner && hasTenant;
+    if (isRenterUnit) {
+      return cycle.renterAmount != null ? cycle.renterAmount : cycle.amount;
+    }
+    // owner unit or vacant -> use ownerAmount
+    return cycle.ownerAmount != null ? cycle.ownerAmount : cycle.amount;
+  }
+
   async createCycle(societyId, userId, data) {
     const existing = await MaintenanceCycle.findOne({
       societyId,
@@ -15,12 +29,27 @@ class MaintenanceService {
         409
       );
     }
+    // Support both old single amount and new split: if owner/renter provided use them, else fallback to amount
+    const amount = data.amount;
+    let ownerAmount = data.ownerAmount;
+    let renterAmount = data.renterAmount;
+    if (ownerAmount == null && renterAmount == null && amount != null) {
+      ownerAmount = amount;
+      renterAmount = amount;
+    }
+    // Ensure at least one is set
+    const finalAmount = amount != null ? amount : ownerAmount;
+    const finalOwner = ownerAmount != null ? ownerAmount : finalAmount;
+    const finalRenter = renterAmount != null ? renterAmount : finalAmount;
+
     return MaintenanceCycle.create({
       societyId,
       createdBy: userId,
       month: data.month,
       year: data.year,
-      amount: data.amount,
+      amount: finalAmount,
+      ownerAmount: finalOwner,
+      renterAmount: finalRenter,
       dueDate: data.dueDate,
     });
   }
@@ -54,6 +83,8 @@ class MaintenanceService {
       month: cycle.month,
       year: cycle.year,
       amount: cycle.amount,
+      ownerAmount: cycle.ownerAmount != null ? cycle.ownerAmount : cycle.amount,
+      renterAmount: cycle.renterAmount != null ? cycle.renterAmount : cycle.amount,
       dueDate: cycle.dueDate,
       createdAt: cycle.createdAt,
     };
@@ -69,9 +100,11 @@ class MaintenanceService {
   }
 
   // All units of the society with their payment state for a cycle (admin view)
+  // FIX: populate both owner/tenant and expose IDs so isOwner comes from DB (ownerId == userId), not hardcoded
   async getCycleUnits(societyId, cycle) {
     const units = await Unit.find({ societyId, isActive: true })
       .populate("ownerId", "name phone")
+      .populate("tenantId", "name phone")
       .sort({ unitNumber: 1, label: 1 })
       .lean();
 
@@ -87,16 +120,25 @@ class MaintenanceService {
 
     return units.map((unit) => {
       const payment = paymentByUnit.get(String(unit._id));
+      const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
+      const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
+      const unitAmount = this.getAmountForUnit(cycle, unit);
       return {
         unitId: unit._id,
         label: unit.label,
-        ownerName: unit.ownerId?.name || null,
-        ownerPhone: unit.ownerId?.phone || null,
-        isOccupied: Boolean(unit.ownerId),
+        ownerName: unit.ownerId?.name || unit.tenantId?.name || null,
+        ownerPhone: unit.ownerId?.phone || unit.tenantId?.phone || null,
+        ownerId: ownerIdStr,
+        tenantId: tenantIdStr,
+        isOccupied: Boolean(unit.ownerId || unit.tenantId),
+        amount: unitAmount,
         status: this.statusFor(payment, cycle),
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
+        // expose for frontend per-unit display
+        cycleOwnerAmount: cycle.ownerAmount,
+        cycleRenterAmount: cycle.renterAmount,
       };
     });
   }
@@ -133,6 +175,7 @@ class MaintenanceService {
 
     const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true })
       .populate("ownerId", "name phone")
+      .populate("tenantId", "name phone")
       .lean();
     if (!unit) throw new AppError("House not found", 404);
 
@@ -143,23 +186,35 @@ class MaintenanceService {
       isActive: true,
     }).lean();
 
+    // FIX: handle populated ownerId object vs raw ObjectId, and also check tenant
+    const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
+    const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
+    const userIdStr = String(membership.userId);
+    const isOwnerFlag = ownerIdStr ? ownerIdStr === userIdStr : false;
+    const isTenantFlag = tenantIdStr ? tenantIdStr === userIdStr : false;
+
+    const unitAmount = this.getAmountForUnit(cycle, unit);
     const record = {
       unitId: unit._id,
       label: unit.label,
       block: unit.block,
       floor: unit.floor,
       doorNo: unit.doorNo,
-      ownerName: unit.ownerId?.name || null,
-      ownerPhone: unit.ownerId?.phone || null,
-      isOwner:
-        unit.ownerId && String(unit.ownerId) === String(membership.userId),
+      ownerName: unit.ownerId?.name || unit.tenantId?.name || null,
+      ownerPhone: unit.ownerId?.phone || unit.tenantId?.phone || null,
+      isOwner: isOwnerFlag,
+      isTenant: isTenantFlag,
+      // DB-driven role for this house: owner > tenant > membership.role fallback
+      houseRole: isOwnerFlag ? "owner" : isTenantFlag ? "tenant" : membership.role,
+      amount: unitAmount,
+      // the amount that was actually paid (if payment exists) else the due amount
+      dueAmount: unitAmount,
       status: this.statusFor(payment, cycle),
       paidOn: payment?.paidOn || null,
       method: payment?.method || null,
       receiptNo: payment?.receiptNo || null,
-      amount: payment?.amount || cycle.amount,
       fee: payment?.fee || 0,
-      totalAmount: payment?.totalAmount || cycle.amount,
+      totalAmount: payment?.totalAmount || payment?.amount || unitAmount,
       gatewayStatus: payment?.gatewayStatus || "cash",
     };
 
@@ -174,6 +229,7 @@ class MaintenanceService {
       throw new AppError("This house is not assigned to you", 403);
     }
 
+    const unit = await Unit.findById(unitId).lean();
     const cycles = await MaintenanceCycle.find({
       societyId,
       isActive: true,
@@ -193,18 +249,21 @@ class MaintenanceService {
 
     return cycles.map((cycle) => {
       const payment = paymentByCycle.get(String(cycle._id));
+      const unitAmount = unit ? this.getAmountForUnit(cycle, unit) : cycle.amount;
       return {
         cycleId: cycle._id,
         month: cycle.month,
         year: cycle.year,
-        amount: cycle.amount,
+        amount: unitAmount,
+        ownerAmount: cycle.ownerAmount,
+        renterAmount: cycle.renterAmount,
         dueDate: cycle.dueDate,
         status: this.statusFor(payment, cycle),
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
         fee: payment?.fee || 0,
-        totalAmount: payment?.totalAmount || cycle.amount,
+        totalAmount: payment?.totalAmount || payment?.amount || unitAmount,
       };
     });
   }
@@ -216,6 +275,7 @@ class MaintenanceService {
 
     const paidOn = data.paidOn || new Date();
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
+    const unitAmount = this.getAmountForUnit(cycle, unit);
 
     return MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
@@ -225,9 +285,9 @@ class MaintenanceService {
         unitId,
         paidOn,
         method: data.method || "Cash",
-        amount: cycle.amount,
+        amount: unitAmount,
         fee: 0,
-        totalAmount: cycle.amount,
+        totalAmount: unitAmount,
         gatewayStatus: "cash",
         razorpayOrderId: null,
         razorpayPaymentId: null,
@@ -255,7 +315,8 @@ class MaintenanceService {
 
     const { createOrder } = require("../../shared/services/razorpay.service");
     const receipt = `rcpt_${cycle.year}${String(cycle.month).padStart(2, "0")}_${String(unitId).slice(-6)}`;
-    const order = await createOrder({ amount: cycle.amount, receipt });
+    const unitAmount = this.getAmountForUnit(cycle, unit);
+    const order = await createOrder({ amount: unitAmount, receipt });
 
     // Create pending payment record with order id
     await MaintenancePayment.findOneAndUpdate(

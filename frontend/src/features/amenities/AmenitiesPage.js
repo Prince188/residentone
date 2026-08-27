@@ -75,17 +75,17 @@ export default function AmenitiesPage() {
       {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-label-md text-emerald-800">{msg}</p>}
       {err && <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">{err}</p>}
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        {listQuery.isLoading && Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-surface-container-high" />)}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        {listQuery.isLoading && Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-surface-container-high" />)}
         {amenities.map((a) => (
-          <button key={a.id} type="button" onClick={() => { setSelected(a); setErr(""); setMsg(""); }} className={`text-left rounded-xl border p-4 transition-all hover:shadow-md ${selected?.id === a.id ? "border-primary bg-primary/5" : "border-outline-variant bg-surface-container-lowest"}`}>
+          <button key={a.id} type="button" onClick={() => { setSelected(a); setErr(""); setMsg(""); }} className={`text-left rounded-xl border p-4 transition-all hover:shadow-md flex flex-col min-h-[120px] ${selected?.id === a.id ? "border-primary bg-primary/5" : "border-outline-variant bg-surface-container-lowest"}`}>
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-body-lg font-semibold text-on-surface">{a.name}</h3>
-              <span className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${a.type === "paid" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{a.type === "paid" ? `₹${a.price}${a.bookingMode === "full_day" ? "/day" : ""}` : "Free"}</span>
+              <h3 className="truncate text-body-md font-semibold leading-tight text-on-surface sm:text-body-lg">{a.name}</h3>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-label-sm font-semibold ${a.type === "paid" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{a.type === "paid" ? `₹${a.price}` : "Free"}</span>
             </div>
             <p className="mt-1 text-body-sm text-on-surface-variant line-clamp-2">{a.description || "Tap to book"}</p>
-            <p className="mt-2 text-label-sm text-outline">
-              {a.bookingMode === "full_day" ? `Whole Day` : `${a.slots.length} slots`}
+            <p className="mt-auto pt-1 text-label-sm text-outline">
+              {a.bookingMode === "full_day" ? `Whole Day${a.type === "paid" ? ` · ₹${a.price}/day` : ""}` : `${a.slots.length} slots`}
             </p>
           </button>
         ))}
@@ -93,10 +93,10 @@ export default function AmenitiesPage() {
       {listQuery.isSuccess && amenities.length === 0 && <div className="rounded-xl border border-dashed p-10 text-center text-body-md text-on-surface-variant">No amenities yet. Admin can add at Manage.</div>}
 
       {selected && (
-        <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-body-lg font-semibold">Book: {selected.name} {selected.bookingMode === "full_day" ? "(Whole Day)" : ""}</h2>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} className="rounded-lg border border-outline-variant px-3 py-1.5 text-body-sm" />
+        <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <h2 className="text-body-md sm:text-body-lg font-semibold leading-tight">Book: {selected.name} {selected.bookingMode === "full_day" ? "(Whole Day)" : ""}</h2>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} className="w-full sm:w-auto rounded-lg border border-outline-variant px-3 py-1.5 text-body-sm" />
           </div>
           <p className="mt-1 text-label-sm text-on-surface-variant">
             {selected.bookingMode === "full_day" ? `Whole Day` : `${selected.slots.length} slots`} · {selected.type === "paid" ? `Paid ₹${selected.price}${selected.bookingMode === "full_day" ? "/day" : ""}` : "Free"}
@@ -127,7 +127,7 @@ export default function AmenitiesPage() {
             </div>
           ) : (
             <>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {slotsQuery.isLoading && Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-container-high" />)}
                 {slotsQuery.data?.map((s) => (
                   <SlotButton key={s.slot} slot={s} disabled={bookMut.isPending} onBook={(slot) => bookMut.mutate({ amenityId: selected.id, payload: { date, slot } })} />

@@ -335,40 +335,55 @@ export default function AssignHouseModal({ house, onClose }) {
           <p className="mt-3 text-body-sm text-error">{formError || unassignError}</p>
         )}
 
-        {/* Occupied house: show resident + remove */}
+        {/* Occupied house: show ALL resident + house details */}
         {occupied ? (
-          <div className="mt-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-label-md uppercase tracking-wide text-primary">
-                  {occupantLabel}
-                </span>
-                <p className="mt-1 text-title-md font-semibold text-on-surface">
-                  {house.owner?.name || house.tenant?.name}
-                </p>
-                <p className="text-body-md text-on-surface-variant">
-                  {house.owner?.phone || house.tenant?.phone}
-                </p>
-                {(() => {
-                  const occEmail =
-                    house.owner?.email || house.tenant?.email || "";
-                  return occEmail && !occEmail.endsWith("@residentone.local") ? (
-                    <p className="text-body-sm text-on-surface-variant">{occEmail}</p>
-                  ) : null;
-                })()}
+          <div className="mt-4 space-y-4">
+            <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
+              <p className="flex items-center gap-1 text-label-sm font-semibold uppercase tracking-wide text-primary">
+                <span className="material-symbols-outlined text-[16px]">home</span> House {house.label} Details
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-body-sm">
+                <span className="text-on-surface-variant">Label: <b className="text-on-surface">{house.label}</b></span>
+                <span className="text-on-surface-variant">Door: <b className="text-on-surface">{house.doorNo || "-"}</b></span>
+                {house.block && <span className="text-on-surface-variant">Block: <b className="text-on-surface">{house.block}</b></span>}
+                {house.floor && <span className="text-on-surface-variant">Floor: <b className="text-on-surface">{house.floor}</b></span>}
+                {house.propertyType && <span className="text-on-surface-variant">Type: <b className="text-on-surface">{house.propertyType}</b></span>}
+                <span className="text-on-surface-variant">Status: <b className="text-success">{occupantLabel}</b></span>
               </div>
-              <span className="material-symbols-outlined text-[36px] text-success">
-                verified_user
-              </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setConfirmUnassign(true)}
-              className="mt-4 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low"
-            >
-              <span className="material-symbols-outlined text-[18px]">person_remove</span>
-              Remove {occupantLabel}
-            </button>
+            {(() => {
+              const occ = house.owner || house.tenant;
+              const occEmail = occ?.email || "";
+              const showEmail = occEmail && !occEmail.endsWith("@residentone.local");
+              return (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="text-label-md uppercase tracking-wide text-primary">{occupantLabel}</span>
+                      <p className="mt-1 text-title-md font-semibold text-on-surface">{occ?.name || "-"}</p>
+                      <p className="flex items-center gap-1 text-body-md text-on-surface-variant"><span className="material-symbols-outlined text-[16px]">call</span> {occ?.phone || "-"}</p>
+                      {showEmail && <p className="flex items-center gap-1 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[14px]">mail</span> {occEmail}</p>}
+                    </div>
+                    <span className="material-symbols-outlined text-[36px] text-success">verified_user</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-surface-container-lowest p-3 text-body-sm">
+                    <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">work</span> Occupation: <b>{occ?.occupation || "—"}</b></p>
+                    <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members: <b>{occ?.familyMembers ?? "—"}</b></p>
+                    <div className="flex items-start gap-2">
+                      <span className="material-symbols-outlined text-[16px] text-primary mt-0.5">directions_car</span>
+                      <div>
+                        <p>Vehicles ({occ?.vehicles?.length || 0}):</p>
+                        {occ?.vehicles?.length ? occ.vehicles.map((v,i)=><span key={i} className="mr-1 mt-1 inline-block rounded-full bg-secondary-fixed px-2 py-0.5 font-mono text-label-sm font-bold tracking-widest">{v}</span>) : <b className="text-on-surface-variant">— No vehicles</b>}
+                      </div>
+                    </div>
+                    {occ?.createdAt && <p className="text-label-sm text-outline">Member since: {new Date(occ.createdAt).toLocaleDateString("en-IN")}</p>}
+                  </div>
+                  <button type="button" onClick={() => setConfirmUnassign(true)} className="mt-4 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low">
+                    <span className="material-symbols-outlined text-[18px]">person_remove</span> Remove {occupantLabel}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         ) : screen === "choice" ? (
           <ResidentChoice

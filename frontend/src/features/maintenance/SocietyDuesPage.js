@@ -60,15 +60,20 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
   const [dueDate, setDueDate] = useState("");
-  const [amount, setAmount] = useState("");
+  const [ownerAmount, setOwnerAmount] = useState("");
+  const [renterAmount, setRenterAmount] = useState("");
   const [error, setError] = useState("");
 
   const years = [today.getFullYear(), today.getFullYear() + 1];
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) {
-      setError("Enter a valid amount.");
+    if (!ownerAmount || Number(ownerAmount) <= 0) {
+      setError("Enter valid Owner amount.");
+      return;
+    }
+    if (!renterAmount || Number(renterAmount) < 0) {
+      setError("Enter valid Renter amount.");
       return;
     }
     if (!dueDate) {
@@ -76,7 +81,7 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
       return;
     }
     setError("");
-    onCreate({ month, year, dueDate, amount: Number(amount) });
+    onCreate({ month, year, dueDate, ownerAmount: Number(ownerAmount), renterAmount: Number(renterAmount), amount: Number(ownerAmount) });
   };
 
   return (
@@ -155,20 +160,37 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
             />
           </div>
 
-          <div>
-            <label htmlFor="cm-amount" className="mb-1 block text-label-sm text-on-surface-variant">
-              Amount per House (₹)
-            </label>
-            <input
-              id="cm-amount"
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="e.g. 2500"
-              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="cm-owner-amount" className="mb-1 block text-label-sm text-on-surface-variant">
+                Owner Amount (₹) *
+              </label>
+              <input
+                id="cm-owner-amount"
+                type="number"
+                min="1"
+                value={ownerAmount}
+                onChange={(e) => setOwnerAmount(e.target.value)}
+                placeholder="e.g. 2000"
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label htmlFor="cm-renter-amount" className="mb-1 block text-label-sm text-on-surface-variant">
+                Renter Amount (₹) *
+              </label>
+              <input
+                id="cm-renter-amount"
+                type="number"
+                min="0"
+                value={renterAmount}
+                onChange={(e) => setRenterAmount(e.target.value)}
+                placeholder="e.g. 2500"
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
           </div>
+          <p className="text-label-sm text-outline">Owner pays owner amount, Renter pays renter amount — shown accordingly.</p>
 
           {(error || apiError) && (
             <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">
@@ -357,7 +379,7 @@ export default function SocietyDuesPage() {
               >
                 {cycles.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {`${MONTHS[c.month - 1]} ${c.year} · ${formatAmount(c.amount)} · due ${formatDate(c.dueDate)}`}
+                    {`${MONTHS[c.month - 1]} ${c.year} · Owner ${formatAmount(c.ownerAmount || c.amount)} / Renter ${formatAmount(c.renterAmount || c.amount)} · due ${formatDate(c.dueDate)}`}
                   </option>
                 ))}
               </select>

@@ -108,7 +108,8 @@ export default function PayMaintenancePage() {
 
   const r = detailQuery.data;
   const isPaid = ["paid", "late_paid"].includes(r.status);
-  const base = r.cycle.amount;
+  const base = r.amount || r.dueAmount || r.cycle.amount;
+  const roleLabel = r.isOwner ? "Owner" : r.isTenant ? "Renter" : r.houseRole === "owner" ? "Owner" : "Renter";
   const mockFee = Math.ceil(base * 0.02 * 1.18);
   const total = base + mockFee;
 
@@ -118,7 +119,7 @@ export default function PayMaintenancePage() {
         <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back
       </Link>
       <h1 className="page-title">Pay Maintenance</h1>
-      <p className="page-subtitle">House {r.label} · {new Date(r.cycle.year, r.cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</p>
+      <p className="page-subtitle">House {r.label} · {roleLabel} · {new Date(r.cycle.year, r.cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · {formatAmount(base)} due</p>
 
       {isPaid ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
@@ -139,11 +140,11 @@ export default function PayMaintenancePage() {
                   <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-label-sm text-on-primary">Recommended</span>
                 </div>
                 <div className="mt-3 space-y-1 rounded-lg bg-white p-3 text-body-sm">
-                  <div className="flex justify-between"><span className="text-on-surface-variant">Maintenance</span><span className="font-semibold text-on-surface">{formatAmount(base)}</span></div>
+                  <div className="flex justify-between"><span className="text-on-surface-variant">Maintenance ({roleLabel})</span><span className="font-semibold text-on-surface">{formatAmount(base)}</span></div>
                   <div className="flex justify-between"><span className="text-on-surface-variant">Gateway fee (2% + GST)</span><span className="font-semibold text-on-surface">+{formatAmount(feeInfo ? feeInfo.fee : mockFee)}</span></div>
                   <div className="flex justify-between border-t border-outline-variant pt-2 font-bold"><span>Total you pay</span><span className="text-primary">{formatAmount(feeInfo ? feeInfo.total : total)}</span></div>
                 </div>
-                <p className="mt-2 text-label-sm text-on-surface-variant">Society gets full {formatAmount(base)} — Razorpay keeps fee. Instant receipt.</p>
+                <p className="mt-2 text-label-sm text-on-surface-variant">Society gets full {formatAmount(base)} ({roleLabel} rate) — Razorpay keeps fee. Instant receipt.</p>
                 <button
                   type="button"
                   onClick={() => createOrderMutation.mutate()}

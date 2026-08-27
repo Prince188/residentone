@@ -40,9 +40,18 @@ class MaintenanceController {
         cycle
       );
       const myUnitIds = (req.membership.units || []).map((id) => String(id));
-      const mine = myUnitIds.length
+      const userIdStr = String(req.userId);
+      const mineRaw = myUnitIds.length
         ? allUnits.filter((u) => myUnitIds.includes(String(u.unitId)))
         : [];
+      // FIX: DB-driven isOwner - compare unit ownerId/tenantId with current userId (from DB)
+      const mine = mineRaw.map((u) => ({
+        ...u,
+        isOwner: u.ownerId ? String(u.ownerId) === userIdStr : false,
+        isTenant: u.tenantId ? String(u.tenantId) === userIdStr : false,
+        // houseRole from DB ownership, not hardcoded
+        houseRole: u.ownerId && String(u.ownerId) === userIdStr ? "owner" : u.tenantId && String(u.tenantId) === userIdStr ? "tenant" : req.membership.role,
+      }));
       res.json({
         success: true,
         data: {

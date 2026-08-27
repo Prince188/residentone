@@ -66,27 +66,39 @@ class UnitService {
   async listUnits(societyId) {
     return Unit.find({ societyId })
       .sort({ unitNumber: 1, label: 1 })
-      .populate("ownerId", "name email phone vehicles")
-      .populate("tenantId", "name email phone vehicles")
+      .populate("ownerId", "name email phone vehicles occupation familyMembers isActive createdAt")
+      .populate("tenantId", "name email phone vehicles occupation familyMembers isActive createdAt")
       .lean();
   }
 
   mapUnitCard(unit) {
+    const mapResident = (u) =>
+      u
+        ? {
+            id: u._id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone,
+            vehicles: u.vehicles || [],
+            occupation: u.occupation || "",
+            familyMembers: u.familyMembers ?? null,
+            isActive: u.isActive,
+            createdAt: u.createdAt,
+          }
+        : null;
     return {
       id: unit._id,
       label: unit.label,
       doorNo: unit.doorNo,
       block: unit.block || null,
       floor: unit.floor || null,
+      propertyType: unit.propertyType || null,
+      unitNumber: unit.unitNumber || null,
       isAssigned: Boolean(unit.ownerId),
       isRented: Boolean(unit.tenantId),
       hasPendingInvite: Boolean(unit.inviteToken && unit.inviteExpiresAt && new Date(unit.inviteExpiresAt) > new Date()),
-      owner: unit.ownerId
-        ? { id: unit.ownerId._id, name: unit.ownerId.name, email: unit.ownerId.email, phone: unit.ownerId.phone, vehicles: unit.ownerId.vehicles || [] }
-        : null,
-      tenant: unit.tenantId
-        ? { id: unit.tenantId._id, name: unit.tenantId.name, email: unit.tenantId.email, phone: unit.tenantId.phone, vehicles: unit.tenantId.vehicles || [] }
-        : null,
+      owner: mapResident(unit.ownerId),
+      tenant: mapResident(unit.tenantId),
     };
   }
 
@@ -101,8 +113,8 @@ class UnitService {
 
   async getUnitDetail(societyId, unitId) {
     const unit = await this.findUnitInSociety(societyId, unitId);
-    const populated = await unit.populate("ownerId", "name email phone vehicles");
-    await populated.populate("tenantId", "name email phone vehicles");
+    const populated = await unit.populate("ownerId", "name email phone vehicles occupation familyMembers isActive createdAt");
+    await populated.populate("tenantId", "name email phone vehicles occupation familyMembers isActive createdAt");
     const [card, society] = await Promise.all([
       Promise.resolve(this.mapUnitCard(populated)),
       Society.findById(societyId).select("name").lean(),

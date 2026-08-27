@@ -18,6 +18,16 @@ const cycleSchema = new mongoose.Schema(
       required: [true, "Maintenance amount is required"],
       min: [1, "Amount must be at least 1"],
     },
+    ownerAmount: {
+      type: Number,
+      min: [0, "Owner amount cannot be negative"],
+      default: null,
+    },
+    renterAmount: {
+      type: Number,
+      min: [0, "Renter amount cannot be negative"],
+      default: null,
+    },
     dueDate: {
       type: Date,
       required: [true, "Due date is required"],
