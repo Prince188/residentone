@@ -13,6 +13,7 @@ const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
+  { icon: "event_available", label: "Manage Amenities", to: "/amenities/manage" },
 ];
 
 const generalCards = [
@@ -96,7 +97,7 @@ function CardSection({ title, cards, variant = "general" }) {
   const cols =
     cards.length <= 4
       ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-6"
-      : "grid-cols-4 sm:grid-cols-5 lg:grid-cols-8";
+      : "grid-cols-3 sm:grid-cols-5 lg:grid-cols-8";
   return (
     <section>
       <SectionTitle>{title}</SectionTitle>

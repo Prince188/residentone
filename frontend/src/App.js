@@ -31,6 +31,8 @@ import VisitorsPage from "./features/visitors/VisitorsPage";
 import NoticesPage from "./features/notices/NoticesPage";
 import CreateNoticePage from "./features/notices/CreateNoticePage";
 import AmenitiesPage from "./features/amenities/AmenitiesPage";
+import ManageAmenitiesPage from "./features/amenities/ManageAmenitiesPage";
+import AmenityHistoryPage from "./features/amenities/AmenityHistoryPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
 import DirectoryPage from "./features/directory/DirectoryPage";
@@ -81,6 +83,8 @@ function App() {
               <Route path="/notices" element={<NoticesPage />} />
               <Route path="/notices/new" element={<CreateNoticePage />} />
               <Route path="/amenities" element={<AmenitiesPage />} />
+              <Route path="/amenities/manage" element={<ManageAmenitiesPage />} />
+              <Route path="/amenities/history" element={<AmenityHistoryPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />
               <Route path="/directory" element={<DirectoryPage />} />

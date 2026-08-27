@@ -13,6 +13,7 @@ const unitRoutes = require("./modules/unit/unit.routes");
 const noticeRoutes = require("./modules/notice/notice.routes");
 const maintenanceRoutes = require("./modules/maintenance/maintenance.routes");
 const complaintRoutes = require("./modules/complaint/complaint.routes");
+const amenityRoutes = require("./modules/amenity/amenity.routes");
 const healthRoutes = require("./modules/health/health.routes");
 
 const app = express();
@@ -31,6 +32,7 @@ app.use("/api/v1/units", unitRoutes);
 app.use("/api/v1/notices", noticeRoutes);
 app.use("/api/v1/maintenance", maintenanceRoutes);
 app.use("/api/v1/complaints", complaintRoutes);
+app.use("/api/v1/amenities", amenityRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);
