@@ -53,6 +53,17 @@ function HouseCard({ house, onClick }) {
       <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
         {(house.owner || house.tenant)?.name || "No resident assigned"}
       </p>
+      {(() => {
+        const vehicles = (house.owner || house.tenant)?.vehicles || [];
+        if (!vehicles.length) return null;
+        return (
+          <p className="mt-1 flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-[14px]">directions_car</span>
+            {vehicles[0]}
+            {vehicles.length > 1 ? ` +${vehicles.length - 1}` : ""}
+          </p>
+        );
+      })()}
       {house.hasPendingInvite && !house.isAssigned && !house.isRented && (
         <p className="mt-1 flex items-center gap-1 text-label-sm text-primary">
           <span className="material-symbols-outlined text-[14px]">link</span>
@@ -92,7 +103,10 @@ export default function ManageHousesPage() {
           String(h.label).toLowerCase().includes(q) ||
           (h.owner?.name || "").toLowerCase().includes(q) ||
           (h.tenant?.name || "").toLowerCase().includes(q) ||
-          (h.owner?.phone || h.tenant?.phone || "").includes(q)
+          (h.owner?.phone || "").includes(q) ||
+          (h.tenant?.phone || "").includes(q) ||
+          (h.owner?.vehicles || []).some((v) => String(v).toLowerCase().includes(q)) ||
+          (h.tenant?.vehicles || []).some((v) => String(v).toLowerCase().includes(q))
       );
     }
     return result;
@@ -182,13 +196,27 @@ export default function ManageHousesPage() {
               </button>
             ))}
           </div>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search house no. or resident..."
-            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+          <div>
+            <p className="mb-1 text-label-sm font-medium text-on-surface-variant">
+              General search
+            </p>
+            <div className="relative">
+              <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
+                search
+              </span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="House, name, phone or vehicle no..."
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <p className="mt-1 flex items-center gap-1 text-label-sm text-outline">
+              <span className="material-symbols-outlined text-[14px]">directions_car</span>
+              Try vehicle no. e.g. GJ01AB1234
+            </p>
+          </div>
         </div>
       </section>
 

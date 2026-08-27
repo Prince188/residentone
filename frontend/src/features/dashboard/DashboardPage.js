@@ -26,6 +26,7 @@ const generalCards = [
   { icon: "folder_open", label: "Documents", to: "/documents" },
   { icon: "emergency", label: "Emergency", to: "/emergency-contacts" },
   { icon: "groups", label: "Directory", to: "/directory" },
+  { icon: "directions_car", label: "Vehicles", to: "/vehicles" },
 ];
 
 const CARD_TINTS = [

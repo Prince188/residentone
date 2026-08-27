@@ -35,6 +35,7 @@ import ManageHousesPage from "./features/houses/ManageHousesPage";
 import HouseDetailPage from "./features/houses/HouseDetailPage";
 import HouseInvitePage from "./features/houses/HouseInvitePage";
 import MyUnitPage from "./features/my-unit/MyUnitPage";
+import VehiclesPage from "./features/vehicles/VehiclesPage";
 import EmergencyContactsPage from "./features/emergency/EmergencyContactsPage";
 import ProfilePage from "./features/profile/ProfilePage";
 import SettingsPage from "./features/settings/SettingsPage";
@@ -77,6 +78,7 @@ function App() {
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />
               <Route path="/directory" element={<DirectoryPage />} />
+              <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/my-unit" element={<MyUnitPage />} />
               <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
