@@ -48,6 +48,17 @@ router.post(
   (req, res, next) => maintenanceController.removePayment(req, res, next)
 );
 
+// Razorpay online payment (resident or admin) - both can pay
+router.post("/cycles/:cycleId/units/:unitId/create-order", (req, res, next) =>
+  maintenanceController.createRazorpayOrder(req, res, next)
+);
+router.post("/cycles/:cycleId/units/:unitId/verify", (req, res, next) =>
+  maintenanceController.verifyRazorpayPayment(req, res, next)
+);
+router.get("/cycles/:cycleId/units/:unitId/receipt", (req, res, next) =>
+  maintenanceController.getReceipt(req, res, next)
+);
+
 // Unit record within a cycle — admin or assigned member
 router.get("/cycles/:cycleId/units/:unitId", (req, res, next) =>
   maintenanceController.getCycleUnitDetail(req, res, next)

@@ -114,6 +114,10 @@ class MaintenanceService {
       paidOn: record.paidOn,
       method: record.method,
       receiptNo: record.receiptNo,
+      amount: record.amount || cycle.amount,
+      fee: record.fee || 0,
+      totalAmount: record.totalAmount || record.amount || cycle.amount,
+      gatewayStatus: record.gatewayStatus || "cash",
     };
   }
 
@@ -153,6 +157,10 @@ class MaintenanceService {
       paidOn: payment?.paidOn || null,
       method: payment?.method || null,
       receiptNo: payment?.receiptNo || null,
+      amount: payment?.amount || cycle.amount,
+      fee: payment?.fee || 0,
+      totalAmount: payment?.totalAmount || cycle.amount,
+      gatewayStatus: payment?.gatewayStatus || "cash",
     };
 
     return this.mapUnitRecord(record, cycle, membership.role);
@@ -195,11 +203,13 @@ class MaintenanceService {
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
+        fee: payment?.fee || 0,
+        totalAmount: payment?.totalAmount || cycle.amount,
       };
     });
   }
 
-  // Admin records/updates a payment for a unit in a cycle
+  // Admin records/updates a payment for a unit in a cycle (cash/manual)
   async recordPayment(societyId, cycle, unitId, userId, data) {
     const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true });
     if (!unit) throw new AppError("House not found", 404);
@@ -214,13 +224,106 @@ class MaintenanceService {
         cycleId: cycle._id,
         unitId,
         paidOn,
-        method: data.method || "UPI",
+        method: data.method || "Cash",
+        amount: cycle.amount,
+        fee: 0,
+        totalAmount: cycle.amount,
+        gatewayStatus: "cash",
+        razorpayOrderId: null,
+        razorpayPaymentId: null,
         receiptNo,
         recordedBy: userId,
         isActive: true,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
+  }
+
+  // Razorpay: create order for online payment (fee passed to resident)
+  async createRazorpayOrder(societyId, cycle, unitId, userId) {
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true });
+    if (!unit) throw new AppError("House not found", 404);
+
+    const existing = await MaintenancePayment.findOne({
+      societyId,
+      cycleId: cycle._id,
+      unitId,
+      isActive: true,
+      gatewayStatus: "paid",
+    }).lean();
+    if (existing) throw new AppError("Payment already recorded for this house", 409);
+
+    const { createOrder } = require("../../shared/services/razorpay.service");
+    const receipt = `rcpt_${cycle.year}${String(cycle.month).padStart(2, "0")}_${String(unitId).slice(-6)}`;
+    const order = await createOrder({ amount: cycle.amount, receipt });
+
+    // Create pending payment record with order id
+    await MaintenancePayment.findOneAndUpdate(
+      { societyId, cycleId: cycle._id, unitId },
+      {
+        societyId,
+        cycleId: cycle._id,
+        unitId,
+        paidOn: new Date(),
+        method: "Razorpay",
+        amount: order.baseAmount,
+        fee: order.fee,
+        totalAmount: order.total,
+        razorpayOrderId: order.id,
+        gatewayStatus: "created",
+        recordedBy: userId,
+        isActive: false,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    return order;
+  }
+
+  async verifyRazorpayPayment(societyId, cycle, unitId, userId, data) {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = data;
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      throw new AppError("Missing Razorpay payment details", 400);
+    }
+
+    const { verifySignature } = require("../../shared/services/razorpay.service");
+    const isValid = verifySignature({
+      orderId: razorpayOrderId,
+      paymentId: razorpayPaymentId,
+      signature: razorpaySignature,
+    });
+    if (!isValid) throw new AppError("Invalid Razorpay signature", 400);
+
+    const pending = await MaintenancePayment.findOne({
+      societyId,
+      cycleId: cycle._id,
+      unitId,
+      razorpayOrderId,
+    });
+    if (!pending) throw new AppError("Order not found. Create order first.", 404);
+
+    const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
+
+    const updated = await MaintenancePayment.findOneAndUpdate(
+      { societyId, cycleId: cycle._id, unitId },
+      {
+        societyId,
+        cycleId: cycle._id,
+        unitId,
+        paidOn: new Date(),
+        method: "Razorpay",
+        razorpayPaymentId,
+        razorpaySignature,
+        gatewayStatus: "paid",
+        receiptNo,
+        recordedBy: userId,
+        isActive: true,
+      },
+      { new: true }
+    ).lean();
+
+    if (!updated) throw new AppError("Failed to record payment", 500);
+    return updated;
   }
 
   async removePayment(societyId, cycle, unitId) {
@@ -231,6 +334,66 @@ class MaintenanceService {
     ).lean();
     if (!result) throw new AppError("No recorded payment found", 404);
     return result;
+  }
+
+  async getReceipt(societyId, cycle, unitId, membership) {
+    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    const myUnitIds = (membership.units || []).map((id) => String(id));
+    if (!isAdmin && !myUnitIds.includes(String(unitId))) {
+      throw new AppError("This house is not assigned to you", 403);
+    }
+
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true })
+      .populate("ownerId", "name phone email")
+      .lean();
+    if (!unit) throw new AppError("House not found", 404);
+
+    const payment = await MaintenancePayment.findOne({
+      societyId,
+      cycleId: cycle._id,
+      unitId,
+      isActive: true,
+    }).lean();
+    if (!payment) throw new AppError("No payment found for this house", 404);
+
+    // Only allow receipt if paid
+    const status = this.statusFor(payment, cycle);
+    if (!["paid", "late_paid"].includes(status)) {
+      throw new AppError("Payment not completed yet", 400);
+    }
+
+    // Fetch society for receipt header
+    const { Society } = require("../society/society.model");
+    const society = await Society.findById(societyId).lean();
+
+    return {
+      receiptNo: payment.receiptNo,
+      society: {
+        name: society?.name || "Society",
+        address: society ? `${society.address}, ${society.city}, ${society.state} - ${society.pincode}` : "",
+      },
+      unit: {
+        id: unit._id,
+        label: unit.label,
+        block: unit.block,
+        floor: unit.floor,
+        doorNo: unit.doorNo,
+        ownerName: unit.ownerId?.name || membership?.userId || "Resident",
+        ownerPhone: unit.ownerId?.phone || "",
+      },
+      cycle: this.mapCycle(cycle),
+      payment: {
+        amount: payment.amount || cycle.amount,
+        fee: payment.fee || 0,
+        totalAmount: payment.totalAmount || payment.amount || cycle.amount,
+        method: payment.method,
+        paidOn: payment.paidOn,
+        receiptNo: payment.receiptNo,
+        razorpayPaymentId: payment.razorpayPaymentId || null,
+        razorpayOrderId: payment.razorpayOrderId || null,
+      },
+      status,
+    };
   }
 }
 

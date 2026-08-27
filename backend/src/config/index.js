@@ -28,6 +28,14 @@ const config = {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
   },
+
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || null,
+    keySecret: process.env.RAZORPAY_KEY_SECRET || null,
+    // 2% + 18% GST = 2.36% total fee passed to resident
+    feePercent: parseFloat(process.env.RAZORPAY_FEE_PERCENT || "2"),
+    gstOnFeePercent: parseFloat(process.env.RAZORPAY_GST_PERCENT || "18"),
+  },
 };
 
 module.exports = { config };

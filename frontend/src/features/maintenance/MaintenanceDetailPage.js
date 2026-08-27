@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   STATUS_UI,
@@ -8,6 +8,7 @@ import {
   formatDate,
   getCycleUnitDetail,
   getUnitHistory,
+  getReceipt,
 } from "../../lib/maintenance";
 
 function DetailRow({ label, value }) {
@@ -24,9 +25,9 @@ function DetailRow({ label, value }) {
 export default function MaintenanceDetailPage() {
   const { unitId } = useParams();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const cycleId = searchParams.get("cycle");
   const [showHistory, setShowHistory] = useState(false);
-  const [showPayNotice, setShowPayNotice] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: ["maintenance", "unit-detail", cycleId, unitId],
@@ -127,23 +128,69 @@ export default function MaintenanceDetailPage() {
                 {!isSettled && record.status === "overdue" && " · Please clear your dues"}
               </p>
             </div>
-            {!isSettled && (
+            {!isSettled ? (
               <button
                 type="button"
-                onClick={() => setShowPayNotice(true)}
+                onClick={() => navigate(`/maintenance/${unitId}/pay?cycle=${cycleId}`)}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed"
               >
                 <span className="material-symbols-outlined text-[18px]">payments</span>
                 Pay Now
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await getReceipt(cycleId, unitId);
+                    const data = res.data.data;
+                    // Generate printable receipt HTML
+                    const html = `
+                      <html><head><title>Receipt ${data.receiptNo}</title>
+                      <style>
+                        body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a}
+                        .header{border-bottom:2px solid #1a73e8;padding-bottom:16px;margin-bottom:20px}
+                        .header h1{margin:0;color:#1a73e8;font-size:22px}
+                        .header p{margin:4px 0;color:#555;font-size:13px}
+                        .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+                        .label{color:#666} .value{font-weight:600}
+                        .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #1a73e8;padding-top:12px}
+                        .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
+                      </style></head><body>
+                      <div class="header">
+                        <h1>${data.society.name}</h1>
+                        <p>${data.society.address}</p>
+                        <h2 style="margin-top:16px;font-size:18px">Maintenance Receipt</h2>
+                        <p>Receipt No: <b>${data.receiptNo}</b> | Date: ${new Date(data.payment.paidOn).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+                      </div>
+                      <div class="row"><span class="label">House</span><span class="value">House ${data.unit.label}${data.unit.block ? " · Block " + data.unit.block : ""}</span></div>
+                      <div class="row"><span class="label">Resident</span><span class="value">${data.unit.ownerName} ${data.unit.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
+                      <div class="row"><span class="label">Period</span><span class="value">${new Date(data.cycle.year, data.cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span></div>
+                      <div class="row"><span class="label">Due Date</span><span class="value">${new Date(data.cycle.dueDate).toLocaleDateString("en-IN")}</span></div>
+                      <div class="row"><span class="label">Payment Method</span><span class="value">${data.payment.method}${data.payment.razorpayPaymentId ? " · " + data.payment.razorpayPaymentId : ""}</span></div>
+                      <div class="row"><span class="label">Maintenance Amount</span><span class="value">₹${Number(data.payment.amount).toLocaleString("en-IN")}</span></div>
+                      <div class="row"><span class="label">Gateway Fee ${data.payment.fee ? "(2% + GST)" : "(Cash - No Fee)"}</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
+                      <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>
+                      <div class="row"><span class="label">Status</span><span class="value" style="color:#0a7a42">${data.status.toUpperCase()}</span></div>
+                      <div class="footer">This is a computer generated receipt from ResidentOne. For queries contact society office.<br/>Thank you for your payment!</div>
+                      </body></html>
+                    `;
+                    const win = window.open("", "_blank");
+                    win.document.write(html);
+                    win.document.close();
+                    win.focus();
+                    win.print();
+                  } catch (e) {
+                    alert(extractApiError(e, "Failed to download receipt. Make sure payment is completed."));
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-label-md font-semibold text-emerald-700 transition-colors hover:bg-emerald-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">download</span>
+                Download Receipt
+              </button>
             )}
           </div>
-          {showPayNotice && !isSettled && (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-label-md text-white">
-              <span className="material-symbols-outlined text-[16px]">info</span>
-              Online payments via Razorpay are coming soon. Please pay offline for now — the admin will mark it as paid.
-            </p>
-          )}
         </div>
 
         <div className="grid grid-cols-3 divide-x divide-outline-variant border-t border-outline-variant">
@@ -167,13 +214,62 @@ export default function MaintenanceDetailPage() {
       </section>
 
       <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5">
-        <h2 className="text-body-lg font-semibold text-on-surface">Payment Details</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-body-lg font-semibold text-on-surface">Payment Details</h2>
+          {isSettled && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await getReceipt(cycleId, unitId);
+                  const data = res.data.data;
+                  const html = `
+                    <html><head><title>Receipt ${data.receiptNo}</title>
+                    <style>
+                      body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a}
+                      .header{border-bottom:2px solid #1a73e8;padding-bottom:16px;margin-bottom:20px}
+                      .header h1{margin:0;color:#1a73e8;font-size:22px}
+                      .header p{margin:4px 0;color:#555;font-size:13px}
+                      .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+                      .label{color:#666} .value{font-weight:600}
+                      .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #1a73e8;padding-top:12px}
+                      .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
+                    </style></head><body>
+                    <div class="header">
+                      <h1>${data.society.name}</h1>
+                      <p>${data.society.address}</p>
+                      <h2 style="margin-top:16px;font-size:18px">Maintenance Receipt</h2>
+                      <p>Receipt No: <b>${data.receiptNo}</b> | Date: ${new Date(data.payment.paidOn).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    </div>
+                    <div class="row"><span class="label">House</span><span class="value">House ${data.unit.label}</span></div>
+                    <div class="row"><span class="label">Period</span><span class="value">${new Date(data.cycle.year, data.cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span></div>
+                    <div class="row"><span class="label">Gateway Fee</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
+                    <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>
+                    </body></html>
+                  `;
+                  const win = window.open("", "_blank");
+                  win.document.write(html);
+                  win.document.close();
+                  win.print();
+                } catch (e) {
+                  alert(extractApiError(e, "Failed to download receipt."));
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-label-sm font-semibold text-primary hover:bg-primary/20"
+            >
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              Download Receipt
+            </button>
+          )}
+        </div>
         <div className="mt-2">
           <DetailRow
             label="Period"
             value={`${new Date(record.cycle.year, record.cycle.month - 1).toLocaleDateString("en-IN", { month: "long" })} ${record.cycle.year}`}
           />
-          <DetailRow label="Amount" value={formatAmount(record.cycle.amount)} />
+          <DetailRow label="Amount" value={formatAmount(record.amount || record.cycle.amount)} />
+          {record.fee > 0 && <DetailRow label="Gateway Fee (2% + GST)" value={formatAmount(record.fee)} />}
+          <DetailRow label="Total Paid" value={record.totalAmount ? formatAmount(record.totalAmount) : formatAmount(record.cycle.amount)} />
           <DetailRow label="Due Date" value={formatDate(record.cycle.dueDate)} />
           <DetailRow label="Paid On" value={formatDate(record.paidOn)} />
           <DetailRow label="Payment Method" value={record.method} />

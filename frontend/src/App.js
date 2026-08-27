@@ -21,6 +21,7 @@ import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MaintenancePage from "./features/maintenance/MaintenancePage";
 import MaintenanceDetailPage from "./features/maintenance/MaintenanceDetailPage";
+import PayMaintenancePage from "./features/maintenance/PayMaintenancePage";
 import SocietyDuesPage from "./features/maintenance/SocietyDuesPage";
 import SocietyDueDetailPage from "./features/maintenance/SocietyDueDetailPage";
 import ComplaintsPage from "./features/complaints/ComplaintsPage";
@@ -70,6 +71,7 @@ function App() {
               <Route path="/houses/:unitId" element={<HouseDetailPage />} />
               <Route path="/maintenance" element={<MaintenancePage />} />
               <Route path="/maintenance/:unitId" element={<MaintenanceDetailPage />} />
+              <Route path="/maintenance/:unitId/pay" element={<PayMaintenancePage />} />
               <Route path="/dues" element={<SocietyDuesPage />} />
               <Route path="/dues/:unitId" element={<SocietyDueDetailPage />} />
               <Route path="/complaints" element={<ComplaintsPage />} />

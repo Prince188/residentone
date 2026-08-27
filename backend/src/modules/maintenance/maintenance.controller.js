@@ -112,7 +112,7 @@ class MaintenanceController {
         req.societyId,
         req.params.cycleId
       );
-      const payment = await maintenanceService.recordPayment(
+      await maintenanceService.recordPayment(
         req.societyId,
         cycle,
         req.params.unitId,
@@ -126,6 +126,73 @@ class MaintenanceController {
         req.membership
       );
       res.json({ success: true, data: record });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createRazorpayOrder(req, res, next) {
+    try {
+      const cycle = await maintenanceService.getCycle(
+        req.societyId,
+        req.params.cycleId
+      );
+      // Only assigned member or admin can create order
+      const isAdmin = ["super_admin", "society_admin"].includes(req.membership.role);
+      const myUnitIds = (req.membership.units || []).map((id) => String(id));
+      if (!isAdmin && !myUnitIds.includes(String(req.params.unitId))) {
+        return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "This house is not assigned to you" } });
+      }
+      const order = await maintenanceService.createRazorpayOrder(
+        req.societyId,
+        cycle,
+        req.params.unitId,
+        req.userId
+      );
+      res.json({ success: true, data: order });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyRazorpayPayment(req, res, next) {
+    try {
+      const cycle = await maintenanceService.getCycle(
+        req.societyId,
+        req.params.cycleId
+      );
+      const updated = await maintenanceService.verifyRazorpayPayment(
+        req.societyId,
+        cycle,
+        req.params.unitId,
+        req.userId,
+        req.body
+      );
+      const record = await maintenanceService.getCycleUnitDetail(
+        req.societyId,
+        cycle,
+        req.params.unitId,
+        req.membership
+      );
+      res.json({ success: true, data: { payment: updated, record } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getReceipt(req, res, next) {
+    try {
+      const cycle = await maintenanceService.getCycle(
+        req.societyId,
+        req.params.cycleId
+      );
+      const receipt = await maintenanceService.getReceipt(
+        req.societyId,
+        cycle,
+        req.params.unitId,
+        req.membership
+      );
+      res.json({ success: true, data: receipt });
     } catch (error) {
       next(error);
     }

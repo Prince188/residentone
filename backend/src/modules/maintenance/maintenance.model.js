@@ -58,12 +58,44 @@ const paymentSchema = new mongoose.Schema(
     },
     method: {
       type: String,
-      enum: ["UPI", "Cash", "Bank Transfer", "Other"],
+      enum: ["UPI", "Cash", "Bank Transfer", "Other", "Razorpay"],
       default: "UPI",
     },
     receiptNo: {
       type: String,
       trim: true,
+    },
+    // Amount details for Razorpay flow (passed fee to resident)
+    amount: {
+      type: Number,
+      default: null,
+    },
+    fee: {
+      type: Number,
+      default: 0,
+    },
+    totalAmount: {
+      type: Number,
+      default: null,
+    },
+    // Razorpay gateway fields (null for cash/manual)
+    razorpayOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+    razorpaySignature: {
+      type: String,
+      default: null,
+    },
+    gatewayStatus: {
+      type: String,
+      enum: ["cash", "created", "paid", "failed"],
+      default: "cash",
     },
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
