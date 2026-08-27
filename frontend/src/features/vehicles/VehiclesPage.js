@@ -126,22 +126,46 @@ export default function VehiclesPage() {
                 {filtered.map((e) => (
                   <div
                     key={e.key}
-                    className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
+                    className="group rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <span className="material-symbols-outlined text-[22px]">directions_car</span>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-mono text-body-md font-bold tracking-wide text-on-surface">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-on-primary">
+                          <span className="material-symbols-outlined text-[20px]">home</span>
+                        </span>
+                        <p className="text-headline-sm font-bold leading-none text-on-surface">
+                          House {e.houseLabel}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-label-sm font-semibold ${
+                          e.status === "Owned"
+                            ? "bg-primary-fixed text-on-primary-fixed"
+                            : "bg-secondary-fixed text-on-secondary-fixed"
+                        }`}
+                      >
+                        {e.status}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-fixed text-primary">
+                        {e.ownerName?.[0]?.toUpperCase() || "?"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-body-lg font-bold leading-tight text-on-surface">
+                          {e.ownerName}
+                        </p>
+                        <p className="flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[14px]">call</span>
+                          {e.phone}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
+                      <span className="material-symbols-outlined text-[18px] text-primary">directions_car</span>
+                      <span className="font-mono text-body-sm font-bold tracking-widest text-on-surface">
                         {e.vehicle}
-                      </p>
-                      <p className="truncate text-body-sm font-semibold text-on-surface">
-                        {e.ownerName}
-                      </p>
-                      <p className="flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
-                        <span className="material-symbols-outlined text-[14px]">home</span>
-                        House {e.houseLabel} · {e.status}
-                      </p>
+                      </span>
                     </div>
                   </div>
                 ))}
