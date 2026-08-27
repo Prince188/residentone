@@ -407,3 +407,6 @@
 
 ---
 *Generated from `MYGATE_FEATURES.md` for tick-tracking. Keep both files in sync.*
+
+### Update 2026-08-27 - Complaints Module DONE
+- [x] Service requests (category/description) complaint.model.js:12-26`n- [x] Status tracking (open/in_progress/on_hold/resolved/closed/reopened) complaint.service.js:11`n- [x] Category control + Department control complaint.validation.js`n- [x] Public/Private visibility toggle isPublic - user choice ComplaintsPage.js`n- [x] Private = only owner + admin, Public = all society members complaint.service.js:42-61`n

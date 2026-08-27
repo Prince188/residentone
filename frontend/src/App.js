@@ -24,6 +24,8 @@ import MaintenanceDetailPage from "./features/maintenance/MaintenanceDetailPage"
 import SocietyDuesPage from "./features/maintenance/SocietyDuesPage";
 import SocietyDueDetailPage from "./features/maintenance/SocietyDueDetailPage";
 import ComplaintsPage from "./features/complaints/ComplaintsPage";
+import CreateComplaintPage from "./features/complaints/CreateComplaintPage";
+import ComplaintDetailPage from "./features/complaints/ComplaintDetailPage";
 import VisitorsPage from "./features/visitors/VisitorsPage";
 import NoticesPage from "./features/notices/NoticesPage";
 import CreateNoticePage from "./features/notices/CreateNoticePage";
@@ -71,6 +73,8 @@ function App() {
               <Route path="/dues" element={<SocietyDuesPage />} />
               <Route path="/dues/:unitId" element={<SocietyDueDetailPage />} />
               <Route path="/complaints" element={<ComplaintsPage />} />
+              <Route path="/complaints/new" element={<CreateComplaintPage />} />
+              <Route path="/complaints/:id" element={<ComplaintDetailPage />} />
               <Route path="/visitors" element={<VisitorsPage />} />
               <Route path="/notices" element={<NoticesPage />} />
               <Route path="/notices/new" element={<CreateNoticePage />} />
