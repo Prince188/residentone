@@ -71,6 +71,13 @@ export default function PayMaintenancePage() {
         name: "ResidentOne",
         description: `Maintenance ${order.receipt}`,
         order_id: order.id,
+        // Show all enabled methods - UPI visibility depends on Razorpay dashboard Test Mode settings
+        // If UPI still hidden, enable it in dashboard: Settings -> Payment Methods -> UPI ON (Test Mode)
+        config: {
+          display: {
+            preferences: { show_default_blocks: true },
+          },
+        },
         handler: async function (response) {
           try {
             await verifyRazorpayPayment(cycleId, unitId, {
