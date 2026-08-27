@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, {
   selectActiveSociety,
@@ -73,6 +74,13 @@ export default function DirectoryPage() {
     <div className="mx-auto max-w-6xl space-y-stack-lg">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
+          <Link
+            to="/dashboard"
+            className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            Dashboard
+          </Link>
           <h1 className="page-title">Society Directory</h1>
           <p className="page-subtitle">
             {directoryQuery.isLoading

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import useSocietyStore, {
   selectActiveMembership,
 } from "../../stores/society.store";
@@ -45,6 +46,13 @@ export default function MyUnitPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-stack-lg">
       <section>
+        <Link
+          to="/dashboard"
+          className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+        >
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          Dashboard
+        </Link>
         <h1 className="page-title">My Unit</h1>
         <p className="page-subtitle">
           Houses linked to your account.
