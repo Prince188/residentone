@@ -18,11 +18,14 @@ class UserController {
 
   async updateProfile(req, res, next) {
     try {
-      const { name, email, phone } = req.body;
+      const { name, email, phone, occupation, familyMembers, vehicles } = req.body;
       const updateData = {};
-      if (name) updateData.name = name;
-      if (email) updateData.email = email;
-      if (phone) updateData.phone = phone;
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (occupation !== undefined) updateData.occupation = occupation;
+      if (familyMembers !== undefined) updateData.familyMembers = familyMembers;
+      if (vehicles !== undefined) updateData.vehicles = vehicles;
 
       const user = await userService.update(req.userId, updateData);
       res.json({ success: true, data: user });

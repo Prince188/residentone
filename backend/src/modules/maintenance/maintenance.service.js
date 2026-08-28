@@ -3,18 +3,18 @@ const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 
 class MaintenanceService {
-  // helper: get amount for a specific unit (owner vs renter) - DB driven
+  // helper: get amount for a specific unit - renter priority if renter lives there
   getAmountForUnit(cycle, unit) {
-    // unit may be populated or raw
-    const hasOwner = unit && (unit.ownerId || unit.owner);
     const hasTenant = unit && (unit.tenantId || unit.tenant);
-    // If tenant exists and no owner, treat as renter; else owner
-    const isRenterUnit = !hasOwner && hasTenant;
-    if (isRenterUnit) {
+    const hasOwner = unit && (unit.ownerId || unit.owner);
+    // If renter exists (currently lives), use renter amount - priority
+    if (hasTenant) {
       return cycle.renterAmount != null ? cycle.renterAmount : cycle.amount;
     }
-    // owner unit or vacant -> use ownerAmount
-    return cycle.ownerAmount != null ? cycle.ownerAmount : cycle.amount;
+    if (hasOwner) {
+      return cycle.ownerAmount != null ? cycle.ownerAmount : cycle.amount;
+    }
+    return cycle.amount;
   }
 
   async createCycle(societyId, userId, data) {
@@ -123,20 +123,23 @@ class MaintenanceService {
       const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
       const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
       const unitAmount = this.getAmountForUnit(cycle, unit);
+      // Renter priority for display
+      const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
+      const displayPhone = unit.tenantId?.phone || unit.ownerId?.phone || null;
       return {
         unitId: unit._id,
         label: unit.label,
-        ownerName: unit.ownerId?.name || unit.tenantId?.name || null,
-        ownerPhone: unit.ownerId?.phone || unit.tenantId?.phone || null,
+        ownerName: displayName,
+        ownerPhone: displayPhone,
         ownerId: ownerIdStr,
         tenantId: tenantIdStr,
         isOccupied: Boolean(unit.ownerId || unit.tenantId),
+        isRenterOccupied: Boolean(unit.tenantId),
         amount: unitAmount,
         status: this.statusFor(payment, cycle),
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
-        // expose for frontend per-unit display
         cycleOwnerAmount: cycle.ownerAmount,
         cycleRenterAmount: cycle.renterAmount,
       };
@@ -200,14 +203,13 @@ class MaintenanceService {
       block: unit.block,
       floor: unit.floor,
       doorNo: unit.doorNo,
-      ownerName: unit.ownerId?.name || unit.tenantId?.name || null,
-      ownerPhone: unit.ownerId?.phone || unit.tenantId?.phone || null,
+      // Renter priority for display
+      ownerName: unit.tenantId?.name || unit.ownerId?.name || null,
+      ownerPhone: unit.tenantId?.phone || unit.ownerId?.phone || null,
       isOwner: isOwnerFlag,
       isTenant: isTenantFlag,
-      // DB-driven role for this house: owner > tenant > membership.role fallback
-      houseRole: isOwnerFlag ? "owner" : isTenantFlag ? "tenant" : membership.role,
+      houseRole: isTenantFlag ? "tenant" : isOwnerFlag ? "owner" : membership.role,
       amount: unitAmount,
-      // the amount that was actually paid (if payment exists) else the due amount
       dueAmount: unitAmount,
       status: this.statusFor(payment, cycle),
       paidOn: payment?.paidOn || null,

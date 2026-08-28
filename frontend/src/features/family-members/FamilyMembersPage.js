@@ -1,0 +1,125 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
+import { getFamilyMembers, addFamilyMember, removeFamilyMember, extractApiError } from "../../lib/familyMembers";
+
+const RELATIONS = ["spouse", "child", "parent", "sibling", "relative", "other"];
+
+export default function FamilyMembersPage() {
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const membership = useSocietyStore(selectActiveMembership);
+  const myHouses = membership?.units || [];
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ unitId: myHouses[0]?.id || "", name: "", relation: "other", phone: "" });
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const listQuery = useQuery({
+    queryKey: ["family-members", activeSociety?.id],
+    queryFn: async () => (await getFamilyMembers()).data.data,
+    enabled: Boolean(activeSociety),
+  });
+
+  const addMut = useMutation({
+    mutationFn: (payload) => addFamilyMember(payload).then((r) => r.data.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      setMsg("Family member added");
+      setErr("");
+      setForm({ unitId: myHouses[0]?.id || "", name: "", relation: "other", phone: "" });
+      setTimeout(() => setMsg(""), 3000);
+    },
+    onError: (e) => setErr(extractApiError(e, "Failed to add")),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: (id) => removeFamilyMember(id).then((r) => r.data.data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["family-members"] }),
+  });
+
+  if (!myHouses.length) {
+    return (
+      <div className="mx-auto max-w-3xl p-10 text-center rounded-xl border border-dashed">
+        <span className="material-symbols-outlined text-[40px] text-outline">group_add</span>
+        <p className="mt-2 text-body-md">You have no house assigned. Contact admin to get a house.</p>
+        <Link to="/dashboard" className="mt-3 inline-block text-primary hover:underline">Back to Dashboard</Link>
+      </div>
+    );
+  }
+
+  const members = listQuery.data || [];
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    if (!form.unitId) { setErr("Select your house"); return; }
+    if (!form.name.trim() || form.name.trim().length < 2) { setErr("Enter valid name (min 2 chars)"); return; }
+    setErr("");
+    addMut.mutate({ unitId: form.unitId, name: form.name.trim(), relation: form.relation, phone: form.phone.trim() });
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <Link to="/dashboard" className="inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
+        <span className="material-symbols-outlined text-[16px]">arrow_back</span> Dashboard
+      </Link>
+      <div>
+        <h1 className="page-title">Add Family Members</h1>
+        <p className="page-subtitle">{activeSociety?.name} · Add your family to your house</p>
+      </div>
+
+      {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-label-md text-emerald-800">{msg}</p>}
+      {err && <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">{err}</p>}
+
+      <form onSubmit={handleAdd} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 space-y-4">
+        <div>
+          <label className="text-label-md font-medium">Select Your House *</label>
+          <select value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
+            {myHouses.map((u) => (
+              <option key={u.id} value={u.id}>House {u.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-label-md font-medium">Family Member Name *</label>
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sunita Patel" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-label-md font-medium">Role / Relation *</label>
+            <select value={form.relation} onChange={(e) => setForm({ ...form, relation: e.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm capitalize">
+              {RELATIONS.map((r) => (
+                <option key={r} value={r} className="capitalize">{r}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-label-md font-medium">Phone (optional)</label>
+            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Optional" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
+          </div>
+        </div>
+        <button type="submit" disabled={addMut.isPending} className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary disabled:opacity-50">
+          {addMut.isPending ? "Adding..." : "Add Member"}
+        </button>
+      </form>
+
+      <section className="space-y-3">
+        <h3 className="text-body-lg font-semibold">Your Family Members ({members.length})</h3>
+        {listQuery.isLoading && <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-high" />)}</div>}
+        {members.length === 0 && !listQuery.isLoading && <p className="rounded-xl border border-dashed p-8 text-center text-body-sm text-on-surface-variant">No family members added yet.</p>}
+        {members.map((m) => (
+          <div key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">{m.name.charAt(0).toUpperCase()}</span>
+              <div>
+                <p className="text-body-md font-semibold">{m.name} <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-medium capitalize text-primary">{m.relation}</span></p>
+                <p className="text-label-sm text-on-surface-variant">House {m.unitLabel || m.unitId} {m.phone ? `· ${m.phone}` : ""}</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => { if (window.confirm(`Remove ${m.name}?`)) removeMut.mutate(m.id); }} className="rounded-full border border-outline-variant px-3 py-1 text-label-sm hover:border-error hover:text-error">Remove</button>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}

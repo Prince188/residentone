@@ -6,8 +6,8 @@ export const searchUsersByQuery = (q) =>
   api.get("/units/search-users", { params: { q } });
 export const assignOwnerToHouse = (unitId, payload) =>
   api.post(`/units/${unitId}/assign-owner`, payload);
-export const unassignOwnerFromHouse = (unitId) =>
-  api.post(`/units/${unitId}/unassign-owner`);
+export const unassignOwnerFromHouse = (unitId, payload) =>
+  api.post(`/units/${unitId}/unassign-owner`, payload || {});
 export const createHouseInviteLink = (unitId, data) =>
   api.post(`/units/${unitId}/invite-link`, data);
 export const getHouseInvitePreview = (token) => api.get(`/units/invite/${token}`);

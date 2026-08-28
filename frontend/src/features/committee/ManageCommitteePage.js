@@ -25,6 +25,8 @@ export default function ManageCommitteePage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [role, setRole] = useState("committee_member");
+  const [editingId, setEditingId] = useState(null);
+  const [editRole, setEditRole] = useState("committee_member");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -98,6 +100,35 @@ export default function ManageCommitteePage() {
       setSelected(null);
     },
     onError: (e) => setErr(extractError(e, "Failed to update role")),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: async ({ id, newRole }) => {
+      const res = await api.patch(`/memberships/${id}`, { role: newRole }, { headers: { "x-society-id": activeSociety.id } });
+      return res.data.data;
+    },
+    onSuccess: (data, vars) => {
+      setMsg(`Changed to ${vars.newRole.replace("_", " ")}`);
+      queryClient.invalidateQueries({ queryKey: ["committee-full"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      setEditingId(null);
+      setTimeout(() => setMsg(""), 3000);
+    },
+    onError: (e) => setErr(extractError(e, "Failed to change role")),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: async (id) => {
+      const res = await api.patch(`/memberships/${id}`, { role: "owner" }, { headers: { "x-society-id": activeSociety.id } });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      setMsg("Removed from committee — now Owner");
+      queryClient.invalidateQueries({ queryKey: ["committee-full"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      setTimeout(() => setMsg(""), 3000);
+    },
+    onError: (e) => setErr(extractError(e, "Failed to remove. Cannot remove last Society Admin.")),
   });
 
   return (
@@ -207,11 +238,31 @@ export default function ManageCommitteePage() {
               <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-4">
                 {members.map((m) => {
                   const name = m.userId?.name || "Unknown";
+                  const isEditing = editingId === String(m._id);
                   return (
                     <div key={m._id} className="flex flex-col items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-md">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-on-primary font-bold text-body-md">{name.charAt(0).toUpperCase()}</span>
                       <p className="w-full truncate text-body-sm font-semibold text-on-surface sm:text-body-md">{name}</p>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold capitalize text-primary sm:text-label-sm">{m.role.replace("_", " ")}</span>
+                      {!isEditing ? (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold capitalize text-primary sm:text-label-sm">{m.role.replace("_", " ")}</span>
+                      ) : (
+                        <select value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm">
+                          {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      )}
+                      {!isEditing ? (
+                        <div className="mt-1 flex gap-1">
+                          <button type="button" onClick={() => { setEditingId(String(m._id)); setEditRole(m.role); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
+                          <button type="button" onClick={() => { if (window.confirm(`Remove ${name} from committee? Will become Owner.`)) removeMut.mutate(m._id); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex gap-1">
+                          <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole })} disabled={updateMut.isPending} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
+                          <button type="button" onClick={() => setEditingId(null)} className="rounded-full border border-outline-variant px-2 py-1 text-[11px]">Cancel</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

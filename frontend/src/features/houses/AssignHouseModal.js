@@ -7,6 +7,7 @@ import {
   createHouseInviteLink,
   extractApiError,
 } from "../../lib/houses";
+import { getFamilyMembers } from "../../lib/familyMembers";
 import FormField from "../../components/form/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
@@ -117,10 +118,38 @@ function VehicleRow({ value, index, canRemove, onChange, onRemove }) {
   );
 }
 
+function FamilyMembersInModal({ houseId }) {
+  const { data } = useQuery({
+    queryKey: ["family-members", houseId],
+    queryFn: async () => (await getFamilyMembers()).data.data,
+    enabled: Boolean(houseId),
+  });
+  const members = (data || []).filter((m) => String(m.unitId?._id || m.unitId) === String(houseId));
+  if (!members.length) return <p className="mt-3 flex items-center gap-2 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[16px] text-primary">group_add</span> Family Members (added): <b>— None yet</b></p>;
+  return (
+    <div className="mt-3 rounded-lg bg-surface-container-lowest p-3">
+      <p className="flex items-center gap-2 text-body-sm font-semibold text-on-surface"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members ({members.length})</p>
+      <div className="mt-2 space-y-1">
+        {members.map((m) => (
+          <p key={m.id} className="flex items-center justify-between text-body-sm">
+            <span>{m.name} <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm capitalize text-primary">{m.relation}</span></span>
+            {m.phone && <span className="text-label-sm text-on-surface-variant">{m.phone}</span>}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AssignHouseModal({ house, onClose }) {
   const queryClient = useQueryClient();
   const [screen, setScreen] = useState("choice");
   const [residentType, setResidentType] = useState("owner");
+  const [activeTab, setActiveTab] = useState(house.isAssigned ? "owner" : house.isRented ? "renter" : "owner");
+
+  useEffect(() => {
+    setActiveTab(house.isAssigned ? "owner" : house.isRented ? "renter" : "owner");
+  }, [house.id, house.isAssigned, house.isRented]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -133,6 +162,7 @@ export default function AssignHouseModal({ house, onClose }) {
 
   const [step, setStep] = useState(1);
   const [formError, setFormError] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
   const [assignedResult, setAssignedResult] = useState(null);
   const [invite, setInvite] = useState(null);
   const [confirmUnassign, setConfirmUnassign] = useState(false);
@@ -187,7 +217,7 @@ export default function AssignHouseModal({ house, onClose }) {
   });
 
   const unassignMutation = useMutation({
-    mutationFn: () => unassignOwnerFromHouse(house.id),
+    mutationFn: (residentType) => unassignOwnerFromHouse(house.id, { residentType }),
     onSuccess: () => {
       setConfirmUnassign(false);
       invalidate();
@@ -302,14 +332,15 @@ export default function AssignHouseModal({ house, onClose }) {
   );
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4 sm:items-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`House ${house.label}`}
-        className="relative my-auto w-full max-w-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-xl"
       >
+        <div className="overflow-y-auto p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-headline-sm font-semibold text-on-surface">
@@ -335,8 +366,8 @@ export default function AssignHouseModal({ house, onClose }) {
           <p className="mt-3 text-body-sm text-error">{formError || unassignError}</p>
         )}
 
-        {/* Occupied house: show ALL resident + house details */}
-        {occupied ? (
+        {/* Occupied house: tabs Owner / Renter - but if adding for vacant tab, show form */}
+        {occupied && !showAddForm ? (
           <div className="mt-4 space-y-4">
             <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
               <p className="flex items-center gap-1 text-label-sm font-semibold uppercase tracking-wide text-primary">
@@ -348,18 +379,51 @@ export default function AssignHouseModal({ house, onClose }) {
                 {house.block && <span className="text-on-surface-variant">Block: <b className="text-on-surface">{house.block}</b></span>}
                 {house.floor && <span className="text-on-surface-variant">Floor: <b className="text-on-surface">{house.floor}</b></span>}
                 {house.propertyType && <span className="text-on-surface-variant">Type: <b className="text-on-surface">{house.propertyType}</b></span>}
-                <span className="text-on-surface-variant">Status: <b className="text-success">{occupantLabel}</b></span>
               </div>
             </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 rounded-full bg-surface-container-high p-1">
+              <button type="button" onClick={() => setActiveTab("owner")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "owner" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
+                Owner {house.owner ? "· " + house.owner.name.split(" ")[0] : "(vacant)"}
+              </button>
+              <button type="button" onClick={() => setActiveTab("renter")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "renter" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
+                Renter {house.tenant ? "· " + house.tenant.name.split(" ")[0] : "(vacant)"}
+              </button>
+            </div>
+
             {(() => {
-              const occ = house.owner || house.tenant;
+              const isOwnerTab = activeTab === "owner";
+              const occ = isOwnerTab ? house.owner : house.tenant;
+              const label = isOwnerTab ? "Owner" : "Renter";
+              if (!occ) {
+                return (
+                  <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
+                    <span className="material-symbols-outlined text-[32px] text-outline">person_off</span>
+                    <p className="mt-2 text-body-md font-semibold text-on-surface">No {label} assigned</p>
+                    <p className="text-body-sm text-on-surface-variant">This house has no {label.toLowerCase()} yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResidentType(isOwnerTab ? "owner" : "renter");
+                        setShowAddForm(true);
+                        setScreen("form");
+                        setStep(1);
+                      }}
+                      className="mt-3 inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-label-sm font-semibold text-on-primary hover:opacity-90"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add</span> Add {label}
+                    </button>
+                  </div>
+                );
+              }
               const occEmail = occ?.email || "";
               const showEmail = occEmail && !occEmail.endsWith("@residentone.local");
               return (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <span className="text-label-md uppercase tracking-wide text-primary">{occupantLabel}</span>
+                      <span className="text-label-md uppercase tracking-wide text-primary">{label}</span>
                       <p className="mt-1 text-title-md font-semibold text-on-surface">{occ?.name || "-"}</p>
                       <p className="flex items-center gap-1 text-body-md text-on-surface-variant"><span className="material-symbols-outlined text-[16px]">call</span> {occ?.phone || "-"}</p>
                       {showEmail && <p className="flex items-center gap-1 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[14px]">mail</span> {occEmail}</p>}
@@ -368,7 +432,7 @@ export default function AssignHouseModal({ house, onClose }) {
                   </div>
                   <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-surface-container-lowest p-3 text-body-sm">
                     <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">work</span> Occupation: <b>{occ?.occupation || "—"}</b></p>
-                    <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members: <b>{occ?.familyMembers ?? "—"}</b></p>
+                    <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members (count): <b>{occ?.familyMembers ?? "—"}</b></p>
                     <div className="flex items-start gap-2">
                       <span className="material-symbols-outlined text-[16px] text-primary mt-0.5">directions_car</span>
                       <div>
@@ -378,12 +442,23 @@ export default function AssignHouseModal({ house, onClose }) {
                     </div>
                     {occ?.createdAt && <p className="text-label-sm text-outline">Member since: {new Date(occ.createdAt).toLocaleDateString("en-IN")}</p>}
                   </div>
-                  <button type="button" onClick={() => setConfirmUnassign(true)} className="mt-4 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low">
-                    <span className="material-symbols-outlined text-[18px]">person_remove</span> Remove {occupantLabel}
+                  <FamilyMembersInModal houseId={house.id} />
+                  <button type="button" onClick={() => { setConfirmUnassign(true); }} className="mt-4 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low">
+                    <span className="material-symbols-outlined text-[18px]">person_remove</span> Remove {label}
                   </button>
                 </div>
               );
             })()}
+            <ConfirmDialog
+              open={confirmUnassign}
+              title={`Remove ${(activeTab === "owner" ? "owner" : "renter")} from House ${house.label}?`}
+              message={`${(activeTab === "owner" ? house.owner?.name : house.tenant?.name) || "This resident"} will lose access to this house. Their account remains active.`}
+              confirmLabel={`Remove ${activeTab === "owner" ? "Owner" : "Renter"}`}
+              danger
+              busy={unassignMutation.isPending}
+              onConfirm={() => unassignMutation.mutate(activeTab)}
+              onClose={() => setConfirmUnassign(false)}
+            />
           </div>
         ) : screen === "choice" ? (
           <ResidentChoice
@@ -619,17 +694,7 @@ export default function AssignHouseModal({ house, onClose }) {
         )}
 
         {!occupied && screen === "form" && inviteSection}
-
-        <ConfirmDialog
-          open={confirmUnassign}
-          title={`Remove ${occupantLabel.toLowerCase()} from House ${house.label}?`}
-          message={`${house.owner?.name || house.tenant?.name || "This resident"} will lose access to this house. Their account remains active.`}
-          confirmLabel={`Remove ${occupantLabel}`}
-          danger
-          busy={unassignMutation.isPending}
-          onConfirm={() => unassignMutation.mutate()}
-          onClose={() => setConfirmUnassign(false)}
-        />
+        </div>
       </div>
     </div>
   );

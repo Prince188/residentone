@@ -230,16 +230,12 @@ class UnitService {
     const isRenter = payload.residentType === "renter";
 
     if (isRenter) {
-      if (unit.ownerId || unit.tenantId) {
-        throw new AppError("This house is already occupied", 409);
+      if (unit.tenantId) {
+        throw new AppError("This house already has a renter", 409);
       }
+      // Allow renter even if owner exists (owner + renter can co-exist)
     } else if (unit.ownerId) {
       throw new AppError("This house already has an owner assigned", 409);
-    } else if (unit.tenantId) {
-      throw new AppError(
-        "A renter already lives here. Remove them before assigning an owner.",
-        409
-      );
     }
 
     const { user, credentialsCreated } = await this.createOrFindOwner(payload);
@@ -269,25 +265,41 @@ class UnitService {
     };
   }
 
-  async unassignOwner(societyId, unitId) {
+  async unassignOwner(societyId, unitId, residentType) {
     const unit = await this.findUnitInSociety(societyId, unitId);
-    const residentId = unit.ownerId || unit.tenantId;
-    if (!residentId) {
-      throw new AppError("This house has no resident assigned", 409);
+    // Support tab-specific removal: owner vs renter
+    let targetId = null;
+    let role = null;
+    if (residentType === "renter") {
+      targetId = unit.tenantId;
+      role = "tenant";
+      if (!targetId) throw new AppError("No renter assigned to this house", 409);
+    } else if (residentType === "owner") {
+      targetId = unit.ownerId;
+      role = "owner";
+      if (!targetId) throw new AppError("No owner assigned to this house", 409);
+    } else {
+      // fallback: remove whichever exists (owner first)
+      targetId = unit.ownerId || unit.tenantId;
+      role = unit.ownerId ? "owner" : "tenant";
+      if (!targetId) throw new AppError("This house has no resident assigned", 409);
     }
 
-    const role = unit.ownerId ? "owner" : "tenant";
     await Membership.updateOne(
-      { userId: residentId, societyId },
+      { userId: targetId, societyId },
       { $pull: { units: unit._id } }
     );
-    const membership = await Membership.findOne({ userId: residentId, societyId }).lean();
+    const membership = await Membership.findOne({ userId: targetId, societyId }).lean();
     if (membership && membership.role === role && (!membership.units || membership.units.length === 0)) {
       await Membership.findByIdAndUpdate(membership._id, { isActive: false });
     }
 
-    unit.ownerId = null;
-    unit.tenantId = null;
+    if (residentType === "renter") unit.tenantId = null;
+    else if (residentType === "owner") unit.ownerId = null;
+    else {
+      unit.ownerId = null;
+      unit.tenantId = null;
+    }
     unit.inviteToken = null;
     unit.inviteExpiresAt = null;
     await unit.save();
@@ -297,8 +309,11 @@ class UnitService {
 
   async createInviteLink(societyId, unitId, frontendUrl, residentType = "owner") {
     const unit = await this.findUnitInSociety(societyId, unitId);
-    if (unit.ownerId || unit.tenantId) {
-      throw new AppError("This house already has a resident assigned", 409);
+    const isRenter = residentType === "renter";
+    if (isRenter) {
+      if (unit.tenantId) throw new AppError("This house already has a renter", 409);
+    } else {
+      if (unit.ownerId) throw new AppError("This house already has an owner assigned", 409);
     }
 
     unit.inviteToken = crypto.randomBytes(24).toString("hex");

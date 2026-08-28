@@ -6,6 +6,7 @@ import useSocietyStore, {
   selectActiveSociety,
 } from "../../stores/society.store";
 import { getHouseCards, extractApiError } from "../../lib/houses";
+import { getFamilyMembers } from "../../lib/familyMembers";
 import AssignHouseModal from "./AssignHouseModal";
 
 const ADMIN_ROLES = ["super_admin", "society_admin"];
@@ -17,7 +18,7 @@ const STATUS_FILTERS = [
   { id: "vacant", label: "Vacant" },
 ];
 
-function HouseCard({ house, onClick }) {
+function HouseCard({ house, familyMembers = [], onClick }) {
   const status = house.isAssigned
     ? "Owned"
     : house.isRented
@@ -51,10 +52,10 @@ function HouseCard({ house, onClick }) {
         House {house.label}
       </p>
       <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
-        {(house.owner || house.tenant)?.name || "No resident assigned"}
+        {(house.tenant || house.owner)?.name || "No resident assigned"}
       </p>
       {(() => {
-        const vehicles = (house.owner || house.tenant)?.vehicles || [];
+        const vehicles = (house.tenant || house.owner)?.vehicles || [];
         if (!vehicles.length) return null;
         return (
           <p className="mt-1 flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
@@ -64,6 +65,12 @@ function HouseCard({ house, onClick }) {
           </p>
         );
       })()}
+      {familyMembers.length > 0 && (
+        <p className="mt-1 flex items-center gap-1 truncate text-label-sm text-primary">
+          <span className="material-symbols-outlined text-[14px]">group</span>
+          {familyMembers.length} family member{familyMembers.length > 1 ? "s" : ""}: {familyMembers.slice(0,2).map((m)=>m.name).join(", ")}{familyMembers.length > 2 ? ` +${familyMembers.length-2}` : ""}
+        </p>
+      )}
       {house.hasPendingInvite && !house.isAssigned && !house.isRented && (
         <p className="mt-1 flex items-center gap-1 text-label-sm text-primary">
           <span className="material-symbols-outlined text-[14px]">link</span>
@@ -91,6 +98,22 @@ export default function ManageHousesPage() {
 
   const houses = housesQuery.data || [];
 
+  const familyQuery = useQuery({
+    queryKey: ["family-members", activeSociety?.id],
+    queryFn: async () => (await getFamilyMembers()).data.data,
+    enabled: Boolean(activeSociety && isAdmin),
+  });
+  const familyByHouse = useMemo(() => {
+    const map = {};
+    (familyQuery.data || []).forEach((m) => {
+      const uid = String(m.unitId?._id || m.unitId || "");
+      if (!uid) return;
+      if (!map[uid]) map[uid] = [];
+      map[uid].push(m);
+    });
+    return map;
+  }, [familyQuery.data]);
+
   const filtered = useMemo(() => {
     let result = houses;
     if (statusFilter === "owner") result = result.filter((h) => h.isAssigned);
@@ -99,18 +122,23 @@ export default function ManageHousesPage() {
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter(
-        (h) =>
-          String(h.label).toLowerCase().includes(q) ||
-          (h.owner?.name || "").toLowerCase().includes(q) ||
-          (h.tenant?.name || "").toLowerCase().includes(q) ||
-          (h.owner?.phone || "").includes(q) ||
-          (h.tenant?.phone || "").includes(q) ||
-          (h.owner?.vehicles || []).some((v) => String(v).toLowerCase().includes(q)) ||
-          (h.tenant?.vehicles || []).some((v) => String(v).toLowerCase().includes(q))
+        (h) => {
+          const fam = familyByHouse[String(h.id)] || [];
+          return (
+            String(h.label).toLowerCase().includes(q) ||
+            (h.owner?.name || "").toLowerCase().includes(q) ||
+            (h.tenant?.name || "").toLowerCase().includes(q) ||
+            (h.owner?.phone || "").includes(q) ||
+            (h.tenant?.phone || "").includes(q) ||
+            (h.owner?.vehicles || []).some((v) => String(v).toLowerCase().includes(q)) ||
+            (h.tenant?.vehicles || []).some((v) => String(v).toLowerCase().includes(q)) ||
+            fam.some((m) => m.name.toLowerCase().includes(q) || m.relation.toLowerCase().includes(q))
+          );
+        }
       );
     }
     return result;
-  }, [houses, search, statusFilter]);
+  }, [houses, search, statusFilter, familyByHouse]);
 
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
 
@@ -253,6 +281,7 @@ export default function ManageHousesPage() {
                 <HouseCard
                   key={house.id}
                   house={house}
+                  familyMembers={familyByHouse[String(house.id)] || []}
                   onClick={() => setSelectedHouse(house)}
                 />
               ))}

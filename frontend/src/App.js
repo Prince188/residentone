@@ -34,6 +34,7 @@ import AmenitiesPage from "./features/amenities/AmenitiesPage";
 import ManageAmenitiesPage from "./features/amenities/ManageAmenitiesPage";
 import AmenityHistoryPage from "./features/amenities/AmenityHistoryPage";
 import ManageCommitteePage from "./features/committee/ManageCommitteePage";
+import FamilyMembersPage from "./features/family-members/FamilyMembersPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
 import DirectoryPage from "./features/directory/DirectoryPage";
@@ -87,6 +88,7 @@ function App() {
               <Route path="/amenities/manage" element={<ManageAmenitiesPage />} />
               <Route path="/amenities/history" element={<AmenityHistoryPage />} />
               <Route path="/committee" element={<ManageCommitteePage />} />
+              <Route path="/family-members" element={<FamilyMembersPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />
               <Route path="/directory" element={<DirectoryPage />} />

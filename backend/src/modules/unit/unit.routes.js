@@ -37,7 +37,6 @@ router.get(
 );
 router.get(
   "/:unitId",
-  requireRole("super_admin", "society_admin"),
   (req, res, next) => unitController.getById(req, res, next)
 );
 router.post(
@@ -48,18 +47,15 @@ router.post(
 );
 router.post(
   "/:unitId/assign-owner",
-  requireRole("super_admin", "society_admin"),
   validate(assignOwnerSchema),
   (req, res, next) => unitController.assignOwner(req, res, next)
 );
 router.post(
   "/:unitId/unassign-owner",
-  requireRole("super_admin", "society_admin"),
   (req, res, next) => unitController.unassignOwner(req, res, next)
 );
 router.post(
   "/:unitId/invite-link",
-  requireRole("super_admin", "society_admin"),
   validate(inviteLinkSchema),
   (req, res, next) => unitController.createInviteLink(req, res, next)
 );

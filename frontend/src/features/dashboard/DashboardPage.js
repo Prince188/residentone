@@ -20,6 +20,7 @@ const adminCards = [
 const generalCards = [
   { icon: "payments", label: "Pay Maintenance", to: "/maintenance" },
   { icon: "home_work", label: "My Unit", to: "/my-unit" },
+  { icon: "group_add", label: "Add Members", to: "/family-members" },
   { icon: "campaign", label: "Notices", to: "/notices" },
   { icon: "badge", label: "Visitors", to: "/visitors" },
   { icon: "report_problem", label: "Complaints", to: "/complaints" },
