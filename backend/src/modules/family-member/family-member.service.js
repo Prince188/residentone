@@ -57,6 +57,7 @@ class FamilyMemberService {
       name: doc.name,
       relation: doc.relation,
       phone: doc.phone,
+      addedBy: doc.addedBy?._id || doc.addedBy || null,
       addedByName: doc.addedBy?.name || null,
       createdAt: doc.createdAt,
     };

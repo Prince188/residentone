@@ -121,13 +121,18 @@ function VehicleRow({ value, index, canRemove, onChange, onRemove }) {
   );
 }
 
-function FamilyMembersInModal({ houseId }) {
+function FamilyMembersInModal({ houseId, addedById }) {
   const { data } = useQuery({
     queryKey: ["family-members", houseId],
     queryFn: async () => (await getFamilyMembers()).data.data,
     enabled: Boolean(houseId),
   });
-  const members = (data || []).filter((m) => String(m.unitId?._id || m.unitId) === String(houseId));
+  const members = (data || []).filter((m) => {
+    if (addedById) {
+      return String(m.addedBy?._id || m.addedBy) === String(addedById);
+    }
+    return String(m.unitId?._id || m.unitId) === String(houseId);
+  });
   if (!members.length) return <p className="mt-3 flex items-center gap-2 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[16px] text-primary">group_add</span> Family Members (added): <b>— None yet</b></p>;
   return (
     <div className="mt-3 rounded-lg bg-surface-container-lowest p-3">
@@ -454,7 +459,7 @@ export default function AssignHouseModal({ house, onClose }) {
                     </div>
                     {occ?.createdAt && <p className="text-label-sm text-outline">Member since: {new Date(occ.createdAt).toLocaleDateString("en-IN")}</p>}
                   </div>
-                  <FamilyMembersInModal houseId={house.id} />
+                  <FamilyMembersInModal houseId={house.id} addedById={occ?.id} />
                   <button type="button" onClick={() => { setConfirmUnassign(true); }} className="mt-4 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low">
                     <span className="material-symbols-outlined text-[18px]">person_remove</span> Remove {label}
                   </button>
