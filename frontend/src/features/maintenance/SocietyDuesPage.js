@@ -421,57 +421,68 @@ export default function SocietyDuesPage() {
 
           {cycle && units.length > 0 && (
             <>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                aria-label="Filter houses by status"
-                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden"
-              >
-                {filterOptions.map((opt) => (
-                  <option key={opt.key} value={opt.key}>
-                    {opt.label} ({opt.count})
-                  </option>
-                ))}
-              </select>
-              <section className="hidden flex-wrap gap-2 sm:flex">
-                {filterOptions.map((opt) => {
-                  const activeClass =
-                    opt.key === "all"
-                      ? "border-primary bg-primary text-on-primary"
-                      : STATUS_UI[opt.key].chip;
-                  const inactiveClass =
-                    "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => setFilter(opt.key)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${
-                        filter === opt.key ? activeClass : inactiveClass
-                      }`}
-                    >
-                      {opt.key !== "all" && (
-                        <span className="material-symbols-outlined text-[15px]">
-                          {STATUS_UI[opt.key].icon}
-                        </span>
-                      )}
-                      {opt.label}
-                      <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
-                    </button>
-                  );
-                })}
-              </section>
+              <div className="space-y-3 w-full max-w-md mb-4">
+                {/* Desktop filter buttons */}
+                <section className="hidden flex-wrap gap-2 sm:flex">
+                  {filterOptions.map((opt) => {
+                    const activeClass =
+                      opt.key === "all"
+                        ? "border-primary bg-primary text-on-primary"
+                        : STATUS_UI[opt.key].chip;
+                    const inactiveClass =
+                      "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setFilter(opt.key)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${
+                          filter === opt.key ? activeClass : inactiveClass
+                        }`}
+                      >
+                        {opt.key !== "all" && (
+                          <span className="material-symbols-outlined text-[15px]">
+                            {STATUS_UI[opt.key].icon}
+                          </span>
+                        )}
+                        {opt.label}
+                        <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
+                      </button>
+                    );
+                  })}
+                </section>
+
+                {/* Search input & Mobile status selector */}
+                <div className="flex items-center gap-2 w-full">
+                  <div className="relative flex-1">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
+                      search
+                    </span>
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search house no. or owner..."
+                      className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    aria-label="Filter houses by status"
+                    className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden min-w-[110px] max-w-[140px]"
+                  >
+                    {filterOptions.map((opt) => (
+                      <option key={opt.key} value={opt.key}>
+                        {opt.label} ({opt.count})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               <section>
-                <div className="mb-4 w-full max-w-xs">
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search house no. or owner..."
-                    className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
 
                 {unitsQuery.isLoading ? (
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

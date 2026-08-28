@@ -19,7 +19,7 @@ export default function VehiclesPage() {
   const vehicleEntries = useMemo(() => {
     const entries = [];
     houses.forEach((h) => {
-      const resident = h.owner || h.tenant;
+      const resident = h.tenant || h.owner;
       if (!resident) return;
       const vehicles = resident.vehicles || [];
       vehicles.forEach((vehicle) => {
@@ -30,7 +30,7 @@ export default function VehiclesPage() {
           ownerName: resident.name,
           phone: resident.phone,
           vehicle: String(vehicle).toUpperCase(),
-          status: h.isAssigned ? "Owned" : h.isRented ? "Rented" : "Vacant",
+          status: h.isRented ? "Rented" : h.isAssigned ? "Owned" : "Vacant",
         });
       });
     });

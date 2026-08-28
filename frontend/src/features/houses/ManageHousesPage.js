@@ -19,64 +19,76 @@ const STATUS_FILTERS = [
 ];
 
 function HouseCard({ house, familyMembers = [], onClick }) {
-  const status = house.isAssigned
-    ? "Owned"
-    : house.isRented
-      ? "Rented"
+  const status = house.isRented
+    ? "Rented"
+    : house.isAssigned
+      ? "Owned"
       : "Vacant";
+  const vehicles = (house.tenant || house.owner)?.vehicles || [];
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`block w-full rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md ${
+      className={`block w-full rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md h-[180px] flex flex-col justify-between ${
         house.isAssigned || house.isRented
           ? "border-success bg-secondary-fixed"
           : "border-outline-variant bg-surface-container-lowest"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="material-symbols-outlined text-[26px] text-primary">
-          {house.isAssigned || house.isRented ? "home" : "home_work"}
-        </span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${
-            house.isAssigned || house.isRented
-              ? "bg-primary-fixed text-on-primary-fixed"
-              : "bg-surface-container-high text-on-surface-variant"
-          }`}
-        >
-          {status}
-        </span>
+      <div className="w-full">
+        <div className="flex items-center justify-between gap-2">
+          <span className="material-symbols-outlined text-[26px] text-primary">
+            {house.isAssigned || house.isRented ? "home" : "home_work"}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${
+              house.isAssigned || house.isRented
+                ? "bg-primary-fixed text-on-primary-fixed"
+                : "bg-surface-container-high text-on-surface-variant"
+            }`}
+          >
+            {status}
+          </span>
+        </div>
+        <p className="mt-3 text-headline-sm font-semibold text-on-surface leading-tight">
+          House {house.label}
+        </p>
+        <p className="mt-0.5 truncate text-body-sm text-on-surface-variant font-medium">
+          {(house.tenant || house.owner)?.name || "No resident assigned"}
+        </p>
       </div>
-      <p className="mt-3 text-headline-sm font-semibold text-on-surface">
-        House {house.label}
-      </p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
-        {(house.tenant || house.owner)?.name || "No resident assigned"}
-      </p>
-      {(() => {
-        const vehicles = (house.tenant || house.owner)?.vehicles || [];
-        if (!vehicles.length) return null;
-        return (
-          <p className="mt-1 flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
-            <span className="material-symbols-outlined text-[14px]">directions_car</span>
-            {vehicles[0]}
-            {vehicles.length > 1 ? ` +${vehicles.length - 1}` : ""}
-          </p>
-        );
-      })()}
-      {familyMembers.length > 0 && (
-        <p className="mt-1 flex items-center gap-1 truncate text-label-sm text-primary">
-          <span className="material-symbols-outlined text-[14px]">group</span>
-          {familyMembers.length} family member{familyMembers.length > 1 ? "s" : ""}: {familyMembers.slice(0,2).map((m)=>m.name).join(", ")}{familyMembers.length > 2 ? ` +${familyMembers.length-2}` : ""}
-        </p>
-      )}
-      {house.hasPendingInvite && !house.isAssigned && !house.isRented && (
-        <p className="mt-1 flex items-center gap-1 text-label-sm text-primary">
-          <span className="material-symbols-outlined text-[14px]">link</span>
-          Invite link sent
-        </p>
-      )}
+
+      <div className="w-full space-y-1 border-t border-outline-variant/30 pt-2 mt-auto">
+        {/* Vehicles row */}
+        <div className="flex items-center gap-1 text-label-sm text-on-surface-variant truncate h-4">
+          {vehicles.length > 0 ? (
+            <>
+              <span className="material-symbols-outlined text-[14px]">directions_car</span>
+              <span className="truncate">{vehicles[0]}{vehicles.length > 1 ? ` +${vehicles.length - 1}` : ""}</span>
+            </>
+          ) : (
+            <span className="text-outline/50 text-[11px]">— No vehicles</span>
+          )}
+        </div>
+
+        {/* Family members / Invite row */}
+        <div className="flex items-center gap-1 text-label-sm text-primary truncate h-4">
+          {familyMembers.length > 0 ? (
+            <>
+              <span className="material-symbols-outlined text-[14px]">group</span>
+              <span className="truncate">{familyMembers.length} family member{familyMembers.length > 1 ? "s" : ""}</span>
+            </>
+          ) : house.hasPendingInvite && !house.isAssigned && !house.isRented ? (
+            <>
+              <span className="material-symbols-outlined text-[14px]">link</span>
+              <span className="font-semibold text-[11px] uppercase tracking-wider text-primary">Invite sent</span>
+            </>
+          ) : (
+            <span className="text-outline/50 text-[11px]">— No family</span>
+          )}
+        </div>
+      </div>
     </button>
   );
 }
@@ -105,19 +117,26 @@ export default function ManageHousesPage() {
   });
   const familyByHouse = useMemo(() => {
     const map = {};
-    (familyQuery.data || []).forEach((m) => {
-      const uid = String(m.unitId?._id || m.unitId || "");
-      if (!uid) return;
-      if (!map[uid]) map[uid] = [];
-      map[uid].push(m);
+    const familyMembersList = familyQuery.data || [];
+    houses.forEach((house) => {
+      const activeResidentId = house.tenant?.id || house.owner?.id || null;
+      if (activeResidentId) {
+        map[String(house.id)] = familyMembersList.filter(
+          (m) => String(m.addedBy?._id || m.addedBy) === String(activeResidentId)
+        );
+      } else {
+        map[String(house.id)] = familyMembersList.filter(
+          (m) => String(m.unitId?._id || m.unitId) === String(house.id)
+        );
+      }
     });
     return map;
-  }, [familyQuery.data]);
+  }, [houses, familyQuery.data]);
 
   const filtered = useMemo(() => {
     let result = houses;
-    if (statusFilter === "owner") result = result.filter((h) => h.isAssigned);
-    else if (statusFilter === "renter") result = result.filter((h) => !h.isAssigned && h.isRented);
+    if (statusFilter === "owner") result = result.filter((h) => h.isAssigned && !h.isRented);
+    else if (statusFilter === "renter") result = result.filter((h) => h.isRented);
     else if (statusFilter === "vacant") result = result.filter((h) => !h.isAssigned && !h.isRented);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -181,27 +200,8 @@ export default function ManageHousesPage() {
               : `${assignedCount} of ${houses.length} houses assigned`}
           </p>
         </div>
-        <div className="w-full max-w-xs space-y-2">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter houses"
-            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden"
-          >
-            {STATUS_FILTERS.map((filter) => (
-              <option key={filter.id} value={filter.id}>
-                {filter.label} (
-                {filter.id === "all" && houses.length}
-                {filter.id === "owner" &&
-                  houses.filter((h) => h.isAssigned).length}
-                {filter.id === "renter" &&
-                  houses.filter((h) => !h.isAssigned && h.isRented).length}
-                {filter.id === "vacant" &&
-                  houses.filter((h) => !h.isAssigned && !h.isRented).length}
-                )
-              </option>
-            ))}
-          </select>
+        <div className="w-full max-w-md space-y-2">
+          {/* Desktop Filter buttons */}
           <div className="hidden flex-wrap gap-1.5 sm:flex">
             {STATUS_FILTERS.map((filter) => (
               <button
@@ -215,20 +215,19 @@ export default function ManageHousesPage() {
                 }`}
               >
                 {filter.label}
-                {filter.id === "owner" &&
-                  ` (${houses.filter((h) => h.isAssigned).length})`}
+                 {filter.id === "owner" &&
+                  ` (${houses.filter((h) => h.isAssigned && !h.isRented).length})`}
                 {filter.id === "renter" &&
-                  ` (${houses.filter((h) => !h.isAssigned && h.isRented).length})`}
+                  ` (${houses.filter((h) => h.isRented).length})`}
                 {filter.id === "vacant" &&
                   ` (${houses.filter((h) => !h.isAssigned && !h.isRented).length})`}
               </button>
             ))}
           </div>
-          <div>
-            <p className="mb-1 text-label-sm font-medium text-on-surface-variant">
-              General search
-            </p>
-            <div className="relative">
+
+          {/* Search bar & Mobile filter select */}
+          <div className="flex items-center gap-2 w-full">
+            <div className="relative flex-1">
               <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
                 search
               </span>
@@ -236,15 +235,36 @@ export default function ManageHousesPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="House, name, phone or vehicle no..."
+                placeholder="Search house, resident or vehicle..."
                 className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <p className="mt-1 flex items-center gap-1 text-label-sm text-outline">
-              <span className="material-symbols-outlined text-[14px]">directions_car</span>
-              Try vehicle no. e.g. GJ01AB1234
-            </p>
+            
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter houses"
+              className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden min-w-[110px] max-w-[140px]"
+            >
+              {STATUS_FILTERS.map((filter) => (
+                <option key={filter.id} value={filter.id}>
+                  {filter.label} (
+                  {filter.id === "all" && houses.length}
+                  {filter.id === "owner" &&
+                    houses.filter((h) => h.isAssigned && !h.isRented).length}
+                  {filter.id === "renter" &&
+                    houses.filter((h) => h.isRented).length}
+                  {filter.id === "vacant" &&
+                    houses.filter((h) => !h.isAssigned && !h.isRented).length}
+                  )
+                </option>
+              ))}
+            </select>
           </div>
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-outline">
+            <span className="material-symbols-outlined text-[13px]">directions_car</span>
+            Try GJ01AB1234
+          </p>
         </div>
       </section>
 

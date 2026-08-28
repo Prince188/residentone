@@ -67,29 +67,33 @@ function ResidentChoice({ house, onSelect }) {
   return (
     <>
       <p className="text-body-md text-on-surface-variant">
-        Who are you adding to House {house.label}?
+        Select the resident type you want to add to **House {house.label}**:
       </p>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => onSelect("owner")}
-          className="group rounded-xl border border-outline-variant bg-surface-container-lowest p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+          className="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-left transition-all hover:-translate-y-1 hover:border-primary hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
-          <span className="material-symbols-outlined text-[32px] text-primary">home</span>
-          <p className="mt-2 text-title-md font-semibold text-on-surface">Owner</p>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-on-primary">
+            <span className="material-symbols-outlined text-[26px]">home</span>
+          </div>
+          <p className="mt-4 text-body-lg font-bold text-on-surface">Owner</p>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            The person who owns this house.
+            Assign the legal owner of this unit.
           </p>
         </button>
         <button
           type="button"
           onClick={() => onSelect("renter")}
-          className="group rounded-xl border border-outline-variant bg-surface-container-lowest p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+          className="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-left transition-all hover:-translate-y-1 hover:border-primary hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
-          <span className="material-symbols-outlined text-[32px] text-primary">apartment</span>
-          <p className="mt-2 text-title-md font-semibold text-on-surface">Renter</p>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-on-primary">
+            <span className="material-symbols-outlined text-[26px]">apartment</span>
+          </div>
+          <p className="mt-4 text-body-lg font-bold text-on-surface">Renter</p>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            A tenant living here on rent.
+            Assign a tenant currently residing on rent.
           </p>
         </button>
       </div>
@@ -133,16 +137,38 @@ function FamilyMembersInModal({ houseId, addedById }) {
     }
     return String(m.unitId?._id || m.unitId) === String(houseId);
   });
-  if (!members.length) return <p className="mt-3 flex items-center gap-2 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[16px] text-primary">group_add</span> Family Members (added): <b>— None yet</b></p>;
+  if (!members.length) {
+    return (
+      <div className="mt-4 rounded-2xl border border-dashed border-outline-variant/60 bg-surface-container-low/30 p-4 text-center">
+        <span className="material-symbols-outlined text-[18px] text-outline">group_add</span>
+        <p className="mt-1 text-label-sm text-on-surface-variant">No family members registered yet.</p>
+      </div>
+    );
+  }
   return (
-    <div className="mt-3 rounded-lg bg-surface-container-lowest p-3">
-      <p className="flex items-center gap-2 text-body-sm font-semibold text-on-surface"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members ({members.length})</p>
-      <div className="mt-2 space-y-1">
+    <div className="mt-4 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+      <p className="flex items-center gap-2 text-body-md font-bold text-on-surface">
+        <span className="material-symbols-outlined text-[20px] text-primary">group</span> 
+        <span>Family Members ({members.length})</span>
+      </p>
+      <div className="mt-3 divide-y divide-outline-variant/10">
         {members.map((m) => (
-          <p key={m.id} className="flex items-center justify-between text-body-sm">
-            <span>{m.name} <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm capitalize text-primary">{m.relation}</span></span>
-            {m.phone && <span className="text-label-sm text-on-surface-variant">{m.phone}</span>}
-          </p>
+          <div key={m.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+            <div className="min-w-0">
+              <p className="text-body-sm font-semibold text-on-surface flex items-center gap-2">
+                <span>{m.name}</span>
+                <span className="rounded-full bg-primary-fixed px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-primary-fixed">
+                  {m.relation}
+                </span>
+              </p>
+              {m.phone && (
+                <p className="mt-0.5 text-label-sm text-on-surface-variant flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[12px]">call</span>
+                  <span>{m.phone}</span>
+                </p>
+              )}
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -347,13 +373,30 @@ export default function AssignHouseModal({ house, onClose }) {
   );
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose} style={{ animation: "backdrop-fade 0.2s ease-out forwards" }}>
+      <style>{`
+        @keyframes modal-pop {
+          from {
+            opacity: 0;
+            transform: scale(0.96) translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+        @keyframes backdrop-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`House ${house.label}`}
         onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-xl"
+        style={{ animation: "modal-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards" }}
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-2xl"
       >
         <div className="overflow-y-auto p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
@@ -400,10 +443,26 @@ export default function AssignHouseModal({ house, onClose }) {
             {/* Tabs */}
             {isAdmin && (
               <div className="flex gap-2 rounded-full bg-surface-container-high p-1">
-                <button type="button" onClick={() => setActiveTab("owner")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "owner" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("owner")}
+                  className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold transition-all duration-200 ${
+                    activeTab === "owner"
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/50"
+                  }`}
+                >
                   Owner {house.owner ? "· " + house.owner.name.split(" ")[0] : "(vacant)"}
                 </button>
-                <button type="button" onClick={() => setActiveTab("renter")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "renter" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("renter")}
+                  className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold transition-all duration-200 ${
+                    activeTab === "renter"
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/50"
+                  }`}
+                >
                   Renter {house.tenant ? "· " + house.tenant.name.split(" ")[0] : "(vacant)"}
                 </button>
               </div>
@@ -415,10 +474,14 @@ export default function AssignHouseModal({ house, onClose }) {
               const label = isOwnerTab ? "Owner" : "Renter";
               if (!occ) {
                 return (
-                  <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
-                    <span className="material-symbols-outlined text-[32px] text-outline">person_off</span>
-                    <p className="mt-2 text-body-md font-semibold text-on-surface">No {label} assigned</p>
-                    <p className="text-body-sm text-on-surface-variant">This house has no {label.toLowerCase()} yet.</p>
+                  <div className="rounded-2xl border-2 border-dashed border-outline-variant/60 bg-surface-container-lowest p-8 text-center shadow-inner">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-high text-outline">
+                      <span className="material-symbols-outlined text-[24px]">person_add</span>
+                    </div>
+                    <p className="mt-3 text-body-md font-bold text-on-surface">No {label} Assigned</p>
+                    <p className="mt-1 text-body-sm text-on-surface-variant max-w-[240px] mx-auto">
+                      Assign or invite the {label.toLowerCase()} of House {house.label} to grant dashboard access.
+                    </p>
                     <button
                       type="button"
                       onClick={() => {
@@ -427,9 +490,10 @@ export default function AssignHouseModal({ house, onClose }) {
                         setScreen("form");
                         setStep(1);
                       }}
-                      className="mt-3 inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-label-sm font-semibold text-on-primary hover:opacity-90"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 shadow-sm transition-all hover:scale-[1.02]"
                     >
-                      <span className="material-symbols-outlined text-[16px]">add</span> Add {label}
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      <span>Assign {label}</span>
                     </button>
                   </div>
                 );
@@ -437,30 +501,66 @@ export default function AssignHouseModal({ house, onClose }) {
               const occEmail = occ?.email || "";
               const showEmail = occEmail && !occEmail.endsWith("@residentone.local");
               return (
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="text-label-md uppercase tracking-wide text-primary">{label}</span>
-                      <p className="mt-1 text-title-md font-semibold text-on-surface">{occ?.name || "-"}</p>
-                      <p className="flex items-center gap-1 text-body-md text-on-surface-variant"><span className="material-symbols-outlined text-[16px]">call</span> {occ?.phone || "-"}</p>
-                      {showEmail && <p className="flex items-center gap-1 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[14px]">mail</span> {occEmail}</p>}
-                    </div>
-                    <span className="material-symbols-outlined text-[36px] text-success">verified_user</span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-surface-container-lowest p-3 text-body-sm">
-                    <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">work</span> Occupation: <b>{occ?.occupation || "—"}</b></p>
-                    <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members (count): <b>{occ?.familyMembers ?? "—"}</b></p>
-                    <div className="flex items-start gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-primary mt-0.5">directions_car</span>
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/5 to-surface-container-lowest p-5 shadow-sm relative overflow-hidden">
+                    <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-primary/5" />
+                    <div className="flex items-start justify-between gap-3 relative z-10">
                       <div>
-                        <p>Vehicles ({occ?.vehicles?.length || 0}):</p>
-                        {occ?.vehicles?.length ? occ.vehicles.map((v,i)=><span key={i} className="mr-1 mt-1 inline-block rounded-full bg-secondary-fixed px-2 py-0.5 font-mono text-label-sm font-bold tracking-widest">{v}</span>) : <b className="text-on-surface-variant">— No vehicles</b>}
+                        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-label-sm font-semibold uppercase tracking-wider text-primary">{label}</span>
+                        <p className="mt-2.5 text-title-lg font-bold text-on-surface">{occ?.name || "-"}</p>
+                        <div className="mt-2 space-y-1">
+                          <p className="flex items-center gap-1.5 text-body-md text-on-surface-variant">
+                            <span className="material-symbols-outlined text-[18px] text-outline">call</span> 
+                            <span>{occ?.phone || "-"}</span>
+                          </p>
+                          {showEmail && (
+                            <p className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
+                              <span className="material-symbols-outlined text-[16px] text-outline">mail</span> 
+                              <span>{occEmail}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success/10 text-success">
+                        <span className="material-symbols-outlined text-[22px]">verified</span>
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-surface-container-low p-4 text-body-sm">
+                    <div className="flex flex-col gap-0.5 rounded-xl bg-surface-container-lowest p-3 border border-outline-variant/20">
+                      <span className="text-label-sm text-on-surface-variant flex items-center gap-1"><span className="material-symbols-outlined text-[16px] text-primary">work</span> Occupation</span>
+                      <span className="font-semibold text-on-surface text-body-sm truncate">{occ?.occupation || "—"}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 rounded-xl bg-surface-container-lowest p-3 border border-outline-variant/20">
+                      <span className="text-label-sm text-on-surface-variant flex items-center gap-1"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Count</span>
+                      <span className="font-semibold text-on-surface text-body-sm">{occ?.familyMembers ?? "—"}</span>
+                    </div>
+                    <div className="col-span-2 flex flex-col gap-1.5 rounded-xl bg-surface-container-lowest p-3 border border-outline-variant/20">
+                      <span className="text-label-sm text-on-surface-variant flex items-center gap-1"><span className="material-symbols-outlined text-[16px] text-primary">directions_car</span> Vehicles ({occ?.vehicles?.length || 0})</span>
+                      <div className="flex flex-wrap gap-1">
+                        {occ?.vehicles?.length ? (
+                          occ.vehicles.map((v, i) => (
+                            <span key={i} className="rounded bg-secondary-container px-2.5 py-0.5 font-mono text-label-sm font-bold tracking-wider text-on-secondary-container">
+                              {v}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-on-surface-variant text-[11px]">— No vehicles registered</span>
+                        )}
                       </div>
                     </div>
-                    {occ?.createdAt && <p className="text-label-sm text-outline">Member since: {new Date(occ.createdAt).toLocaleDateString("en-IN")}</p>}
+                    {occ?.createdAt && (
+                      <div className="col-span-2 text-right">
+                        <span className="text-[10px] uppercase font-semibold tracking-wider text-outline">
+                          Registered: {new Date(occ.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                    )}
                   </div>
+                  
                   <FamilyMembersInModal houseId={house.id} addedById={occ?.id} />
-                  <button type="button" onClick={() => { setConfirmUnassign(true); }} className="mt-4 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low">
+                  <button type="button" onClick={() => { setConfirmUnassign(true); }} className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-error px-4 py-2.5 text-label-md text-error hover:bg-error/5 transition-colors w-full font-bold">
                     <span className="material-symbols-outlined text-[18px]">person_remove</span> Remove {label}
                   </button>
                 </div>
