@@ -141,7 +141,7 @@ export default function SocietyDueDetailPage() {
           </span>
         </div>
         <p className="page-subtitle">
-          Owner:{" "}
+          {record.isRenterOccupied ? "Renter: " : "Owner: "}
           {record.ownerName
             ? `${record.ownerName}${record.ownerPhone ? ` · ${record.ownerPhone}` : ""}`
             : "Not assigned"}

@@ -153,6 +153,9 @@ class MaintenanceService {
       ownerName: record.ownerName,
       ownerPhone: record.ownerPhone,
       isOwner: record.isOwner ?? false,
+      isTenant: record.isTenant ?? false,
+      houseRole: record.houseRole || membershipRole,
+      isRenterOccupied: record.isRenterOccupied ?? false,
       role: membershipRole,
       cycle: this.mapCycle(cycle),
       status: record.status,
@@ -209,6 +212,7 @@ class MaintenanceService {
       isOwner: isOwnerFlag,
       isTenant: isTenantFlag,
       houseRole: isTenantFlag ? "tenant" : isOwnerFlag ? "owner" : membership.role,
+      isRenterOccupied: Boolean(unit.tenantId),
       amount: unitAmount,
       dueAmount: unitAmount,
       status: this.statusFor(payment, cycle),
@@ -408,6 +412,7 @@ class MaintenanceService {
 
     const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true })
       .populate("ownerId", "name phone email")
+      .populate("tenantId", "name phone email")
       .lean();
     if (!unit) throw new AppError("House not found", 404);
 
@@ -441,8 +446,8 @@ class MaintenanceService {
         block: unit.block,
         floor: unit.floor,
         doorNo: unit.doorNo,
-        ownerName: unit.ownerId?.name || membership?.userId || "Resident",
-        ownerPhone: unit.ownerId?.phone || "",
+        ownerName: unit.tenantId?.name || unit.ownerId?.name || membership?.userId || "Resident",
+        ownerPhone: unit.tenantId?.phone || unit.ownerId?.phone || "",
       },
       cycle: this.mapCycle(cycle),
       payment: {

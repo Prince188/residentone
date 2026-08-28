@@ -10,6 +10,9 @@ import {
 import { getFamilyMembers } from "../../lib/familyMembers";
 import FormField from "../../components/form/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import useSocietyStore, {
+  selectActiveMembership,
+} from "../../stores/society.store";
 
 const inputClass =
   "w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow disabled:bg-surface-container-high disabled:text-on-surface-variant";
@@ -143,13 +146,21 @@ function FamilyMembersInModal({ houseId }) {
 
 export default function AssignHouseModal({ house, onClose }) {
   const queryClient = useQueryClient();
+  const activeMembership = useSocietyStore(selectActiveMembership);
+  const isAdmin = ["super_admin", "society_admin"].includes(activeMembership?.role);
+
   const [screen, setScreen] = useState("choice");
-  const [residentType, setResidentType] = useState("owner");
-  const [activeTab, setActiveTab] = useState(house.isAssigned ? "owner" : house.isRented ? "renter" : "owner");
+  const [residentType, setResidentType] = useState(isAdmin ? "owner" : "renter");
+  const [activeTab, setActiveTab] = useState(isAdmin ? (house.isAssigned ? "owner" : house.isRented ? "renter" : "owner") : "renter");
 
   useEffect(() => {
-    setActiveTab(house.isAssigned ? "owner" : house.isRented ? "renter" : "owner");
-  }, [house.id, house.isAssigned, house.isRented]);
+    if (isAdmin) {
+      setActiveTab(house.isAssigned ? "owner" : house.isRented ? "renter" : "owner");
+    } else {
+      setActiveTab("renter");
+      setResidentType("renter");
+    }
+  }, [house.id, house.isAssigned, house.isRented, isAdmin]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -240,7 +251,6 @@ export default function AssignHouseModal({ house, onClose }) {
   if (!house) return null;
 
   const occupied = house.isAssigned || house.isRented;
-  const occupantLabel = house.isAssigned ? "Owner" : "Renter";
 
   const handleSelectUser = (user) => {
     setPhone(user.phone);
@@ -383,14 +393,16 @@ export default function AssignHouseModal({ house, onClose }) {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 rounded-full bg-surface-container-high p-1">
-              <button type="button" onClick={() => setActiveTab("owner")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "owner" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
-                Owner {house.owner ? "· " + house.owner.name.split(" ")[0] : "(vacant)"}
-              </button>
-              <button type="button" onClick={() => setActiveTab("renter")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "renter" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
-                Renter {house.tenant ? "· " + house.tenant.name.split(" ")[0] : "(vacant)"}
-              </button>
-            </div>
+            {isAdmin && (
+              <div className="flex gap-2 rounded-full bg-surface-container-high p-1">
+                <button type="button" onClick={() => setActiveTab("owner")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "owner" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
+                  Owner {house.owner ? "· " + house.owner.name.split(" ")[0] : "(vacant)"}
+                </button>
+                <button type="button" onClick={() => setActiveTab("renter")} className={`flex-1 rounded-full px-3 py-1.5 text-label-md font-semibold ${activeTab === "renter" ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}>
+                  Renter {house.tenant ? "· " + house.tenant.name.split(" ")[0] : "(vacant)"}
+                </button>
+              </div>
+            )}
 
             {(() => {
               const isOwnerTab = activeTab === "owner";
@@ -666,7 +678,17 @@ export default function AssignHouseModal({ house, onClose }) {
             <div className="flex items-center justify-between pt-1">
               <button
                 type="button"
-                onClick={() => (step === 1 ? setScreen("choice") : setStep((s) => s - 1))}
+                onClick={() => {
+                  if (step > 1) {
+                    setStep((s) => s - 1);
+                  } else {
+                    if (occupied) {
+                      setShowAddForm(false);
+                    } else {
+                      setScreen("choice");
+                    }
+                  }
+                }}
                 className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface-variant hover:bg-surface-container-low"
               >
                 Back
@@ -693,7 +715,7 @@ export default function AssignHouseModal({ house, onClose }) {
           </form>
         )}
 
-        {!occupied && screen === "form" && inviteSection}
+        {screen === "form" && (residentType === "renter" ? !house.tenant : !house.owner) && inviteSection}
         </div>
       </div>
     </div>

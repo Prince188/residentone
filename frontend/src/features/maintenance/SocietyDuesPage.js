@@ -44,8 +44,19 @@ function DuesCard({ unit, cycle }) {
       <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">
         House {unit.label}
       </p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
-        {unit.ownerName || "No owner assigned"}
+      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant flex items-center gap-1.5">
+        {unit.ownerName ? (
+          <>
+            <span>{unit.ownerName}</span>
+            {unit.isRenterOccupied && (
+              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                Renter
+              </span>
+            )}
+          </>
+        ) : (
+          "No resident assigned"
+        )}
       </p>
       <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-semibold text-on-surface-variant">
         <span className="material-symbols-outlined shrink-0 text-[13px]">event</span>
