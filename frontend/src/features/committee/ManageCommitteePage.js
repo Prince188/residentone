@@ -69,10 +69,10 @@ export default function ManageCommitteePage() {
     return groups;
   }, [committeeMembers]);
 
-  // Search only from your society members (memberships) - contains real ids
+  // Search only when admin types - no default suggestions
   const filteredMemberships = useMemo(() => {
-    if (!search.trim()) return allMemberships.slice(0, 8);
     const q = search.trim().toLowerCase();
+    if (q.length < 2) return [];
     return allMemberships.filter((m) => {
       const name = (m.userId?.name || m.name || "").toLowerCase();
       const phone = (m.userId?.phone || m.phone || "").toLowerCase();
@@ -119,22 +119,33 @@ export default function ManageCommitteePage() {
       {err && <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">{err}</p>}
 
       {showForm && (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 space-y-4">
-          <h3 className="text-body-lg font-semibold">Create Committee</h3>
-          <p className="text-body-sm text-on-surface-variant">Search only from your society members, then pick a role.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowForm(false)} />
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-body-lg font-semibold">Create Committee</h3>
+                <p className="text-body-sm text-on-surface-variant">Search only from your society members, then pick a role.</p>
+              </div>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container-high">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
 
-          <div>
-            <label className="mb-1 block text-label-md font-medium">Search name (your society only) *</label>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
-              placeholder="Type name or phone, e.g. Rahul or 98765"
-              className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
-            />
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-label-md font-medium">Search name (your society only) *</label>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+                  placeholder="Type name or phone, e.g. Rahul or 98765"
+                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+                />
             <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-low">
-              {filteredMemberships.length === 0 && <p className="p-3 text-body-sm text-on-surface-variant">No members found in your society.</p>}
-              {filteredMemberships.map((m) => {
+              {search.trim().length < 2 && <p className="p-3 text-body-sm text-outline">Type at least 2 characters to search by name or phone.</p>}
+              {search.trim().length >= 2 && filteredMemberships.length === 0 && <p className="p-3 text-body-sm text-on-surface-variant">No members found.</p>}
+              {search.trim().length >= 2 && filteredMemberships.map((m) => {
                 const name = m.userId?.name || "Unknown";
                 const phone = m.userId?.phone || "";
                 const isSel = String(selected?._id) === String(m._id);
@@ -151,27 +162,32 @@ export default function ManageCommitteePage() {
                 );
               })}
             </div>
-            {selected && <p className="mt-2 text-label-sm font-semibold text-primary">Selected: {selected.userId?.name} · {selected.role}</p>}
-          </div>
+                {selected && <p className="mt-2 text-label-sm font-semibold text-primary">Selected: {selected.userId?.name} · {selected.role}</p>}
+              </div>
 
-          <div>
-            <label className="mb-1 block text-label-md font-medium">Select Role *</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
-              {COMMITTEE_ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-label-sm text-outline">Manager, Treasurer, Accountant etc as in MyGate.</p>
-          </div>
+              <div>
+                <label className="mb-1 block text-label-md font-medium">Select Role *</label>
+                <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
+                  {COMMITTEE_ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-label-sm text-outline">Manager, Treasurer, Accountant etc as in MyGate.</p>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => createMut.mutate()}
-            disabled={!selected || createMut.isPending}
-            className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary disabled:opacity-50 hover:opacity-90"
-          >
-            {createMut.isPending ? "Saving..." : "Create Committee Member"}
-          </button>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:border-primary">Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => createMut.mutate()}
+                  disabled={!selected || createMut.isPending}
+                  className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary disabled:opacity-50 hover:opacity-90"
+                >
+                  {createMut.isPending ? "Saving..." : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
