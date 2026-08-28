@@ -93,6 +93,16 @@ const pollVoteSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    unitId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
+      default: null,
+      index: true,
+    },
+    unitLabel: {
+      type: String,
+      default: null,
+    },
     selectedOptionIndex: {
       type: Number,
       required: true,
@@ -107,7 +117,9 @@ const pollVoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-pollVoteSchema.index({ societyId: 1, pollId: 1, userId: 1 }, { unique: true });
+// One vote per flat (unit) per poll - MyGate style. Fallback unique per user if no unit.
+pollVoteSchema.index({ societyId: 1, pollId: 1, unitId: 1 }, { unique: true, partialFilterExpression: { unitId: { $type: "objectId" } } });
+pollVoteSchema.index({ societyId: 1, pollId: 1, userId: 1 }, { unique: true, partialFilterExpression: { unitId: null } });
 pollVoteSchema.index({ societyId: 1, pollId: 1 });
 pollVoteSchema.index({ pollId: 1, userId: 1 });
 

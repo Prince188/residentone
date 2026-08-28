@@ -1,7 +1,18 @@
 const { Poll, PollVote } = require("./poll.model");
+const { Membership } = require("../membership/membership.model");
+const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 
 class PollService {
+  async getPrimaryUnit(societyId, userId) {
+    const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
+    if (!membership || !membership.units || membership.units.length === 0) return null;
+    const unitId = membership.units[0];
+    // Fetch unit label for display
+    const unit = await Unit.findOne({ _id: unitId, societyId }).select("label").lean();
+    return unit ? { unitId: unit._id, unitLabel: unit.label } : { unitId, unitLabel: null };
+  }
+
   async create(societyId, userId, data) {
     const poll = await Poll.create({
       societyId,
@@ -40,10 +51,19 @@ class PollService {
     }
 
     const pollIds = polls.map((p) => p._id);
-    // Fetch current user vote mapping
-    const votes = userId
-      ? await PollVote.find({ societyId, pollId: { $in: pollIds }, userId, isActive: true }).lean()
-      : [];
+    // Resolve primary unit for per-flat voting (MyGate style)
+    let primaryUnit = null;
+    if (userId) primaryUnit = await this.getPrimaryUnit(societyId, userId);
+
+    // Fetch current user vote mapping - check by unitId if exists else userId
+    let votes = [];
+    if (userId) {
+      if (primaryUnit?.unitId) {
+        votes = await PollVote.find({ societyId, pollId: { $in: pollIds }, unitId: primaryUnit.unitId, isActive: true }).lean();
+      } else {
+        votes = await PollVote.find({ societyId, pollId: { $in: pollIds }, userId, isActive: true }).lean();
+      }
+    }
     const voteMap = new Map(votes.map((v) => [String(v.pollId), v.selectedOptionIndex]));
 
     // Fetch all voters per option for open polls (for WhatsApp-style voter list)
@@ -59,8 +79,8 @@ class PollService {
       if (!votersGrouped.has(pid)) votersGrouped.set(pid, new Map());
       const optMap = votersGrouped.get(pid);
       if (!optMap.has(idx)) optMap.set(idx, []);
-      const name = v.userId?.name || "Resident";
-      optMap.get(idx).push(name);
+      const voterName = v.unitLabel ? `${v.unitLabel} · ${v.userId?.name || "Resident"}` : (v.userId?.name || "Resident");
+      optMap.get(idx).push(voterName);
     }
 
     return polls.map((p) => this.mapPoll(p, voteMap.get(String(p._id)), votersGrouped.get(String(p._id))));
@@ -78,9 +98,17 @@ class PollService {
       poll.status = "closed";
     }
 
+    let primaryUnit = null;
+    if (userId) primaryUnit = await this.getPrimaryUnit(societyId, userId);
+
     let userVote = null;
     if (userId) {
-      const vote = await PollVote.findOne({ societyId, pollId, userId, isActive: true }).lean();
+      let vote = null;
+      if (primaryUnit?.unitId) {
+        vote = await PollVote.findOne({ societyId, pollId, unitId: primaryUnit.unitId, isActive: true }).lean();
+      } else {
+        vote = await PollVote.findOne({ societyId, pollId, userId, isActive: true }).lean();
+      }
       if (vote) userVote = vote.selectedOptionIndex;
     }
 
@@ -92,8 +120,8 @@ class PollService {
     for (const v of allVotes) {
       const idx = v.selectedOptionIndex;
       if (!votersGrouped.has(idx)) votersGrouped.set(idx, []);
-      const name = v.userId?.name || "Resident";
-      votersGrouped.get(idx).push(name);
+      const voterName = v.unitLabel ? `${v.unitLabel} · ${v.userId?.name || "Resident"}` : (v.userId?.name || "Resident");
+      votersGrouped.get(idx).push(voterName);
     }
 
     return this.mapPoll(poll, userVote, votersGrouped);
@@ -116,8 +144,16 @@ class PollService {
       throw new AppError("Invalid option", 400);
     }
 
-    const existing = await PollVote.findOne({ societyId, pollId, userId, isActive: true });
-    if (existing) throw new AppError("You have already voted", 409);
+    // Per-flat check: one vote per unit (MyGate style). If no unit, fallback to per-user.
+    const primaryUnit = await this.getPrimaryUnit(societyId, userId);
+    let existing = null;
+    if (primaryUnit?.unitId) {
+      existing = await PollVote.findOne({ societyId, pollId, unitId: primaryUnit.unitId, isActive: true });
+      if (existing) throw new AppError("Your flat has already voted (one vote per flat)", 409);
+    } else {
+      existing = await PollVote.findOne({ societyId, pollId, userId, isActive: true });
+      if (existing) throw new AppError("You have already voted", 409);
+    }
 
     // Atomic increment votes for selected option
     const updatePath = `options.${selectedOptionIndex}.votes`;
@@ -127,6 +163,8 @@ class PollService {
       societyId,
       pollId,
       userId,
+      unitId: primaryUnit?.unitId || null,
+      unitLabel: primaryUnit?.unitLabel || null,
       selectedOptionIndex,
     });
 
