@@ -81,6 +81,10 @@ export default function AppLayout() {
       queryClient.invalidateQueries({ queryKey: ["amenity-slots"] });
     });
 
+    socket.on("poll:change", () => {
+      queryClient.invalidateQueries({ queryKey: ["polls"] });
+    });
+
     return () => {
       socket.disconnect();
     };

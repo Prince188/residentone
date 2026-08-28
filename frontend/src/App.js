@@ -37,6 +37,7 @@ import ManageCommitteePage from "./features/committee/ManageCommitteePage";
 import FamilyMembersPage from "./features/family-members/FamilyMembersPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
+import CreatePollPage from "./features/polls/CreatePollPage";
 import DirectoryPage from "./features/directory/DirectoryPage";
 import ManageHousesPage from "./features/houses/ManageHousesPage";
 import HouseDetailPage from "./features/houses/HouseDetailPage";
@@ -91,6 +92,7 @@ function App() {
               <Route path="/family-members" element={<FamilyMembersPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />
+              <Route path="/polls/new" element={<CreatePollPage />} />
               <Route path="/directory" element={<DirectoryPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/my-unit" element={<MyUnitPage />} />

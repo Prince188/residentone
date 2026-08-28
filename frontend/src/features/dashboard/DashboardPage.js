@@ -14,6 +14,7 @@ const adminCards = [
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
   { icon: "event_available", label: "Manage Amenities", to: "/amenities/manage" },
+  { icon: "how_to_vote", label: "Create Poll", to: "/polls/new" },
   { icon: "groups", label: "Manage Committee", to: "/committee" },
 ];
 
