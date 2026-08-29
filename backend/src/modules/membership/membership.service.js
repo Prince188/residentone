@@ -15,9 +15,20 @@ class MembershipService {
     return Membership.find({ societyId, isActive: true }).populate("userId", "name email phone");
   }
 
+  maskPhone(phone) {
+    if (!phone) return null;
+    const str = String(phone).trim();
+    if (str.length <= 4) return "****";
+    // MyGate style masking: 98XXXXXX10
+    const start = str.slice(0, 2);
+    const end = str.slice(-2);
+    const masked = start + "X".repeat(Math.max(0, str.length - 4)) + end;
+    return masked;
+  }
+
   async getDirectory(societyId) {
     const members = await Membership.find({ societyId, isActive: true })
-      .populate("userId", "name")
+      .populate("userId", "name phone")
       .populate("units", "label unitNumber")
       .lean();
 
@@ -30,11 +41,14 @@ class MembershipService {
         .sort(
           (a, b) => (a.unitNumber ?? NO_ORDER) - (b.unitNumber ?? NO_ORDER)
         );
+      const maskedPhone = this.maskPhone(m.userId.phone);
       if (houses.length === 0) {
         entries.push({
           id: String(m._id),
+          userId: String(m.userId._id),
           name: m.userId.name,
           role: m.role,
+          phoneMasked: maskedPhone,
           house: null,
           unitNumber: NO_ORDER,
         });
@@ -43,8 +57,10 @@ class MembershipService {
       for (const u of houses) {
         entries.push({
           id: `${m._id}-${u._id}`,
+          userId: String(m.userId._id),
           name: m.userId.name,
           role: m.role,
+          phoneMasked: maskedPhone,
           house: u.label,
           unitNumber: u.unitNumber ?? NO_ORDER,
         });
@@ -57,7 +73,7 @@ class MembershipService {
           a.unitNumber - b.unitNumber ||
           String(a.name).localeCompare(String(b.name))
       )
-      .map(({ id, name, role, house }) => ({ id, name, role, house }));
+      .map(({ id, userId, name, role, house, phoneMasked }) => ({ id, userId, name, role, house, phoneMasked }));
   }
 
   async findByUser(userId) {

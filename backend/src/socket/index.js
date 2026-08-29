@@ -40,6 +40,25 @@ function initSocket(server) {
       socket.join(`society:${socket.societyId}`);
     }
 
+    socket.on("chat:typing", (data) => {
+      if (data.groupId) {
+        socket.to(`society:${socket.societyId}`).emit("chat:typing", { groupId: String(data.groupId), senderId: String(socket.userId), senderName: "Someone is typing" });
+        // Fetch real name async
+        const { User } = require("../modules/user/user.model");
+        User.findById(socket.userId).select("name").lean().then((u) => {
+          if (u) socket.to(`society:${socket.societyId}`).emit("chat:typing", { groupId: String(data.groupId), senderId: String(socket.userId), senderName: u.name });
+        }).catch(() => {});
+      } else if (data.receiverId) {
+        const { User } = require("../modules/user/user.model");
+        User.findById(socket.userId).select("name").lean().then((u) => {
+          const name = u?.name || "Someone";
+          io.to(String(data.receiverId)).emit("chat:typing", { senderId: String(socket.userId), senderName: name });
+        }).catch(() => {
+          io.to(String(data.receiverId)).emit("chat:typing", { senderId: String(socket.userId), senderName: "Someone" });
+        });
+      }
+    });
+
     socket.on("disconnect", () => {
       logger.debug(`User disconnected: ${socket.userId}`);
     });

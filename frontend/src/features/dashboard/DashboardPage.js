@@ -15,6 +15,7 @@ const adminCards = [
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
   { icon: "event_available", label: "Manage Amenities", to: "/amenities/manage" },
   { icon: "how_to_vote", label: "Create Poll", to: "/polls/new" },
+  { icon: "assignment", label: "Create Survey", to: "/surveys/new" },
   { icon: "groups", label: "Manage Committee", to: "/committee" },
 ];
 
@@ -27,6 +28,8 @@ const generalCards = [
   { icon: "report_problem", label: "Complaints", to: "/complaints" },
   { icon: "pool", label: "Amenities", to: "/amenities" },
   { icon: "how_to_vote", label: "Polls", to: "/polls" },
+  { icon: "assignment", label: "Surveys", to: "/surveys" },
+  { icon: "chat", label: "Chat", to: "/chat" },
   { icon: "folder_open", label: "Documents", to: "/documents" },
   { icon: "emergency", label: "Emergency", to: "/emergency-contacts" },
   { icon: "groups", label: "Directory", to: "/directory" },

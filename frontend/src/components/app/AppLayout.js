@@ -85,6 +85,21 @@ export default function AppLayout() {
       queryClient.invalidateQueries({ queryKey: ["polls"] });
     });
 
+    socket.on("survey:change", () => {
+      queryClient.invalidateQueries({ queryKey: ["surveys"] });
+      queryClient.invalidateQueries({ queryKey: ["survey"] });
+    });
+
+    socket.on("chat:change", () => {
+      queryClient.invalidateQueries({ queryKey: ["chat-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+    });
+
+    socket.on("chat:direct", () => {
+      queryClient.invalidateQueries({ queryKey: ["chat-direct-list"] });
+      queryClient.invalidateQueries({ queryKey: ["chat-direct-messages"] });
+    });
+
     return () => {
       socket.disconnect();
     };

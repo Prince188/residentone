@@ -16,6 +16,8 @@ const complaintRoutes = require("./modules/complaint/complaint.routes");
 const amenityRoutes = require("./modules/amenity/amenity.routes");
 const familyMemberRoutes = require("./modules/family-member/family-member.routes");
 const pollRoutes = require("./modules/poll/poll.routes");
+const chatRoutes = require("./modules/chat/chat.routes");
+const surveyRoutes = require("./modules/survey/survey.routes");
 const healthRoutes = require("./modules/health/health.routes");
 
 const app = express();
@@ -37,6 +39,8 @@ app.use("/api/v1/complaints", complaintRoutes);
 app.use("/api/v1/amenities", amenityRoutes);
 app.use("/api/v1/family-members", familyMemberRoutes);
 app.use("/api/v1/polls", pollRoutes);
+app.use("/api/v1/chat", chatRoutes);
+app.use("/api/v1/surveys", surveyRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

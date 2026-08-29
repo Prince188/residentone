@@ -39,6 +39,10 @@ import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
 import CreatePollPage from "./features/polls/CreatePollPage";
 import DirectoryPage from "./features/directory/DirectoryPage";
+import ChatPage from "./features/chat/ChatPage";
+import SurveysPage from "./features/surveys/SurveysPage";
+import CreateSurveyPage from "./features/surveys/CreateSurveyPage";
+import SurveyDetailPage from "./features/surveys/SurveyDetailPage";
 import ManageHousesPage from "./features/houses/ManageHousesPage";
 import HouseDetailPage from "./features/houses/HouseDetailPage";
 import HouseInvitePage from "./features/houses/HouseInvitePage";
@@ -94,6 +98,10 @@ function App() {
               <Route path="/polls" element={<PollsPage />} />
               <Route path="/polls/new" element={<CreatePollPage />} />
               <Route path="/directory" element={<DirectoryPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/surveys" element={<SurveysPage />} />
+              <Route path="/surveys/new" element={<CreateSurveyPage />} />
+              <Route path="/surveys/:id" element={<SurveyDetailPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/my-unit" element={<MyUnitPage />} />
               <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />

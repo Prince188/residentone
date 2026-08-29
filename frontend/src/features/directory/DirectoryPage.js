@@ -35,13 +35,19 @@ function MemberCard({ member }) {
           )}
         </p>
         {member.house ? (
-          <span className="mt-1 inline-block rounded-full bg-secondary-fixed px-2 py-0.5 text-label-sm font-semibold text-on-secondary-fixed">
+          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary-fixed px-2 py-0.5 text-label-sm font-semibold text-on-secondary-fixed">
             House {member.house}
           </span>
         ) : (
           <span className="mt-1 inline-block text-label-sm text-outline">
             No house linked
           </span>
+        )}
+        {member.phoneMasked && (
+          <p className="mt-1 flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-[14px]">call</span>
+            {member.phoneMasked}
+          </p>
         )}
       </div>
     </article>
