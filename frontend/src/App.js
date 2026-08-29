@@ -66,7 +66,16 @@ function App() {
             <Route path="/features" element={<PublicLayout><FeaturesPage /></PublicLayout>} />
             <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
             <Route path="/register" element={<PublicLayout><RegisterPage /></PublicLayout>} />
-            <Route path="/create-society" element={<PublicLayout><CreateSocietyPage /></PublicLayout>} />
+            <Route
+              path="/create-society"
+              element={
+                <ProtectedRoute>
+                  <PublicLayout>
+                    <CreateSocietyPage />
+                  </PublicLayout>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/house-invite/:token" element={<PublicLayout><HouseInvitePage /></PublicLayout>} />
             <Route
               element={
