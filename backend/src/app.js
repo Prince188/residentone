@@ -48,7 +48,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
 app.use(express.json({ limit: "10mb" }));
 
