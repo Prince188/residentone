@@ -27,10 +27,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full bg-surface-container-lowest">
-      {/* pt-24 to offset fixed Navbar (h-24) */}
-      <div className="pt-24">
-        <div className="w-full flex flex-col lg:flex-row min-h-[calc(100vh-96px)] max-w-[1680px] mx-auto">
+    <div className="w-full bg-surface-container-lowest pt-16 md:pt-24">
+      <div className="w-full flex flex-col lg:flex-row min-h-[calc(100vh-64px)] md:min-h-[calc(100vh-96px)] max-w-[1680px] mx-auto">
           {/* Left - Brand / Editorial */}
           <div className="hidden lg:flex lg:w-[54%] xl:w-[56%] relative bg-inverse-surface overflow-hidden flex-col justify-between">
             {/* subtle pattern */}
@@ -467,7 +465,6 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

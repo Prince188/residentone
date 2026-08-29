@@ -96,7 +96,7 @@ export default function CreateSocietyPage() {
   };
 
   return (
-    <div className="flex-grow flex bg-surface-container-lowest pt-24">
+    <div className="flex-grow flex bg-surface-container-lowest pt-16 md:pt-24">
       <div className="w-full flex">
         <div className="hidden lg:flex w-1/2 relative bg-surface-container-highest">
           <div
