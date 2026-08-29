@@ -1,6 +1,20 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuthStore from "../../stores/auth.store";
+
+function getPasswordStrength(pw) {
+  if (!pw) return { score: 0, label: "", color: "", width: "0%" };
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 2) return { score, label: "Weak", color: "bg-error", width: "25%" };
+  if (score === 3) return { score, label: "Fair", color: "bg-amber-500", width: "50%" };
+  if (score === 4) return { score, label: "Good", color: "bg-emerald-500", width: "75%" };
+  return { score, label: "Strong", color: "bg-emerald-600", width: "100%" };
+}
 
 export default function RegisterPage() {
   const [firstName, setFirstName] = useState("");
@@ -8,144 +22,558 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [agree, setAgree] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const register = useAuthStore((state) => state.register);
   const navigate = useNavigate();
 
+  const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const passwordsMatch = !confirmPassword || password === confirmPassword;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
+    if (!agree) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const fullName = [firstName, lastName].filter(Boolean).join(" ");
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
       await register(fullName, email, phone, password);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.error?.message || "Registration failed");
+      setError(err.response?.data?.error?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex-grow flex">
-      <div className="w-full flex">
-        {/* Left Side - Editorial Content */}
-        <div className="hidden lg:flex w-1/2 relative bg-surface-container-highest">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBu3pr4U7oKtJbQULJB8mzgvMWa8328HhCorKsYSzhTKKFP0w1OAbMY4Yaw0YGxreD0vX7LNioT2JqepVRsAu2T7yhNSBbJPHkICey52GnLh5KkMwupSou6FMVX6qrvB2GoLi0q8Y2IP3M9D4TJh3f0nr6vDaFg0X_jIETyycsPEJ8UOYwuMCEpUgnfXK75p3PbDVTQ79wZ9QM4kPilDtS2bH_8erhTD04cjUabxWtSveqAoWewOkFfjA')" }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-t from-on-primary-fixed/90 to-on-primary-fixed/40 mix-blend-multiply" />
-          </div>
-          <div className="relative z-10 p-16 flex flex-col justify-end text-white max-w-2xl">
-            <h1 className="font-display-lg text-display-lg mb-stack-lg leading-tight">
-              Join Your Digital Community
-            </h1>
-            <p className="font-body-lg text-body-lg text-primary-fixed-dim opacity-90 max-w-lg">
-              Experience a new standard of residential management. ResidentOne brings transparency, effortless connection, and professional governance directly to your fingertips.
-            </p>
-          </div>
-        </div>
+    <div className="w-full bg-surface-container-lowest">
+      <div className="pt-24">
+        <div className="w-full flex flex-col lg:flex-row min-h-[calc(100vh-96px)] max-w-[1680px] mx-auto">
+          {/* Left - Editorial */}
+          <div className="hidden lg:flex lg:w-[54%] xl:w-[56%] relative bg-inverse-surface overflow-hidden flex-col justify-between">
+            <div
+              className="absolute inset-0 opacity-[0.07]"
+              style={{
+                backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+                backgroundSize: "32px 32px",
+              }}
+            />
+            <div className="absolute -top-40 -right-40 w-[640px] h-[640px] bg-primary rounded-full blur-[140px] opacity-[0.18]" />
+            <div className="absolute -bottom-40 -left-40 w-[560px] h-[560px] bg-tertiary rounded-full blur-[140px] opacity-[0.14]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] border border-white/[0.06] rounded-full" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[680px] h-[680px] border border-white/[0.04] rounded-full" />
 
-        {/* Right Side - Registration Form */}
-        <div className="w-full lg:w-1/2 bg-surface-container-lowest flex items-center justify-center p-margin-mobile md:p-margin-desktop py-16">
-          <div className="w-full max-w-md">
-            <div className="mb-stack-lg text-center lg:text-left">
-              <h2 className="font-headline-lg text-headline-lg text-on-surface mb-stack-sm">Create an Account</h2>
-              <p className="font-body-md text-body-md text-on-surface-variant">
-                Sign up to manage your society operations efficiently.
+            <div className="relative z-10 p-10 xl:p-14 2xl:p-16 pb-8">
+              <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-md border border-white/15 rounded-full px-4 py-2">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                <span className="text-white/90 text-xs font-semibold tracking-widest uppercase">
+                  New societies get 30 days free • No card required
+                </span>
+              </div>
+
+              <h1 className="mt-10 font-display text-[42px] xl:text-[54px] 2xl:text-[58px] font-bold leading-[0.9] tracking-tight text-white">
+                Join your
+                <br />
+                <span className="font-light italic text-primary-fixed-dim">digital</span>
+                <br />
+                community.
+              </h1>
+              <p className="mt-6 text-white/60 text-[16px] xl:text-[17px] leading-relaxed max-w-[520px]">
+                Experience a new standard of residential management. Transparency,
+                effortless connection, and professional governance at your
+                fingertips.
               </p>
+
+              <div className="mt-10 space-y-4 max-w-[520px]">
+                {[
+                  {
+                    icon: "rocket_launch",
+                    title: "Set up in 5 minutes",
+                    desc: "Create your society and invite residents instantly",
+                    step: "01",
+                  },
+                  {
+                    icon: "group_add",
+                    title: "Invite & onboard",
+                    desc: "Bulk import residents or share a secure invite link",
+                    step: "02",
+                  },
+                  {
+                    icon: "insights",
+                    title: "Go live with confidence",
+                    desc: "Billing, complaints, visitors — everything just works",
+                    step: "03",
+                  },
+                ].map((f) => (
+                  <div
+                    key={f.title}
+                    className="flex items-center gap-4 bg-white/[0.06] backdrop-blur border border-white/10 rounded-2xl px-5 py-4"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-white text-[22px]">{f.icon}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-white text-sm font-semibold leading-none flex items-center gap-2">
+                        {f.title}
+                        <span className="text-white/30 text-[11px] font-mono tracking-widest">{f.step}</span>
+                      </div>
+                      <div className="text-white/60 text-xs mt-1">{f.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {error && <p className="text-error mb-4 text-body-sm">{error}</p>}
+            <div className="relative z-10 p-10 xl:p-14 2xl:p-16 pt-6">
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {[
+                  { k: "500+", v: "Societies" },
+                  { k: "50k+", v: "Residents" },
+                  { k: "99.9%", v: "Uptime" },
+                ].map((s) => (
+                  <div
+                    key={s.v}
+                    className="bg-white/[0.06] backdrop-blur border border-white/10 rounded-2xl p-4 text-center"
+                  >
+                    <div className="text-white font-bold text-xl leading-none">{s.k}</div>
+                    <div className="text-white/60 text-[11px] tracking-widest uppercase font-semibold mt-1">
+                      {s.v}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-[20px] p-6 xl:p-7">
+                <div className="flex items-center gap-1 mb-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <span
+                      key={i}
+                      className="material-symbols-outlined text-amber-400 text-[18px]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      star
+                    </span>
+                  ))}
+                  <span className="ml-2 text-white/70 text-xs font-medium">Loved by secretaries</span>
+                </div>
+                <p className="text-white text-[15px] leading-relaxed font-medium">
+                  “We onboarded 280 flats in a day. The import tool is magic and support
+                  actually answers.”
+                </p>
+                <div className="flex items-center gap-3 mt-5">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm">
+                    R
+                  </div>
+                  <div>
+                    <div className="text-white text-sm font-semibold leading-none">Rajesh Kumar</div>
+                    <div className="text-white/60 text-xs mt-1">President, Lotus Elite • 280 flats</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-stack-md">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-stack-md">
-                <div>
-                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-unit" htmlFor="firstName">First Name</label>
-                  <input
-                    className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow"
-                    id="firstName"
-                    name="firstName"
-                    type="text"
-                    placeholder="Rahul"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
+          {/* Right - Form */}
+          <div className="flex-1 flex items-start lg:items-center justify-center bg-surface-container-lowest px-4 sm:px-6 lg:px-10 xl:px-14 py-8 lg:py-10 overflow-y-auto">
+            <div className="w-full max-w-[480px] my-auto">
+              <div className="lg:hidden flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-inverse-surface rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="material-symbols-outlined text-white text-[22px]">apartment</span>
                 </div>
                 <div>
-                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-unit" htmlFor="lastName">Last Name</label>
-                  <input
-                    className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow"
-                    id="lastName"
-                    name="lastName"
-                    type="text"
-                    placeholder="Sharma"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
+                  <div className="font-bold text-[18px] tracking-tight leading-none text-on-surface">
+                    ResidentOne
+                  </div>
+                  <div className="text-[11px] tracking-widest uppercase font-semibold text-on-surface-variant">
+                    Society OS
+                  </div>
+                </div>
+                <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+                  30 days free
+                </span>
+              </div>
+
+              <div className="bg-white border border-outline-variant/30 rounded-[28px] shadow-[0_24px_64px_-24px_rgba(0,23,75,0.18),0_12px_32px_-16px_rgba(0,23,75,0.08)] overflow-hidden">
+                <div className="h-1 w-full bg-gradient-to-r from-primary via-primary to-tertiary" />
+                <div className="p-7 sm:p-8">
+                  <div className="mb-7">
+                    <h2 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-on-surface leading-none">
+                      Create account
+                    </h2>
+                    <p className="text-on-surface-variant text-sm mt-2.5 leading-relaxed">
+                      Start managing your society operations efficiently. No credit card
+                      required.
+                    </p>
+                  </div>
+
+                  {error && (
+                    <div className="mb-6 bg-error-container border border-error/15 rounded-2xl px-4 py-3.5 flex gap-3">
+                      <div className="w-8 h-8 rounded-full bg-error/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="material-symbols-outlined text-error text-[18px]">error</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-on-error-container text-sm font-semibold leading-none">
+                          Unable to create account
+                        </p>
+                        <p className="text-on-error-container/80 text-sm mt-1 leading-snug break-words">
+                          {error}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setError("")}
+                        className="self-start w-7 h-7 rounded-full hover:bg-error/10 flex items-center justify-center text-on-error-container/60 hover:text-on-error-container transition-colors"
+                        aria-label="Dismiss error"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label
+                          htmlFor="firstName"
+                          className="block text-xs font-semibold tracking-widest uppercase text-on-surface-variant mb-2"
+                        >
+                          First name <span className="text-error">*</span>
+                        </label>
+                        <div className="relative group">
+                          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
+                            person
+                          </span>
+                          <input
+                            id="firstName"
+                            name="firstName"
+                            type="text"
+                            autoComplete="given-name"
+                            placeholder="Rahul"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            required
+                            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl pl-11 pr-4 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="lastName"
+                          className="block text-xs font-semibold tracking-widest uppercase text-on-surface-variant mb-2"
+                        >
+                          Last name
+                        </label>
+                        <input
+                          id="lastName"
+                          name="lastName"
+                          type="text"
+                          autoComplete="family-name"
+                          placeholder="Sharma"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-4 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="block text-xs font-semibold tracking-widest uppercase text-on-surface-variant mb-2"
+                      >
+                        Email address <span className="text-error">*</span>
+                      </label>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
+                          mail
+                        </span>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="rahul@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                          className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl pl-11 pr-4 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="phone"
+                        className="block text-xs font-semibold tracking-widest uppercase text-on-surface-variant mb-2"
+                      >
+                        Phone number{" "}
+                        <span className="font-normal normal-case tracking-normal text-on-surface-variant/60">
+                          (optional)
+                        </span>
+                      </label>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
+                          call
+                        </span>
+                        <input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          autoComplete="tel"
+                          placeholder="+91 98765 43210"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl pl-11 pr-4 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="password"
+                        className="block text-xs font-semibold tracking-widest uppercase text-on-surface-variant mb-2"
+                      >
+                        Password <span className="text-error">*</span>
+                      </label>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
+                          lock
+                        </span>
+                        <input
+                          id="password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="new-password"
+                          placeholder="At least 6 characters"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          minLength={6}
+                          className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl pl-11 pr-11 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          <span className="material-symbols-outlined text-[20px]">
+                            {showPassword ? "visibility_off" : "visibility"}
+                          </span>
+                        </button>
+                      </div>
+                      {password && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-on-surface-variant">
+                              Password strength
+                            </span>
+                            <span
+                              className={`text-xs font-bold ${
+                                strength.label === "Weak"
+                                  ? "text-error"
+                                  : strength.label === "Fair"
+                                  ? "text-amber-600"
+                                  : "text-emerald-600"
+                              }`}
+                            >
+                              {strength.label}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${strength.color} transition-all duration-500`}
+                              style={{ width: strength.width }}
+                            />
+                          </div>
+                          <p className="text-[11px] text-on-surface-variant/70 mt-1.5 leading-relaxed">
+                            Use 8+ characters with a mix of letters, numbers & symbols.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="confirmPassword"
+                        className="block text-xs font-semibold tracking-widest uppercase text-on-surface-variant mb-2"
+                      >
+                        Confirm password <span className="text-error">*</span>
+                      </label>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
+                          lock_reset
+                        </span>
+                        <input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirm ? "text" : "password"}
+                          autoComplete="new-password"
+                          placeholder="Repeat your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className={`w-full bg-surface-container-low border rounded-xl pl-11 pr-11 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:ring-4 transition-all ${
+                            !passwordsMatch
+                              ? "border-error focus:border-error focus:ring-error/10"
+                              : "border-outline-variant/40 focus:border-primary focus:ring-primary/10"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirm(!showConfirm)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors"
+                          aria-label={showConfirm ? "Hide password" : "Show password"}
+                        >
+                          <span className="material-symbols-outlined text-[20px]">
+                            {showConfirm ? "visibility_off" : "visibility"}
+                          </span>
+                        </button>
+                      </div>
+                      {!passwordsMatch && (
+                        <p className="text-xs text-error mt-1.5 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">error</span>
+                          Passwords do not match
+                        </p>
+                      )}
+                    </div>
+
+                    <label className="flex items-start gap-3 cursor-pointer group select-none py-1">
+                      <div className="relative flex items-center mt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={agree}
+                          onChange={(e) => setAgree(e.target.checked)}
+                          className="peer w-[18px] h-[18px] rounded-[6px] border-[1.5px] border-outline-variant bg-white checked:bg-primary checked:border-primary transition-all appearance-none"
+                        />
+                        <span className="material-symbols-outlined absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[14px] opacity-0 peer-checked:opacity-100 pointer-events-none font-bold">
+                          check
+                        </span>
+                      </div>
+                      <span className="text-sm leading-relaxed text-on-surface-variant">
+                        I agree to the{" "}
+                        <a
+                          href="#terms"
+                          onClick={(e) => e.preventDefault()}
+                          className="font-semibold text-on-surface underline decoration-outline-variant underline-offset-4 hover:text-primary hover:decoration-primary"
+                        >
+                          Terms of Service
+                        </a>{" "}
+                        and{" "}
+                        <a
+                          href="#privacy"
+                          onClick={(e) => e.preventDefault()}
+                          className="font-semibold text-on-surface underline decoration-outline-variant underline-offset-4 hover:text-primary hover:decoration-primary"
+                        >
+                          Privacy Policy
+                        </a>
+                        .
+                      </span>
+                    </label>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-primary hover:bg-[#0040b8] active:bg-[#00359b] disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl shadow-[0_10px_24px_-10px_rgba(0,83,219,0.6)] hover:shadow-[0_12px_28px_-10px_rgba(0,83,219,0.65)] hover:-translate-y-[1px] active:translate-y-0 transition-all flex items-center justify-center gap-2 text-[15px] mt-2"
+                    >
+                      {loading ? (
+                        <>
+                          <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Creating account...
+                        </>
+                      ) : (
+                        <>
+                          Create account
+                          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="relative flex items-center gap-4 py-1">
+                      <div className="h-px flex-1 bg-outline-variant/30" />
+                      <span className="text-[11px] font-semibold tracking-widest uppercase text-on-surface-variant/60 bg-white px-3">
+                        Or sign up with
+                      </span>
+                      <div className="h-px flex-1 bg-outline-variant/30" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setError("Google sign-up coming soon")}
+                        className="flex items-center justify-center gap-2 bg-white border border-outline-variant/40 rounded-xl py-3 text-sm font-semibold text-on-surface hover:bg-surface-container hover:border-outline-variant transition-all hover:-translate-y-[1px] active:translate-y-0"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                          />
+                        </svg>
+                        Google
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setError("SSO coming soon")}
+                        className="flex items-center justify-center gap-2 bg-white border border-outline-variant/40 rounded-xl py-3 text-sm font-semibold text-on-surface hover:bg-surface-container hover:border-outline-variant transition-all hover:-translate-y-[1px] active:translate-y-0"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">fingerprint</span>
+                        SSO
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="mt-7 text-center">
+                    <p className="text-sm text-on-surface-variant">
+                      Already have an account?{" "}
+                      <Link
+                        to="/login"
+                        className="font-semibold text-primary hover:underline underline-offset-4 decoration-2"
+                      >
+                        Log in
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-surface-container-low border-t border-outline-variant/20 px-7 sm:px-8 py-4 flex items-center justify-center gap-2 text-xs text-on-surface-variant text-center">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-600 shrink-0">
+                    verified_user
+                  </span>
+                  <span>Protected by 256-bit encryption • GDPR compliant</span>
                 </div>
               </div>
-              <div>
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-unit" htmlFor="email">Email Address</label>
-                <input
-                  className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow"
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="rahul@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-unit" htmlFor="phone">Phone Number</label>
-                <input
-                  className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow"
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-unit" htmlFor="password">Password</label>
-                <input
-                  className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow"
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <div className="pt-stack-sm">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full font-label-md text-label-md bg-inverse-surface text-white py-3 rounded-lg hover:bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
-                >
-                  {loading ? "Creating account..." : "Create Account"}
-                </button>
-              </div>
-            </form>
 
-            <div className="mt-stack-lg text-center">
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Already have an account?
-                <Link to="/login" className="text-primary font-label-md hover:underline hover:text-primary-container transition-colors ml-1">
-                  Log In
-                </Link>
+              <p className="text-center text-[11px] text-on-surface-variant/60 mt-4 px-4">
+                By creating an account you agree to our Terms and confirm you have read our
+                Privacy Policy.
               </p>
             </div>
           </div>
