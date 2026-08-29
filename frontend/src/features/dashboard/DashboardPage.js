@@ -9,6 +9,11 @@ import useSocietyStore, {
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 
+const superAdminCards = [
+  { icon: "apartment", label: "Societies", to: "/admin/societies" },
+  { icon: "pending_actions", label: "Pending Approvals", to: "/admin/societies/pending" },
+];
+
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
@@ -54,8 +59,9 @@ function getGreeting() {
   return "Good evening";
 }
 
-function RolePill({ role }) {
-  const isAdmin = role === "society_admin" || role === "super_admin";
+function RolePill({ role, isSuper }) {
+  const isAdmin = role === "society_admin" || role === "super_admin" || isSuper;
+  const label = isSuper ? "Super Admin" : isAdmin ? "Society Admin" : "Resident";
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-label-sm font-semibold shadow-sm ${
@@ -65,9 +71,9 @@ function RolePill({ role }) {
       }`}
     >
       <span className="material-symbols-outlined text-[15px]">
-        {isAdmin ? "shield_person" : "person"}
+        {isSuper ? "verified_user" : isAdmin ? "shield_person" : "person"}
       </span>
-      {isAdmin ? "Society Admin" : "Resident"}
+      {label}
     </span>
   );
 }
@@ -165,6 +171,7 @@ export default function DashboardPage() {
   const activeMembership = useSocietyStore(selectActiveMembership);
   const activeUnit = useSocietyStore(selectPrimaryUnit);
 
+  const isSuperAdmin = user?.role?.includes("super_admin");
   const isAdmin =
     activeMembership?.role === "society_admin" ||
     activeMembership?.role === "super_admin";
@@ -224,7 +231,9 @@ export default function DashboardPage() {
               {firstName}
             </h1>
           </div>
-          {activeMembership && <RolePill role={activeMembership.role} />}
+          {(activeMembership || isSuperAdmin) && (
+            <RolePill role={activeMembership?.role} isSuper={isSuperAdmin} />
+          )}
         </div>
 
         <div className="relative mt-5 flex items-center gap-3 rounded-xl bg-white/10 p-3.5 ring-1 ring-white/20 backdrop-blur-sm sm:p-4">
@@ -282,6 +291,10 @@ export default function DashboardPage() {
             </span>
           </span>
         </Link>
+      )}
+
+      {isSuperAdmin && (
+        <CardSection title="Super Admin" cards={superAdminCards} variant="admin" />
       )}
 
       {isAdmin && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}

@@ -100,6 +100,57 @@ export default function AppLayout() {
       queryClient.invalidateQueries({ queryKey: ["chat-direct-messages"] });
     });
 
+    socket.on("society:change", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["societies"] });
+      queryClient.invalidateQueries({ queryKey: ["society"] });
+      queryClient.invalidateQueries({ queryKey: ["society-stats"] });
+      if (data?.id) {
+        queryClient.invalidateQueries({ queryKey: ["society", String(data.id)] });
+      }
+      if (data?.society?._id) {
+        queryClient.invalidateQueries({ queryKey: ["society", String(data.society._id)] });
+      }
+      // For society members: reload my-societies so suspend/activate/approve/reject reflects without refresh
+      const action = data?.action || data?.society?.status;
+      const societyId = String(data?.id || data?.society?._id || "");
+      const isMembershipChangingAction = [
+        "suspend",
+        "suspended",
+        "activate",
+        "active",
+        "approve",
+        "reject",
+        "rejected",
+        "create",
+      ].includes(action);
+      if (isMembershipChangingAction) {
+        const store = useSocietyStore.getState();
+        // Approve/activate can make a previously hidden (pending/suspended) society appear;
+        // suspend/reject can make an active society disappear. Always reload to reflect.
+        // We do it for any such action, but optimistically check if user is affected.
+        const shouldReload =
+          societyId === String(store.activeSocietyId || "") ||
+          store.societies.some((s) => String(s.society.id) === societyId) ||
+          ["approve", "activate", "active", "create"].includes(action);
+        if (shouldReload || societyId) {
+          store.loadMySocieties().catch(() => {});
+        }
+        // Also invalidate society-scoped queries so UI updates immediately
+        queryClient.invalidateQueries({ queryKey: ["notices"] });
+        queryClient.invalidateQueries({ queryKey: ["memberships"] });
+        queryClient.invalidateQueries({ queryKey: ["directory"] });
+        queryClient.invalidateQueries({ queryKey: ["my-societies"] });
+      }
+    });
+
+    socket.on("societies:change", () => {
+      queryClient.invalidateQueries({ queryKey: ["societies"] });
+      queryClient.invalidateQueries({ queryKey: ["society"] });
+      queryClient.invalidateQueries({ queryKey: ["society-stats"] });
+      // Fallback: reload societies for members
+      useSocietyStore.getState().loadMySocieties().catch(() => {});
+    });
+
     return () => {
       socket.disconnect();
     };

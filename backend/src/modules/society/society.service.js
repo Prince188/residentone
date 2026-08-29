@@ -73,11 +73,17 @@ class SocietyService {
         409
       );
     }
-    return Society.create({
+    const society = await Society.create({
       ...mapped,
       status: "pending",
       source: "public_registration",
     });
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("create", society);
+      else if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "create", society, id: society._id });
+    } catch (_) {}
+    return society;
   }
 
   async createByAdmin(data, adminId) {
@@ -103,6 +109,14 @@ class SocietyService {
       throw error;
     }
     await unitService.ensureUnitsForSociety(society._id);
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("create", society);
+      else if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "create", society, id: society._id });
+      if (adminAccount?.userId && s.emitToUser) {
+        s.emitToUser(String(adminAccount.userId), "society:change", { action: "create", society, id: society._id });
+      }
+    } catch (_) {}
     return { society, adminAccount };
   }
 
@@ -190,6 +204,15 @@ class SocietyService {
       throw new AppError("Society is no longer pending", 409);
     }
     await unitService.ensureUnitsForSociety(society._id);
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("approve", society);
+      else if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "approve", society, id: society._id });
+      // Real-time for the newly onboarded society admin (not in society room yet)
+      if (adminAccount?.userId && s.emitToUser) {
+        s.emitToUser(String(adminAccount.userId), "society:change", { action: "approve", society, id: society._id });
+      }
+    } catch (_) {}
     return { society, adminAccount };
   }
 
@@ -211,6 +234,11 @@ class SocietyService {
       if (!exists) throw new AppError("Society not found", 404);
       throw new AppError("Only pending societies can be rejected", 409);
     }
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("reject", society);
+      else if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "reject", society, id: society._id });
+    } catch (_) {}
     return society;
   }
 
@@ -227,7 +255,7 @@ class SocietyService {
     if (status === "activate" && !allowedTransitions.activate.includes(current.status)) {
       throw new AppError("Only suspended societies can be activated", 409);
     }
-    return Society.findByIdAndUpdate(
+    const society = await Society.findByIdAndUpdate(
       id,
       {
         $set:
@@ -237,6 +265,23 @@ class SocietyService {
       },
       { new: true }
     );
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange(status, society);
+      else if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: status, society, id: society._id });
+      // Also push to all members' user rooms so suspended/activated reflects even if they left the society room
+      if (s.emitToUser) {
+        const memberships = await Membership.find({ societyId: society._id }).select("userId").lean();
+        memberships.forEach((m) => {
+          if (m.userId) {
+            try {
+              s.emitToUser(String(m.userId), "society:change", { action: status, society, id: society._id });
+            } catch (_) {}
+          }
+        });
+      }
+    } catch (_) {}
+    return society;
   }
 
   async findRawById(id) {
@@ -249,19 +294,31 @@ class SocietyService {
   }
 
   async update(id, data) {
-    return Society.findByIdAndUpdate(
+    const society = await Society.findByIdAndUpdate(
       id,
       { ...data, updatedBy: data.updatedBy },
       { new: true, runValidators: true }
     );
+    try {
+      const s = require("../../socket");
+      if (society && s.emitSocietyChange) s.emitSocietyChange("update", society);
+      else if (society && s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "update", society, id: society._id });
+    } catch (_) {}
+    return society;
   }
 
   async deactivate(id) {
-    return Society.findByIdAndUpdate(
+    const society = await Society.findByIdAndUpdate(
       id,
       { isActive: false, status: "suspended" },
       { new: true }
     );
+    try {
+      const s = require("../../socket");
+      if (society && s.emitSocietyChange) s.emitSocietyChange("deactivate", society);
+      else if (society && s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "deactivate", society, id: society._id });
+    } catch (_) {}
+    return society;
   }
 }
 

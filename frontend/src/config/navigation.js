@@ -19,6 +19,11 @@ export const RESIDENT_NAV_SECTIONS = [
 
 export const ADMIN_NAV_SECTIONS = [
   {
+    id: "main",
+    label: "Main",
+    items: [{ label: "Dashboard", to: "/dashboard", icon: "dashboard" }],
+  },
+  {
     id: "platform",
     label: "Platform",
     items: [

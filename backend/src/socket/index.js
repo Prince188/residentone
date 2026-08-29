@@ -23,6 +23,8 @@ function initSocket(server) {
       socket.userId = decoded.userId;
       socket.societyId = clientSocietyId || decoded.societyId;
       socket.role = decoded.role;
+      const roles = Array.isArray(decoded.role) ? decoded.role : decoded.role ? [decoded.role] : [];
+      socket.roles = roles;
       next();
     } catch (error) {
       next(new Error("Invalid token"));
@@ -38,6 +40,13 @@ function initSocket(server) {
 
     if (socket.societyId) {
       socket.join(`society:${socket.societyId}`);
+    }
+
+    // Super admins get a global room for platform-wide events (society registrations, etc.)
+    const roles = socket.roles || (Array.isArray(socket.role) ? socket.role : socket.role ? [socket.role] : []);
+    if (roles.includes("super_admin")) {
+      socket.join("super_admin");
+      logger.debug(`Super admin joined super_admin room: ${socket.userId}`);
     }
 
     socket.on("chat:typing", (data) => {
@@ -82,4 +91,28 @@ function emitToUser(userId, event, data) {
   io.to(userId).emit(event, data);
 }
 
-module.exports = { initSocket, getIO, emitToSociety, emitToUser };
+function emitToSuperAdmins(event, data) {
+  if (!io) return;
+  io.to("super_admin").emit(event, data);
+}
+
+function emitSocietyChange(action, society) {
+  if (!io || !society) return;
+  const payload = {
+    id: society._id,
+    _id: society._id,
+    status: society.status,
+    action,
+    society,
+  };
+  // Broadcast to super admins (pending approvals, global list)
+  io.to("super_admin").emit("society:change", payload);
+  // Also emit to society room for members (if active/suspended)
+  if (society._id) {
+    io.to(`society:${society._id}`).emit("society:change", payload);
+  }
+  // Generic fallback for legacy listeners
+  io.to("super_admin").emit("societies:change", payload);
+}
+
+module.exports = { initSocket, getIO, emitToSociety, emitToUser, emitToSuperAdmins, emitSocietyChange };
