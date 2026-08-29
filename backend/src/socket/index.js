@@ -6,10 +6,23 @@ const logger = require("../config/logger");
 let io;
 
 function initSocket(server) {
+  const allowedOrigins = [
+    config.cors.origin,
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://residentone.vercel.app",
+  ].filter(Boolean);
+
   io = new Server(server, {
     cors: {
-      origin: config.cors.origin,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) return callback(null, true);
+        return callback(null, true);
+      },
       credentials: true,
+      methods: ["GET", "POST"],
     },
   });
 

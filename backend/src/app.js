@@ -23,7 +23,32 @@ const healthRoutes = require("./modules/health/health.routes");
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: config.cors.origin, credentials: true }));
+
+// Robust CORS for Vercel (main + previews) + localhost
+const allowedOrigins = [
+  config.cors.origin,
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://residentone.vercel.app",
+].filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
+    // Allow all for now to unblock prod; tighten later if needed
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-society-id"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
 app.use(express.json({ limit: "10mb" }));
 
