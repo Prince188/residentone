@@ -251,7 +251,7 @@ export default function ManageCommitteePage() {
                 {ROLE_LABELS[roleKey] || roleKey} :-
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-semibold normal-case text-primary">{members.length}</span>
               </h3>
-              <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
                 {members.map((m) => {
                   const name = m.userId?.name || "Unknown";
                   const isEditing = editingId === String(m._id);
