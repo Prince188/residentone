@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getFamilyMembers, addFamilyMember, removeFamilyMember, extractApiError } from "../../lib/familyMembers";
 
@@ -10,6 +11,8 @@ export default function FamilyMembersPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
   const myHouses = membership?.units || [];
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = ["super_admin", "society_admin"].includes(membership?.role);
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", relation: "other", phone: "" });
   const [msg, setMsg] = useState("");
@@ -48,7 +51,11 @@ export default function FamilyMembersPage() {
     );
   }
 
-  const members = listQuery.data || [];
+  const rawMembers = listQuery.data || [];
+  // Strict per-user isolation: non-admin sees only their own addedBy, admin sees all in society
+  const members = isAdmin
+    ? rawMembers
+    : rawMembers.filter((m) => String(m.addedBy) === String(user?.id || user?._id));
 
   const handleAdd = (e) => {
     e.preventDefault();
