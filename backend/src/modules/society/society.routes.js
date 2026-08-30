@@ -3,16 +3,35 @@ const societyController = require("./society.controller");
 const {
   authenticate,
   requirePlatformAdmin,
+  requireRole,
 } = require("../../middlewares/auth.middleware");
+const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
 const {
   publicRegistrationSchema,
   manualCreateSchema,
   updateSocietySchema,
   rejectSocietySchema,
+  updatePermissionsSchema,
 } = require("./society.validation");
 
 const router = express.Router();
+
+router.get(
+  "/permissions",
+  authenticate,
+  resolveSocietyContext,
+  requireRole("super_admin", "society_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member", "owner", "tenant"),
+  (req, res, next) => societyController.getPermissions(req, res, next)
+);
+router.put(
+  "/permissions",
+  authenticate,
+  resolveSocietyContext,
+  requireRole("super_admin", "society_admin"),
+  validate(updatePermissionsSchema),
+  (req, res, next) => societyController.updatePermissions(req, res, next)
+);
 
 router.post(
   "/register",

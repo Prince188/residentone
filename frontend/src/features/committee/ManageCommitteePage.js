@@ -1,9 +1,10 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
+import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getSocietyDirectory } from "../../lib/directory";
 import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const COMMITTEE_ROLES = [
   { value: "committee_member", label: "Committee Member" },
@@ -20,7 +21,15 @@ function extractError(e, fallback) {
 
 export default function ManageCommitteePage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
+  const activeMembership = useSocietyStore(selectActiveMembership);
   const queryClient = useQueryClient();
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageCommittee = hasPermission(activeMembership?.role, "manage_committee", permissionsQuery.data);
+  const canManagePermissions = ["society_admin", "super_admin"].includes(activeMembership?.role);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
@@ -159,16 +168,22 @@ export default function ManageCommitteePage() {
           <p className="page-subtitle">{activeSociety?.name} · {committeeMembers.length} committee member(s)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPermissions(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-medium text-on-surface hover:bg-surface-container-low hover:border-primary/30 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span> Manage Permissions
-          </button>
-          <button type="button" onClick={() => setShowForm((v) => !v)} className="rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90">
-            <span className="material-symbols-outlined text-[18px] align-middle mr-1">add</span> {showForm ? "Close" : "Create Committee"}
-          </button>
+          {canManagePermissions && (
+            <button
+              type="button"
+              onClick={() => setShowPermissions(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-medium text-on-surface hover:bg-surface-container-low hover:border-primary/30 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span> Manage Permissions
+            </button>
+          )}
+          {canManageCommittee ? (
+            <button type="button" onClick={() => setShowForm((v) => !v)} className="rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90">
+              <span className="material-symbols-outlined text-[18px] align-middle mr-1">add</span> {showForm ? "Close" : "Create Committee"}
+            </button>
+          ) : (
+            <span className="text-label-sm text-outline">No permission to manage committee</span>
+          )}
         </div>
       </section>
 
@@ -279,13 +294,17 @@ export default function ManageCommitteePage() {
                         </select>
                       )}
                       {!isEditing ? (
-                        <div className="mt-1 flex gap-1">
-                          <button type="button" onClick={() => { setEditingId(String(m._id)); setEditRole(m.role); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
-                          <button type="button" onClick={() => { if (window.confirm(`Remove ${name} from committee? Will become Owner.`)) removeMut.mutate(m._id); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
-                        </div>
+                        canManageCommittee ? (
+                          <div className="mt-1 flex gap-1">
+                            <button type="button" onClick={() => { setEditingId(String(m._id)); setEditRole(m.role); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
+                            <button type="button" onClick={() => { if (window.confirm(`Remove ${name} from committee? Will become Owner.`)) removeMut.mutate(m._id); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-outline">View only</span>
+                        )
                       ) : (
                         <div className="mt-1 flex gap-1">
-                          <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole })} disabled={updateMut.isPending} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
+                          <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole })} disabled={updateMut.isPending || !canManageCommittee} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
                           <button type="button" onClick={() => setEditingId(null)} className="rounded-full border border-outline-variant px-2 py-1 text-[11px]">Cancel</button>
                         </div>
                       )}
@@ -336,15 +355,36 @@ const ROLE_PERMISSIONS_DEFAULT = {
 };
 
 function PermissionsModal({ societyId, societyName, onClose }) {
-  const storageKey = `residentone:permissions:${societyId || "global"}`;
-  const [permissions, setPermissions] = useState(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return ROLE_PERMISSIONS_DEFAULT;
+  const queryClient = useQueryClient();
+  const { data: fetchedPermissions, isLoading } = useQuery({
+    queryKey: ["society-permissions", societyId],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(societyId),
   });
+  const [permissions, setPermissions] = useState(ROLE_PERMISSIONS_DEFAULT);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (fetchedPermissions) {
+      // Merge with defaults to ensure new permissions appear
+      const merged = { ...ROLE_PERMISSIONS_DEFAULT, ...fetchedPermissions };
+      // Ensure society_admin/super_admin always have all
+      merged.society_admin = PERMISSIONS.map((p) => p.key);
+      merged.super_admin = PERMISSIONS.map((p) => p.key);
+      setPermissions(merged);
+    }
+  }, [fetchedPermissions]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (perms) => (await api.put("/societies/permissions", { permissions: perms })).data.data,
+    onSuccess: (data) => {
+      setPermissions((prev) => ({ ...prev, ...data }));
+      queryClient.invalidateQueries({ queryKey: ["society-permissions", societyId] });
+      queryClient.invalidateQueries({ queryKey: ["society-permissions"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
 
   const toggle = (role, permKey) => {
     setPermissions((prev) => {
@@ -359,14 +399,12 @@ function PermissionsModal({ societyId, societyName, onClose }) {
   };
 
   const handleSave = () => {
-    localStorage.setItem(storageKey, JSON.stringify(permissions));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    saveMutation.mutate(permissions);
   };
 
   const handleReset = () => {
     setPermissions(ROLE_PERMISSIONS_DEFAULT);
-    localStorage.removeItem(storageKey);
+    saveMutation.mutate(ROLE_PERMISSIONS_DEFAULT);
   };
 
   return (
@@ -447,15 +485,18 @@ function PermissionsModal({ societyId, societyName, onClose }) {
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-outline-variant bg-surface-container-lowest px-5 py-4">
-          <button type="button" onClick={handleReset} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-high">
+          <button type="button" onClick={handleReset} disabled={saveMutation.isPending || isLoading} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-high disabled:opacity-50">
             Reset to defaults
           </button>
           <div className="flex items-center gap-2">
+            {isLoading && <span className="text-label-sm text-outline">Loading…</span>}
+            {saveMutation.isPending && <span className="flex items-center gap-1 text-label-sm text-outline"><span className="w-4 h-4 border-2 border-outline-variant border-t-primary rounded-full animate-spin" /> Saving…</span>}
             {saved && <span className="flex items-center gap-1 text-label-sm font-semibold text-success"><span className="material-symbols-outlined text-[16px]">check_circle</span> Saved</span>}
+            {saveMutation.isError && <span className="text-label-sm text-error">Failed to save</span>}
             <button type="button" onClick={onClose} className="rounded-full border border-outline-variant px-5 py-2 text-label-md">
               Close
             </button>
-            <button type="button" onClick={handleSave} className="rounded-full bg-primary px-6 py-2 text-label-md font-semibold text-on-primary hover:opacity-90">
+            <button type="button" onClick={handleSave} disabled={saveMutation.isPending || isLoading} className="rounded-full bg-primary px-6 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50">
               Save Permissions
             </button>
           </div>

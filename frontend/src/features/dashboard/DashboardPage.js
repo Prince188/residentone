@@ -8,6 +8,8 @@ import useSocietyStore, {
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const superAdminCards = [
   { icon: "apartment", label: "Societies", to: "/admin/societies" },
@@ -201,6 +203,31 @@ export default function DashboardPage() {
   ].includes(activeRole);
   const roleTitle = ROLE_TITLES[activeRole];
 
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const customPermissions = permissionsQuery.data || {};
+
+  const cardPermissionMap = {
+    "Manage Houses": "manage_houses",
+    "Manage Maintenance": "manage_maintenance",
+    "Create Notice": "create_notice",
+    "Manage Amenities": "manage_amenities",
+    "Create Poll": "create_poll",
+    "Create Survey": "create_survey",
+    "Manage Committee": "manage_committee",
+  };
+
+  const filteredAdminCards = (isCommitteeRole || isAdmin
+    ? adminCards.filter((card) => {
+        const perm = cardPermissionMap[card.label];
+        if (!perm) return true;
+        return hasPermission(activeRole, perm, customPermissions);
+      })
+    : []);
+
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id, "recent"],
     queryFn: async () => (await getNotices(2)).data.data,
@@ -322,11 +349,13 @@ export default function DashboardPage() {
         <CardSection title="Super Admin" cards={superAdminCards} variant="admin" />
       )}
 
-      {isCommitteeRole && roleTitle && (
-        <CardSection title={roleTitle} cards={adminCards} variant="admin" />
+      {isCommitteeRole && roleTitle && filteredAdminCards.length > 0 && (
+        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" />
       )}
 
-      {isAdmin && !isCommitteeRole && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}
+      {isAdmin && !isCommitteeRole && filteredAdminCards.length > 0 && (
+        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" />
+      )}
 
       <CardSection title="General" cards={generalCards} />
 

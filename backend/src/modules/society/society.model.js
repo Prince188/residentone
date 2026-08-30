@@ -84,6 +84,10 @@ const societySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    rolePermissions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     isActive: {
       type: Boolean,
       default: false,

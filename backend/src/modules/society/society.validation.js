@@ -49,9 +49,14 @@ const rejectSocietySchema = z.object({
     .max(500, "Rejection reason cannot exceed 500 characters"),
 });
 
+const updatePermissionsSchema = z.object({
+  permissions: z.record(z.array(z.string())),
+});
+
 module.exports = {
   publicRegistrationSchema,
   manualCreateSchema,
   updateSocietySchema,
   rejectSocietySchema,
+  updatePermissionsSchema,
 };

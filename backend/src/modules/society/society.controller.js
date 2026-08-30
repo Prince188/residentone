@@ -165,6 +165,24 @@ class SocietyController {
       next(error);
     }
   }
+
+  async getPermissions(req, res, next) {
+    try {
+      const perms = await societyService.getRolePermissions(req.societyId);
+      res.json({ success: true, data: perms });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updatePermissions(req, res, next) {
+    try {
+      const perms = await societyService.updateRolePermissions(req.societyId, req.body.permissions, req.userId);
+      res.json({ success: true, data: perms });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new SocietyController();

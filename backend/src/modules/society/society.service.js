@@ -284,6 +284,39 @@ class SocietyService {
     return society;
   }
 
+  async getRolePermissions(societyId) {
+    const society = await Society.findById(societyId).select("rolePermissions");
+    return society?.rolePermissions || {};
+  }
+
+  async updateRolePermissions(societyId, newPermissions, userId) {
+    const { PERMISSIONS } = require("../../shared/permissions");
+    const { SOCIETY_ROLES } = require("../../shared/types");
+    const allKeys = PERMISSIONS.map((p) => p.key);
+    const sanitized = {};
+    for (const [role, perms] of Object.entries(newPermissions || {})) {
+      if (!SOCIETY_ROLES.includes(role)) continue;
+      if (["society_admin", "super_admin"].includes(role)) {
+        sanitized[role] = allKeys;
+      } else {
+        sanitized[role] = (Array.isArray(perms) ? perms : []).filter((p) => allKeys.includes(p));
+      }
+    }
+    sanitized["society_admin"] = allKeys;
+    sanitized["super_admin"] = allKeys;
+    const society = await Society.findByIdAndUpdate(
+      societyId,
+      { rolePermissions: sanitized, updatedBy: userId },
+      { new: true, runValidators: true }
+    ).select("rolePermissions");
+    try {
+      const s = require("../../socket");
+      if (s.emitToSociety) s.emitToSociety(String(societyId), "permissions:change", { societyId, rolePermissions: society.rolePermissions });
+      if (s.emitToSuperAdmins) s.emitToSuperAdmins("permissions:change", { societyId, rolePermissions: society.rolePermissions });
+    } catch (_) {}
+    return society.rolePermissions;
+  }
+
   async findRawById(id) {
     if (!mongoose.Types.ObjectId.isValid(id)) return null;
     return Society.findById(id);
