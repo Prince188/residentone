@@ -11,6 +11,9 @@ import {
 } from "../../lib/houses";
 import FormField from "../../components/form/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const inputClass =
   "w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow disabled:bg-surface-container-high disabled:text-on-surface-variant";
@@ -280,6 +283,14 @@ export default function HouseDetailPage() {
   const queryClient = useQueryClient();
   const [confirmUnassign, setConfirmUnassign] = useState(false);
   const [unassignError, setUnassignError] = useState("");
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const membership = useSocietyStore(selectActiveMembership);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageHouses = hasPermission(membership?.role, "manage_houses", permissionsQuery.data);
 
   const houseQuery = useQuery({
     queryKey: ["house", unitId],
@@ -377,6 +388,7 @@ export default function HouseDetailPage() {
               <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members: <b>{(house.owner || house.tenant)?.familyMembers ?? "—"}</b></p>
               <div className="flex items-start gap-2"><span className="material-symbols-outlined text-[16px] text-primary mt-0.5">directions_car</span><div><p>Vehicles ({(house.owner || house.tenant)?.vehicles?.length || 0}):</p>{(house.owner || house.tenant)?.vehicles?.length ? (house.owner || house.tenant).vehicles.map((v,i)=><span key={i} className="mr-1 mt-1 inline-block rounded-full bg-secondary-fixed px-2 py-0.5 font-mono text-label-sm font-bold tracking-widest">{v}</span>) : <b>— No vehicles</b>}</div></div>
             </div>
+          {canManageHouses && (
           <button
             type="button"
             onClick={() => setConfirmUnassign(true)}
@@ -385,6 +397,10 @@ export default function HouseDetailPage() {
             <span className="material-symbols-outlined text-[18px]">person_remove</span>
             Remove {house.isAssigned ? "Owner" : "Renter"}
           </button>
+          )}
+          {!canManageHouses && (
+            <p className="mt-3 text-label-sm text-outline">No permission to remove. Ask your Society Admin for <strong>Manage Houses</strong> permission.</p>
+          )}
           </div>
 
           <ConfirmDialog
@@ -398,8 +414,15 @@ export default function HouseDetailPage() {
             onClose={() => setConfirmUnassign(false)}
           />
         </section>
-      ) : (
+      ) : canManageHouses ? (
         <OwnerForm house={house} />
+      ) : (
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
+          <span className="material-symbols-outlined text-error text-[40px]">lock</span>
+          <h3 className="mt-3 text-headline-sm text-on-surface">No permission</h3>
+          <p className="mt-1 text-body-md text-on-surface-variant">You don’t have permission to manage houses. Ask your Society Admin to grant you <strong>Manage Houses</strong> permission.</p>
+          <Link to="/houses" className="mt-4 inline-block text-label-md text-primary no-underline hover:underline">Back to Manage Houses</Link>
+        </div>
       )}
     </div>
   );

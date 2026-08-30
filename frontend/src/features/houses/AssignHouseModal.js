@@ -12,7 +12,10 @@ import FormField from "../../components/form/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import useSocietyStore, {
   selectActiveMembership,
+  selectActiveSociety,
 } from "../../stores/society.store";
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const inputClass =
   "w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow disabled:bg-surface-container-high disabled:text-on-surface-variant";
@@ -178,20 +181,27 @@ function FamilyMembersInModal({ houseId, addedById }) {
 export default function AssignHouseModal({ house, onClose }) {
   const queryClient = useQueryClient();
   const activeMembership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ["super_admin", "society_admin"].includes(activeMembership?.role);
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety?.id),
+  });
+  // 0% difference: anyone with manage_houses permission works exactly like society_admin
+  const canManageHouses = hasPermission(activeMembership?.role, "manage_houses", permissionsQuery.data);
 
   const [screen, setScreen] = useState("choice");
-  const [residentType, setResidentType] = useState(isAdmin ? "owner" : "renter");
-  const [activeTab, setActiveTab] = useState(isAdmin ? (house.isAssigned ? "owner" : house.isRented ? "renter" : "owner") : "renter");
+  const [residentType, setResidentType] = useState(canManageHouses ? "owner" : "renter");
+  const [activeTab, setActiveTab] = useState(canManageHouses ? (house.isAssigned ? "owner" : house.isRented ? "renter" : "owner") : "renter");
 
   useEffect(() => {
-    if (isAdmin) {
+    if (canManageHouses) {
       setActiveTab(house.isAssigned ? "owner" : house.isRented ? "renter" : "owner");
     } else {
       setActiveTab("renter");
       setResidentType("renter");
     }
-  }, [house.id, house.isAssigned, house.isRented, isAdmin]);
+  }, [house.id, house.isAssigned, house.isRented, canManageHouses]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -252,6 +262,7 @@ export default function AssignHouseModal({ house, onClose }) {
       setFormError("");
       setAssignedResult(response.data.data);
       setScreen("success");
+      setShowAddForm(false);
       invalidate();
     },
     onError: (error) =>
@@ -440,8 +451,8 @@ export default function AssignHouseModal({ house, onClose }) {
               </div>
             </div>
 
-            {/* Tabs */}
-            {isAdmin && (
+            {/* Tabs - 0% difference for anyone with manage_houses */}
+            {canManageHouses && (
               <div className="flex gap-2 rounded-full bg-surface-container-high p-1">
                 <button
                   type="button"

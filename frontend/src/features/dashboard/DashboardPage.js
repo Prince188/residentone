@@ -264,6 +264,20 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 sm:space-y-7">
+      {/* Demo / Under Development Banner */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-label-sm font-medium leading-snug text-amber-900 shadow-sm sm:gap-2.5 sm:py-3 sm:text-body-sm"
+      >
+        <span className="material-symbols-outlined shrink-0 text-[18px] text-amber-600 sm:text-[20px]">
+          construction
+        </span>
+        <p className="m-0">
+          <span className="font-semibold">Under Development:</span> You are viewing the demo mode. Some of the features are still under development — stay tuned.
+        </p>
+      </div>
+
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-5 shadow-lg sm:p-7">
         <div
           aria-hidden="true"

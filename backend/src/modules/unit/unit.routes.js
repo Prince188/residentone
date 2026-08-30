@@ -1,6 +1,6 @@
 const express = require("express");
 const unitController = require("./unit.controller");
-const { authenticate, requireRole, requireSociety } = require("../../middlewares/auth.middleware");
+const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
 const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
 const {
@@ -9,6 +9,7 @@ const {
   inviteLinkSchema,
   inviteSubmitSchema,
 } = require("./unit.validation");
+const { requirePermission } = require("../../middlewares/permission.middleware");
 
 const router = express.Router();
 
@@ -26,18 +27,14 @@ router.post(
 router.use(authenticate, resolveSocietyContext, requireSociety);
 
 router.get("/", (req, res, next) => unitController.list(req, res, next));
-router.get(
-  "/search-users",
-  requireRole("super_admin", "society_admin"),
-  (req, res, next) => unitController.searchUsers(req, res, next)
-);
+router.get("/search-users", requirePermission("manage_houses"), (req, res, next) => unitController.searchUsers(req, res, next));
 router.get(
   "/:unitId",
   (req, res, next) => unitController.getById(req, res, next)
 );
 router.post(
   "/:unitId/check-owner",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_houses"),
   validate(checkOwnerSchema),
   (req, res, next) => unitController.checkOwner(req, res, next)
 );

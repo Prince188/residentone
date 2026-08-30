@@ -6,8 +6,8 @@ import useSocietyStore, {
   selectActiveSociety,
 } from "../../stores/society.store";
 import { getNotices, extractApiError, timeAgo } from "../../lib/notices";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 function NoticeCard({ notice, onOpen }) {
   return (
@@ -121,7 +121,12 @@ function NoticeDetailModal({ notice, onClose }) {
 export default function NoticesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreateNotice = hasPermission(activeMembership?.role, "create_notice", permissionsQuery.data);
   const [selectedNotice, setSelectedNotice] = useState(null);
 
   const noticesQuery = useQuery({
@@ -148,7 +153,7 @@ export default function NoticesPage() {
             Announcements from your society admin.
           </p>
         </div>
-        {isAdmin && (
+        {canCreateNotice && (
           <Link
             to="/notices/new"
             className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md text-on-primary no-underline transition-opacity hover:opacity-90"
@@ -180,7 +185,7 @@ export default function NoticesPage() {
               <span className="material-symbols-outlined text-[40px] text-on-surface-variant">campaign</span>
               <p className="mt-3 text-body-md text-on-surface-variant">
                 No notices yet.{" "}
-                {isAdmin && (
+                {canCreateNotice && (
                   <Link to="/notices/new" className="text-primary hover:underline">
                     Publish the first one.
                   </Link>

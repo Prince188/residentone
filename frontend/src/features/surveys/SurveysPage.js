@@ -2,13 +2,18 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getSurveys, extractApiError, formatEndDate } from "../../lib/surveys";
-
-const ADMIN_ROLES = ["super_admin", "society_admin", "committee_member", "manager"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 export default function SurveysPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreateSurvey = hasPermission(membership?.role, "create_survey", permissionsQuery.data);
 
   const q = useQuery({
     queryKey: ["surveys", activeSociety?.id],
@@ -24,9 +29,9 @@ export default function SurveysPage() {
         <div>
           <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-primary"><span className="material-symbols-outlined text-[16px]">arrow_back</span> Dashboard</Link>
           <h1 className="page-title flex items-center gap-2"><span className="material-symbols-outlined text-primary">assignment</span> Surveys</h1>
-          <p className="page-subtitle">{activeSociety ? `${activeSociety.name} · ` : ""}{isAdmin ? "Create surveys for feedback." : "Answer society surveys (one per flat)."}</p>
+          <p className="page-subtitle">{activeSociety ? `${activeSociety.name} · ` : ""}{canCreateSurvey ? "Create surveys for feedback." : "Answer society surveys (one per flat)."}</p>
         </div>
-        {isAdmin && <Link to="/surveys/new" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90"><span className="material-symbols-outlined text-[18px]">add</span> Create Survey</Link>}
+        {canCreateSurvey && <Link to="/surveys/new" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90"><span className="material-symbols-outlined text-[18px]">add</span> Create Survey</Link>}
       </section>
 
       {q.isLoading && <div className="space-y-3">{Array.from({length:3}).map((_,i)=><div key={i} className="h-28 animate-pulse rounded-xl bg-surface-container-high" />)}</div>}
@@ -35,7 +40,7 @@ export default function SurveysPage() {
         <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-[40px] text-on-surface-variant">assignment</span>
           <p className="mt-3 font-semibold">No surveys yet</p>
-          <p className="text-body-sm text-on-surface-variant">{isAdmin ? "Create the first survey." : "Admin has not created any survey."}</p>
+          <p className="text-body-sm text-on-surface-variant">{canCreateSurvey ? "Create the first survey." : "Admin has not created any survey."}</p>
         </div>
       )}
       <div className="space-y-3">

@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { getSurvey, submitSurvey, closeSurvey, deleteSurvey, extractApiError } from "../../lib/surveys";
-
-const ADMIN_ROLES = ["super_admin", "society_admin", "committee_member", "manager"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 export default function SurveyDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreateSurvey = hasPermission(membership?.role, "create_survey", permissionsQuery.data);
 
   const q = useQuery({ queryKey: ["survey", id], queryFn: async () => (await getSurvey(id)).data.data, enabled: Boolean(id) });
   const survey = q.data;
@@ -60,7 +66,7 @@ export default function SurveyDetailPage() {
         </div>
         {survey.description && <p className="mt-2 text-body-sm text-on-surface-variant whitespace-pre-wrap">{survey.description}</p>}
         <p className="mt-3 text-label-sm text-outline">by {survey.createdByName} · {survey.questions.length} questions</p>
-        {isAdmin && !survey.isClosed && <div className="mt-4 flex gap-2"><button onClick={() => { if (window.confirm("Close now?")) closeMut.mutate(); }} className="rounded-full border border-outline-variant px-4 py-1.5 text-label-sm">Close Now</button><button onClick={() => { if (window.confirm("Delete survey?")) deleteMut.mutate(); }} className="rounded-full border border-error/30 px-4 py-1.5 text-label-sm text-error">Delete</button></div>}
+        {canCreateSurvey && !survey.isClosed && <div className="mt-4 flex gap-2"><button onClick={() => { if (window.confirm("Close now?")) closeMut.mutate(); }} className="rounded-full border border-outline-variant px-4 py-1.5 text-label-sm">Close Now</button><button onClick={() => { if (window.confirm("Delete survey?")) deleteMut.mutate(); }} className="rounded-full border border-error/30 px-4 py-1.5 text-label-sm text-error">Delete</button></div>}
       </div>
 
       {survey.hasResponded && <div className="rounded-lg bg-primary-fixed p-3 text-body-sm text-on-primary-fixed">Your flat has already submitted. One response per flat. Results below.</div>}

@@ -12,8 +12,8 @@ import {
   getCycleUnits,
   createCycle,
 } from "../../lib/maintenance";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 function DuesCard({ unit, cycle }) {
   const status = STATUS_UI[unit.status] || STATUS_UI.pending;
@@ -245,12 +245,17 @@ export default function SocietyDuesPage() {
     searchParams.get("period")
   );
 
-  const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageMaintenance = hasPermission(activeMembership?.role, "manage_maintenance", permissionsQuery.data);
 
   const cyclesQuery = useQuery({
     queryKey: ["maintenance", "cycles", activeSociety?.id],
     queryFn: async () => (await getCycles()).data.data,
-    enabled: Boolean(activeSociety && isAdmin),
+    enabled: Boolean(activeSociety && canManageMaintenance),
   });
 
   const cycles = useMemo(() => cyclesQuery.data || [], [cyclesQuery.data]);
@@ -301,14 +306,14 @@ export default function SocietyDuesPage() {
     },
   });
 
-  if (!isAdmin) {
+  if (!canManageMaintenance) {
     return (
       <div className="mx-auto max-w-6xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
-          <h1 className="page-title mt-3">Admins only</h1>
+          <h1 className="page-title mt-3">No permission</h1>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            Only the society admin can view society-wide dues.
+            You don’t have permission to manage maintenance. Ask your Society Admin to grant you <strong>Manage Maintenance</strong> permission.
           </p>
           <Link
             to="/dashboard"

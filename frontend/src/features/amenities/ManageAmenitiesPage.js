@@ -3,13 +3,18 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getAmenities, createAmenity, deleteAmenity, extractApiError } from "../../lib/amenities";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 export default function ManageAmenitiesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageAmenities = hasPermission(membership?.role, "manage_amenities", permissionsQuery.data);
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", type: "free", price: 0, slots: "06:00-07:00, 07:00-08:00, 18:00-19:00", bookingMode: "slot" });
@@ -37,11 +42,12 @@ export default function ManageAmenitiesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["amenities"] }),
   });
 
-  if (!isAdmin) {
+  if (!canManageAmenities) {
     return (
       <div className="mx-auto max-w-3xl p-10 text-center rounded-xl border border-outline-variant bg-surface-container-low">
         <span className="material-symbols-outlined text-[40px] text-error">lock</span>
-        <p className="mt-2 text-body-md">Only admins can manage amenities.</p>
+        <p className="mt-2 text-body-md">You don’t have permission to manage amenities.</p>
+        <p className="mt-1 text-body-sm text-on-surface-variant">Ask your Society Admin for <strong>Manage Amenities</strong> permission.</p>
         <Link to="/dashboard" className="mt-3 inline-block text-primary hover:underline">Back to Dashboard</Link>
       </div>
     );

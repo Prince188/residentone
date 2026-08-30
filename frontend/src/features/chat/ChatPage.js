@@ -6,9 +6,8 @@ import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "..
 import useAuthStore from "../../stores/auth.store";
 import { getGroups, createGroup, getGroupMessages, sendGroupMessage, getGroupInfo, addGroupMembers, removeGroupMembers, leaveGroup, deleteGroupMessage, reactGroupMessage, pinGroupMessage, getPinnedMessage, getAdmins, getDirectChats, getDirectMessages, sendDirectMessage, deleteDirectMessage, reactDirectMessage, extractApiError } from "../../lib/chat";
 import { getSocietyDirectory } from "../../lib/directory";
-import { getAccessToken } from "../../lib/api";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api, { getAccessToken } from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const EMOJIS = ["😀","😃","😄","😁","😆","😅","😂","🤣","🥲","🥹","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥸","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😮‍💨","😤","😠","😡","🤬","😳","🥵","🥶","😶‍🌫️","😱","😨","😰","😥","😓","🤗","🤔","🫣","🤭","🫢","🫡","🤫","🫠","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","😵‍💫","🤐","🥴","😷","🤒","🤕","🤢","🤮","🥴","🤧","😴","👍","👎","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👏","🙌","🫶","🙏","💪","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💝","💘","😺","😸","😹","🙏","🔥","⭐","🎉","✅","❌","💯"];
 
@@ -47,7 +46,13 @@ function formatListTime(date) {
 export default function ChatPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageChat = hasPermission(membership?.role, "manage_amenities", permissionsQuery.data);
+  const isAdmin = canManageChat;
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState("groups"); // groups | direct
@@ -550,7 +555,13 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
   const queryClient = useQueryClient();
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageChat = hasPermission(membership?.role, "manage_amenities", permissionsQuery.data);
+  const isAdmin = canManageChat;
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState("");

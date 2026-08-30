@@ -1,21 +1,27 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import FormField from "../../components/form/FormField";
 import { createNotice, extractApiError } from "../../lib/notices";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 export default function CreateNoticePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
 
-  const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreateNotice = hasPermission(activeMembership?.role, "create_notice", permissionsQuery.data);
 
   const mutation = useMutation({
     mutationFn: (payload) => createNotice(payload).then((r) => r.data.data),
@@ -27,14 +33,14 @@ export default function CreateNoticePage() {
       setError(extractApiError(err, "Failed to publish notice. Please try again.")),
   });
 
-  if (!isAdmin) {
+  if (!canCreateNotice) {
     return (
       <div className="mx-auto max-w-2xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
-          <h1 className="mt-3 text-headline-sm text-on-surface">Admins only</h1>
+          <h1 className="mt-3 text-headline-sm text-on-surface">No permission</h1>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            Only the society admin can publish notices.
+            You don’t have permission to publish notices. Ask your Society Admin to grant you <strong>Create Notice</strong> permission.
           </p>
           <Link
             to="/notices"

@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { getPolls, votePoll, closePoll, deletePoll, extractApiError, formatPollEndDate } from "../../lib/polls";
-
-const ADMIN_ROLES = ["super_admin", "society_admin", "committee_member", "manager"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 function VotersModal({ poll, onClose }) {
   useEffect(() => {
@@ -169,8 +169,14 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onView
 
 function AdminActions({ poll, onClose, closingId, onDelete }) {
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
-  if (!isAdmin) return null;
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreatePoll = hasPermission(membership?.role, "create_poll", permissionsQuery.data);
+  if (!canCreatePoll) return null;
   return (
     <>
       <button
@@ -195,7 +201,12 @@ function AdminActions({ poll, onClose, closingId, onDelete }) {
 export default function PollsPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreatePoll = hasPermission(activeMembership?.role, "create_poll", permissionsQuery.data);
   const queryClient = useQueryClient();
   const [votingId, setVotingId] = useState(null);
   const [closingId, setClosingId] = useState(null);
@@ -261,10 +272,10 @@ export default function PollsPage() {
           </h1>
           <p className="page-subtitle">
             {activeSociety ? `${activeSociety.name} · ` : ""}
-            {isAdmin ? "Create polls for society decisions." : "Vote on society decisions."}
+            {canCreatePoll ? "Create polls for society decisions." : "Vote on society decisions."}
           </p>
         </div>
-        {isAdmin && (
+        {canCreatePoll && (
           <Link to="/polls/new" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md text-on-primary no-underline hover:opacity-90">
             <span className="material-symbols-outlined text-[18px]">add</span>
             Create Poll
@@ -291,9 +302,9 @@ export default function PollsPage() {
           <span className="material-symbols-outlined text-[40px] text-on-surface-variant">how_to_vote</span>
           <p className="mt-3 text-body-md font-semibold text-on-surface">No polls yet</p>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            {isAdmin ? "Create the first poll for your society." : "Your admin has not created any polls."}
+            {canCreatePoll ? "Create the first poll for your society." : "Your admin has not created any polls."}
           </p>
-          {isAdmin && (
+          {canCreatePoll && (
             <Link to="/polls/new" className="mt-4 inline-flex items-center gap-1 text-label-md text-primary hover:underline">
               Create Poll →
             </Link>

@@ -1,9 +1,10 @@
 const express = require("express");
 const membershipController = require("./membership.controller");
-const { authenticate, requireRole, requireSociety } = require("../../middlewares/auth.middleware");
+const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
 const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
 const { addMemberSchema, updateRoleSchema } = require("./membership.validation");
+const { requirePermission } = require("../../middlewares/permission.middleware");
 
 const router = express.Router({ mergeParams: true });
 
@@ -24,7 +25,7 @@ router.get(
   authenticate,
   resolveSocietyContext,
   requireSociety,
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_committee"),
   (req, res, next) => membershipController.list(req, res, next)
 );
 router.post(
@@ -32,7 +33,7 @@ router.post(
   authenticate,
   resolveSocietyContext,
   requireSociety,
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_committee"),
   validate(addMemberSchema),
   (req, res, next) => membershipController.addMember(req, res, next)
 );
@@ -41,7 +42,7 @@ router.patch(
   authenticate,
   resolveSocietyContext,
   requireSociety,
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_committee"),
   validate(updateRoleSchema),
   (req, res, next) => membershipController.updateRole(req, res, next)
 );
@@ -50,7 +51,7 @@ router.delete(
   authenticate,
   resolveSocietyContext,
   requireSociety,
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_committee"),
   (req, res, next) => membershipController.removeMember(req, res, next)
 );
 

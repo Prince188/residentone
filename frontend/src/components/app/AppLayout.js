@@ -151,6 +151,10 @@ export default function AppLayout() {
       useSocietyStore.getState().loadMySocieties().catch(() => {});
     });
 
+    socket.on("permissions:change", () => {
+      queryClient.invalidateQueries({ queryKey: ["society-permissions"] });
+    });
+
     return () => {
       socket.disconnect();
     };

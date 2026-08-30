@@ -1,7 +1,20 @@
 const unitService = require("./unit.service");
 const { config } = require("../../config");
 const { Unit } = require("./unit.model");
+const { Society } = require("../society/society.model");
 const { AppError } = require("../../shared/utils/errors");
+const { hasPermission } = require("../../shared/permissions");
+
+async function hasManageHousesPermission(req) {
+  const role = req.membership?.role || (Array.isArray(req.role) ? req.role[0] : req.role);
+  if (["super_admin", "society_admin"].includes(role)) return true;
+  try {
+    const society = await Society.findById(req.societyId).select("rolePermissions").lean();
+    return hasPermission(role, "manage_houses", society?.rolePermissions);
+  } catch {
+    return false;
+  }
+}
 
 class UnitController {
   async list(req, res, next) {
@@ -18,9 +31,13 @@ class UnitController {
 
   async getById(req, res, next) {
     try {
-      // Allow admin or house owner/tenant to view
+      // Allow admin, those with manage_houses permission, or house owner/tenant to view
       const isAdmin = ["super_admin", "society_admin"].includes(req.membership?.role || req.role?.[0]);
-      if (!isAdmin) {
+      let canManage = isAdmin;
+      if (!canManage) {
+        canManage = await hasManageHousesPermission(req);
+      }
+      if (!canManage) {
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
         if (!unit) throw new AppError("House not found", 404);
         const isOwner = unit.ownerId && String(unit.ownerId) === String(req.userId);
@@ -63,8 +80,8 @@ class UnitController {
   async assignOwner(req, res, next) {
     try {
       const isRenter = req.body?.residentType === "renter";
-      const isAdmin = ["super_admin", "society_admin"].includes(req.membership?.role || req.role?.[0]);
-      if (!isAdmin) {
+      const canManage = await hasManageHousesPermission(req);
+      if (!canManage) {
         // Only house owner can add renter to their own house
         if (!isRenter) throw new AppError("Only Society Admin can assign owner", 403);
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
@@ -86,8 +103,8 @@ class UnitController {
   async unassignOwner(req, res, next) {
     try {
       const residentType = req.body?.residentType || req.query?.residentType;
-      const isAdmin = ["super_admin", "society_admin"].includes(req.membership?.role || req.role?.[0]);
-      if (!isAdmin) {
+      const canManage = await hasManageHousesPermission(req);
+      if (!canManage) {
         // House owner can remove renter only
         if (residentType !== "renter") throw new AppError("Only Society Admin can remove owner", 403);
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
@@ -109,13 +126,13 @@ class UnitController {
   async createInviteLink(req, res, next) {
     try {
       const isRenter = req.body?.residentType === "renter";
-      const isAdmin = ["super_admin", "society_admin"].includes(req.membership?.role || req.role?.[0]);
-      if (!isAdmin && isRenter) {
+      const canManage = await hasManageHousesPermission(req);
+      if (!canManage && isRenter) {
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
         if (!unit || !unit.ownerId || String(unit.ownerId) !== String(req.userId)) {
           throw new AppError("Only the house owner or Society Admin can invite renter", 403);
         }
-      } else if (!isAdmin) {
+      } else if (!canManage) {
         throw new AppError("Only Society Admin can invite owner", 403);
       }
       const result = await unitService.createInviteLink(

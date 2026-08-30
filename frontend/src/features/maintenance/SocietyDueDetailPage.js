@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import {
   STATUS_UI,
   extractApiError,
@@ -12,8 +12,8 @@ import {
   recordPayment,
   removePayment,
 } from "../../lib/maintenance";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 function DetailRow({ label, value }) {
   return (
@@ -31,9 +31,15 @@ export default function SocietyDueDetailPage() {
   const [searchParams] = useSearchParams();
   const cycleId = searchParams.get("cycle");
   const queryClient = useQueryClient();
+  const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [showHistory, setShowHistory] = useState(false);
-  const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageMaintenance = hasPermission(activeMembership?.role, "manage_maintenance", permissionsQuery.data);
 
   const detailQuery = useQuery({
     queryKey: ["maintenance", "unit-detail", cycleId, unitId],
@@ -59,12 +65,13 @@ export default function SocietyDueDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["maintenance"] }),
   });
 
-  if (!isAdmin) {
+  if (!canManageMaintenance) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
-          <h1 className="page-title mt-3">Admins only</h1>
+          <h1 className="page-title mt-3">No permission</h1>
+          <p className="mt-1 text-body-md text-on-surface-variant">You don’t have permission to manage dues. Ask your Society Admin for <strong>Manage Maintenance</strong>.</p>
           <Link
             to="/dashboard"
             className="mt-4 inline-block text-label-md text-primary no-underline hover:underline"

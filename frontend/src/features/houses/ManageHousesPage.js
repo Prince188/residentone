@@ -9,8 +9,8 @@ import useSocietyStore, {
 import { getHouseCards, extractApiError } from "../../lib/houses";
 import { getFamilyMembers } from "../../lib/familyMembers";
 import AssignHouseModal from "./AssignHouseModal";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const STATUS_FILTERS = [
   { id: "all", label: "All" },
@@ -101,12 +101,17 @@ export default function ManageHousesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedHouse, setSelectedHouse] = useState(null);
 
-  const isAdmin = ADMIN_ROLES.includes(activeMembership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageHouses = hasPermission(activeMembership?.role, "manage_houses", permissionsQuery.data);
 
   const housesQuery = useQuery({
     queryKey: ["house-cards", activeSociety?.id],
     queryFn: async () => (await getHouseCards()).data.data,
-    enabled: Boolean(activeSociety && isAdmin),
+    enabled: Boolean(activeSociety && canManageHouses),
   });
 
   const houses = housesQuery.data || [];
@@ -114,7 +119,7 @@ export default function ManageHousesPage() {
   const familyQuery = useQuery({
     queryKey: ["family-members", activeSociety?.id],
     queryFn: async () => (await getFamilyMembers()).data.data,
-    enabled: Boolean(activeSociety && isAdmin),
+    enabled: Boolean(activeSociety && canManageHouses),
   });
   const familyByHouse = useMemo(() => {
     const map = {};
@@ -162,14 +167,14 @@ export default function ManageHousesPage() {
 
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
 
-  if (!isAdmin) {
+  if (!canManageHouses) {
     return (
       <div className="mx-auto max-w-6xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
-          <h1 className="mt-3 text-headline-sm text-on-surface">Admins only</h1>
+          <h1 className="mt-3 text-headline-sm text-on-surface">No permission</h1>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            Only the society admin can manage house assignments.
+            You don’t have permission to manage houses. Ask your Society Admin to grant you <strong>Manage Houses</strong> permission.
           </p>
           <Link
             to="/dashboard"

@@ -1,9 +1,10 @@
 const express = require("express");
 const pollController = require("./poll.controller");
-const { authenticate, requireRole, requireSociety } = require("../../middlewares/auth.middleware");
+const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
 const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
 const { createPollSchema, votePollSchema } = require("./poll.validation");
+const { requirePermission } = require("../../middlewares/permission.middleware");
 
 const router = express.Router();
 
@@ -16,23 +17,23 @@ router.get("/:id", (req, res, next) => pollController.getById(req, res, next));
 // Vote - all members
 router.post("/:id/vote", validate(votePollSchema), (req, res, next) => pollController.vote(req, res, next));
 
-// Admin only - create / close / delete
+// Permission-based
 router.post(
   "/",
-  requireRole("super_admin", "society_admin", "committee_member", "manager"),
+  requirePermission("create_poll"),
   validate(createPollSchema),
   (req, res, next) => pollController.create(req, res, next)
 );
 
 router.post(
   "/:id/close",
-  requireRole("super_admin", "society_admin", "committee_member", "manager"),
+  requirePermission("create_poll"),
   (req, res, next) => pollController.close(req, res, next)
 );
 
 router.delete(
   "/:id",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("create_poll"),
   (req, res, next) => pollController.remove(req, res, next)
 );
 

@@ -1,9 +1,10 @@
 const express = require("express");
 const maintenanceController = require("./maintenance.controller");
-const { authenticate, requireRole, requireSociety } = require("../../middlewares/auth.middleware");
+const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
 const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
 const { createCycleSchema, paySchema } = require("./maintenance.validation");
+const { requirePermission } = require("../../middlewares/permission.middleware");
 
 const router = express.Router();
 
@@ -24,27 +25,27 @@ router.get("/units/:unitId/history", (req, res, next) =>
   maintenanceController.getUnitHistory(req, res, next)
 );
 
-// Society admin only
+// Permission-based: manage_maintenance (granted via Manage Permissions)
 router.post(
   "/cycles",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_maintenance"),
   validate(createCycleSchema),
   (req, res, next) => maintenanceController.createCycle(req, res, next)
 );
 router.get(
   "/cycles/:cycleId/units",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_maintenance"),
   (req, res, next) => maintenanceController.getCycleUnits(req, res, next)
 );
 router.post(
   "/cycles/:cycleId/units/:unitId/pay",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_maintenance"),
   validate(paySchema),
   (req, res, next) => maintenanceController.recordPayment(req, res, next)
 );
 router.post(
   "/cycles/:cycleId/units/:unitId/unpay",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_maintenance"),
   (req, res, next) => maintenanceController.removePayment(req, res, next)
 );
 

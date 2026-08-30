@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { createSurvey, extractApiError } from "../../lib/surveys";
-
-const ADMIN_ROLES = ["super_admin", "society_admin", "committee_member", "manager"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 export default function CreateSurveyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreateSurvey = hasPermission(membership?.role, "create_survey", permissionsQuery.data);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setDate(d.getDate()+7); d.setHours(23,59,0,0); return d.toISOString().slice(0,16); });
@@ -23,7 +29,7 @@ export default function CreateSurveyPage() {
     onError: (e) => setError(extractApiError(e, "Failed to create survey")),
   });
 
-  if (!isAdmin) return <div className="mx-auto max-w-2xl py-12 text-center"><p className="text-error">Only admin can create survey.</p><Link to="/surveys" className="text-primary">Back</Link></div>;
+  if (!canCreateSurvey) return <div className="mx-auto max-w-2xl py-12 text-center"><p className="text-error">You don’t have permission to create surveys.</p><p className="text-body-sm text-on-surface-variant">Ask your Society Admin for <strong>Create Survey</strong> permission.</p><Link to="/surveys" className="mt-4 inline-block text-primary hover:underline">Back to Surveys</Link></div>;
 
   const updateQ = (idx, patch) => setQuestions((prev) => prev.map((q,i) => i===idx ? { ...q, ...patch } : q));
   const addQuestion = () => { if (questions.length < 10) setQuestions([...questions, { text: "", type: "single", options: ["",""] }]); };

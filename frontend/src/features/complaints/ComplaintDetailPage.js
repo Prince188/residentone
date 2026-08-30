@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { getComplaint, updateComplaintStatus, STATUS_UI, timeAgo, extractApiError } from "../../lib/complaints";
-
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 const STATUS_OPTIONS = ["open", "in_progress", "on_hold", "resolved", "closed"];
 
 export default function ComplaintDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canManageComplaints = hasPermission(membership?.role, "manage_complaints", permissionsQuery.data);
   const [error, setError] = useState("");
 
   const query = useQuery({
@@ -55,7 +61,7 @@ export default function ComplaintDetailPage() {
 
   const c = query.data;
   const ui = STATUS_UI[c.status] || STATUS_UI.open;
-  const canReopen = !isAdmin && (c.status === "resolved" || c.status === "closed");
+  const canReopen = !canManageComplaints && (c.status === "resolved" || c.status === "closed");
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
@@ -97,7 +103,7 @@ export default function ComplaintDetailPage() {
 
       <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
         <h3 className="text-body-md font-semibold text-on-surface">Actions</h3>
-        {isAdmin ? (
+        {canManageComplaints ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {STATUS_OPTIONS.filter((s) => s !== c.status).map((s) => (
               <button
@@ -135,7 +141,7 @@ export default function ComplaintDetailPage() {
                 : "Admin is working on it."}
           </p>
         )}
-        {!isAdmin && !canReopen && (c.status === "resolved" || c.status === "closed") && (
+        {!canManageComplaints && !canReopen && (c.status === "resolved" || c.status === "closed") && (
           <p className="mt-2 text-label-sm text-outline">Only the owner who raised can reopen.</p>
         )}
       </section>

@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveMembership } from "../../stores/society.store";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { createPoll, extractApiError } from "../../lib/polls";
-
-const ADMIN_ROLES = ["super_admin", "society_admin", "committee_member", "manager"];
+import api from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 export default function CreatePollPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
-  const isAdmin = ADMIN_ROLES.includes(membership?.role);
+  const permissionsQuery = useQuery({
+    queryKey: ["society-permissions", activeSociety?.id],
+    queryFn: async () => (await api.get("/societies/permissions")).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const canCreatePoll = hasPermission(membership?.role, "create_poll", permissionsQuery.data);
 
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
@@ -32,10 +38,11 @@ export default function CreatePollPage() {
     onError: (err) => setError(extractApiError(err, "Failed to create poll")),
   });
 
-  if (!isAdmin) {
+  if (!canCreatePoll) {
     return (
       <div className="mx-auto max-w-2xl py-12 text-center">
-        <p className="text-body-md text-error">Only admin can create polls.</p>
+        <p className="text-body-md text-error">You don’t have permission to create polls.</p>
+        <p className="text-body-sm text-on-surface-variant">Ask your Society Admin for <strong>Create Poll</strong> permission.</p>
         <Link to="/polls" className="mt-4 inline-block text-primary hover:underline">Back to Polls</Link>
       </div>
     );
