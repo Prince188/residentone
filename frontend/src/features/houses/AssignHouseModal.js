@@ -232,7 +232,7 @@ export default function AssignHouseModal({ house, onClose }) {
   const searchQuery = useQuery({
     queryKey: ["owner-search", debouncedQuery],
     queryFn: async () => (await searchUsersByQuery(debouncedQuery)).data.data,
-    enabled: !house?.isAssigned && !house?.isRented && isSearching,
+    enabled: isSearching,
   });
 
   const matches = pickedUser ? [] : searchQuery.data || [];
