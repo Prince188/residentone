@@ -25,11 +25,7 @@ router.post(
 // Society admin only
 router.use(authenticate, resolveSocietyContext, requireSociety);
 
-router.get(
-  "/",
-  requireRole("super_admin", "society_admin"),
-  (req, res, next) => unitController.list(req, res, next)
-);
+router.get("/", (req, res, next) => unitController.list(req, res, next));
 router.get(
   "/search-users",
   requireRole("super_admin", "society_admin"),
