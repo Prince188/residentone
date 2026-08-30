@@ -4,10 +4,21 @@ const { AppError } = require("../../shared/utils/errors");
 
 class FamilyMemberService {
   async list(societyId, userId, membership) {
-    // Residents see their own family members (general, not per-house); admin sees all in society
+    // For FamilyMembersPage (personal): non-admin sees only own; admin sees all.
+    // For ManageHousesPage (per-house view): those with manage_houses should see all to show per-house counts.
+    // We allow manage_houses permission to see all, others only own.
     const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    let canManageHouses = isAdmin;
+    if (!canManageHouses) {
+      try {
+        const { hasPermission } = require("../../shared/permissions");
+        const { Society } = require("../society/society.model");
+        const society = await Society.findById(societyId).select("rolePermissions").lean();
+        canManageHouses = hasPermission(membership.role, "manage_houses", society?.rolePermissions);
+      } catch {}
+    }
     const filter = { societyId, isActive: true };
-    if (!isAdmin) {
+    if (!canManageHouses) {
       filter.addedBy = userId;
     }
     return FamilyMember.find(filter).populate("unitId", "label").populate("addedBy", "name").sort({ createdAt: -1 }).lean();

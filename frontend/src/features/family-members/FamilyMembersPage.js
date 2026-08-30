@@ -12,7 +12,6 @@ export default function FamilyMembersPage() {
   const membership = useSocietyStore(selectActiveMembership);
   const myHouses = membership?.units || [];
   const user = useAuthStore((state) => state.user);
-  const isAdmin = ["super_admin", "society_admin"].includes(membership?.role);
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", relation: "other", phone: "" });
   const [msg, setMsg] = useState("");
@@ -52,10 +51,13 @@ export default function FamilyMembersPage() {
   }
 
   const rawMembers = listQuery.data || [];
-  // Strict per-user isolation: non-admin sees only their own addedBy, admin sees all in society
-  const members = isAdmin
-    ? rawMembers
-    : rawMembers.filter((m) => String(m.addedBy) === String(user?.id || user?._id));
+  // Always show only your own family on this personal page (general for all your houses)
+  // Even society_admin/manager sees only their own here; Manage Houses shows per-house for all
+  const members = rawMembers.filter((m) => {
+    const addedById = String(m.addedBy?._id || m.addedBy || "");
+    const userId = String(user?.id || user?._id || "");
+    return addedById && userId && addedById === userId;
+  });
 
   const handleAdd = (e) => {
     e.preventDefault();
