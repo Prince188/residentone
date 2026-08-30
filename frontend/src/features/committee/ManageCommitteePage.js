@@ -29,6 +29,7 @@ export default function ManageCommitteePage() {
   const [editRole, setEditRole] = useState("committee_member");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [showPermissions, setShowPermissions] = useState(false);
 
   // Strict isolation: when selected society changes, reset all local UI state
   // This prevents mixing data from previous society when admin is in 2 societies
@@ -157,9 +158,18 @@ export default function ManageCommitteePage() {
           <h1 className="page-title">Manage Committee</h1>
           <p className="page-subtitle">{activeSociety?.name} · {committeeMembers.length} committee member(s)</p>
         </div>
-        <button type="button" onClick={() => setShowForm((v) => !v)} className="rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90">
-          <span className="material-symbols-outlined text-[18px] align-middle mr-1">add</span> {showForm ? "Close" : "Create Committee"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPermissions(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-medium text-on-surface hover:bg-surface-container-low hover:border-primary/30 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span> Manage Permissions
+          </button>
+          <button type="button" onClick={() => setShowForm((v) => !v)} className="rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90">
+            <span className="material-symbols-outlined text-[18px] align-middle mr-1">add</span> {showForm ? "Close" : "Create Committee"}
+          </button>
+        </div>
       </section>
 
       {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-label-md text-emerald-800">{msg}</p>}
@@ -287,6 +297,170 @@ export default function ManageCommitteePage() {
           );
         })}
       </section>
+
+      {showPermissions && (
+        <PermissionsModal
+          societyId={activeSociety?.id}
+          societyName={activeSociety?.name}
+          onClose={() => setShowPermissions(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+const PERMISSIONS = [
+  { key: "manage_committee", label: "Manage Committee", desc: "Add / remove roles", icon: "groups" },
+  { key: "manage_houses", label: "Manage Houses", desc: "Assign owner / renter", icon: "home" },
+  { key: "manage_maintenance", label: "Manage Maintenance", desc: "Billing & dues", icon: "request_quote" },
+  { key: "create_notice", label: "Create Notice", desc: "Publish notices", icon: "campaign" },
+  { key: "manage_amenities", label: "Manage Amenities", desc: "Facility setup", icon: "event_available" },
+  { key: "manage_bookings", label: "Manage Bookings", desc: "Approve amenities", icon: "event" },
+  { key: "create_poll", label: "Create Poll", desc: "Voting", icon: "how_to_vote" },
+  { key: "create_survey", label: "Create Survey", desc: "Feedback", icon: "assignment" },
+  { key: "manage_complaints", label: "Manage Complaints", desc: "Resolve complaints", icon: "report" },
+  { key: "manage_visitors", label: "Manage Visitors", desc: "Gate & visitors", icon: "badge" },
+  { key: "view_financials", label: "View Financials", desc: "Reports, dues", icon: "account_balance" },
+  { key: "manage_directory", label: "View Directory", desc: "Resident list", icon: "contacts" },
+];
+
+const ROLE_PERMISSIONS_DEFAULT = {
+  society_admin: PERMISSIONS.map((p) => p.key),
+  super_admin: PERMISSIONS.map((p) => p.key),
+  manager: ["manage_houses", "manage_maintenance", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory"],
+  treasurer: ["manage_maintenance", "view_financials", "manage_directory"],
+  accountant: ["manage_maintenance", "view_financials"],
+  helpdesk_manager: ["manage_complaints", "manage_visitors", "manage_directory"],
+  auditor: ["view_financials", "manage_directory"],
+  committee_member: ["create_notice", "create_poll", "create_survey", "manage_directory"],
+};
+
+function PermissionsModal({ societyId, societyName, onClose }) {
+  const storageKey = `residentone:permissions:${societyId || "global"}`;
+  const [permissions, setPermissions] = useState(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return ROLE_PERMISSIONS_DEFAULT;
+  });
+  const [saved, setSaved] = useState(false);
+
+  const toggle = (role, permKey) => {
+    setPermissions((prev) => {
+      const next = { ...prev };
+      const list = new Set(next[role] || []);
+      if (list.has(permKey)) list.delete(permKey);
+      else list.add(permKey);
+      next[role] = Array.from(list);
+      return next;
+    });
+    setSaved(false);
+  };
+
+  const handleSave = () => {
+    localStorage.setItem(storageKey, JSON.stringify(permissions));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleReset = () => {
+    setPermissions(ROLE_PERMISSIONS_DEFAULT);
+    localStorage.removeItem(storageKey);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-5 py-4 sm:px-6">
+          <div>
+            <h3 className="flex items-center gap-2 text-body-lg font-bold text-on-surface">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-on-primary">
+                <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+              </span>
+              Manage Permissions
+            </h3>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              {societyName ? `${societyName} · ` : ""}Toggle what each role can do. Only <strong>Society Admin</strong> can edit.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left">
+              <thead className="sticky top-0 z-10 bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="px-4 py-3 text-label-sm font-semibold uppercase tracking-wide text-on-surface">Permission</th>
+                  {Object.keys(ROLE_PERMISSIONS_DEFAULT).filter((r) => r !== "super_admin").map((role) => (
+                    <th key={role} className="px-3 py-3 text-center">
+                      <span className="block text-label-sm font-bold capitalize text-on-surface">{role.replace("_", " ")}</span>
+                      <span className="block text-[10px] font-normal normal-case text-outline">{(permissions[role] || []).length} perms</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/40">
+                {PERMISSIONS.map((perm) => (
+                  <tr key={perm.key} className="hover:bg-surface-container-low/50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <span className="material-symbols-outlined text-[18px]">{perm.icon}</span>
+                        </span>
+                        <div>
+                          <p className="text-body-sm font-semibold leading-none text-on-surface">{perm.label}</p>
+                          <p className="mt-0.5 text-label-sm leading-none text-on-surface-variant">{perm.desc}</p>
+                        </div>
+                      </div>
+                    </td>
+                    {Object.keys(ROLE_PERMISSIONS_DEFAULT).filter((r) => r !== "super_admin").map((role) => {
+                      const has = (permissions[role] || []).includes(perm.key);
+                      const isAdmin = role === "society_admin";
+                      return (
+                        <td key={role} className="px-3 py-3 text-center">
+                          <button
+                            type="button"
+                            aria-label={`${role} ${perm.key}`}
+                            onClick={() => toggle(role, perm.key)}
+                            disabled={isAdmin}
+                            title={isAdmin ? "Society Admin always has all permissions" : ""}
+                            className={`inline-flex h-7 w-12 items-center rounded-full p-1 transition-colors ${has ? "bg-primary justify-end" : "bg-outline-variant justify-start"} ${isAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                          >
+                            <span className="h-5 w-5 rounded-full bg-white shadow-sm transition-all" />
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-5 py-3 text-label-sm text-outline border-t border-outline-variant bg-surface-container-low">
+            Society Admin always has all permissions and cannot be changed. Changes are saved per-society in this browser (localStorage) for now.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-outline-variant bg-surface-container-lowest px-5 py-4">
+          <button type="button" onClick={handleReset} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-high">
+            Reset to defaults
+          </button>
+          <div className="flex items-center gap-2">
+            {saved && <span className="flex items-center gap-1 text-label-sm font-semibold text-success"><span className="material-symbols-outlined text-[16px]">check_circle</span> Saved</span>}
+            <button type="button" onClick={onClose} className="rounded-full border border-outline-variant px-5 py-2 text-label-md">
+              Close
+            </button>
+            <button type="button" onClick={handleSave} className="rounded-full bg-primary px-6 py-2 text-label-md font-semibold text-on-primary hover:opacity-90">
+              Save Permissions
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
