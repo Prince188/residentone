@@ -240,11 +240,11 @@ export default function ManageCommitteePage() {
               <div>
                 <label className="mb-1 block text-label-md font-medium">Select Role *</label>
                 <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
-                  {COMMITTEE_ROLES.map((r) => (
+                  {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
-                <p className="mt-1 text-label-sm text-outline">Manager, Treasurer, Accountant etc as in MyGate.</p>
+                <p className="mt-1 text-label-sm text-outline">Manager, Treasurer, Accountant or Society Admin (max 2).</p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
