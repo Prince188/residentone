@@ -1,6 +1,18 @@
 const { MaintenanceCycle, MaintenancePayment } = require("./maintenance.model");
 const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
+const { Society } = require("../society/society.model");
+const { hasPermission } = require("../../shared/permissions");
+
+async function hasMaintenancePermission(societyId, role) {
+  if (["super_admin", "society_admin"].includes(role)) return true;
+  try {
+    const society = await Society.findById(societyId).select("rolePermissions").lean();
+    return hasPermission(role, "manage_maintenance", society?.rolePermissions);
+  } catch {
+    return false;
+  }
+}
 
 class MaintenanceService {
   // helper: get amount for a specific unit - renter priority if renter lives there
@@ -169,9 +181,9 @@ class MaintenanceService {
     };
   }
 
-  // Single unit's record within a cycle — allowed for admin or the assigned member
+  // Single unit's record within a cycle — allowed for admin/permission or the assigned member
   async getCycleUnitDetail(societyId, cycle, unitId, membership) {
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    const isAdmin = await hasMaintenancePermission(societyId, membership.role);
     const myUnitIds = (membership.units || []).map((id) => String(id));
     const isMyUnit = myUnitIds.includes(String(unitId));
 
@@ -229,7 +241,7 @@ class MaintenanceService {
 
   // Payment history of one unit across all cycles
   async getUnitHistory(societyId, unitId, membership) {
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    const isAdmin = await hasMaintenancePermission(societyId, membership.role);
     const myUnitIds = (membership.units || []).map((id) => String(id));
     if (!isAdmin && !myUnitIds.includes(String(unitId))) {
       throw new AppError("This house is not assigned to you", 403);
@@ -404,7 +416,7 @@ class MaintenanceService {
   }
 
   async getReceipt(societyId, cycle, unitId, membership) {
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    const isAdmin = await hasMaintenancePermission(societyId, membership.role);
     const myUnitIds = (membership.units || []).map((id) => String(id));
     if (!isAdmin && !myUnitIds.includes(String(unitId))) {
       throw new AppError("This house is not assigned to you", 403);

@@ -1,8 +1,9 @@
 const express = require("express");
 const complaintController = require("./complaint.controller");
-const { authenticate, requireRole, requireSociety } = require("../../middlewares/auth.middleware");
+const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
 const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
+const { requirePermission } = require("../../middlewares/permission.middleware");
 const {
   createComplaintSchema,
   updateStatusSchema,
@@ -29,10 +30,10 @@ router.patch("/:id/status", validate(updateStatusSchema), (req, res, next) =>
   complaintController.updateStatus(req, res, next)
 );
 
-// Assign - admin only
+// Assign - permission-based: manage_complaints
 router.patch(
   "/:id/assign",
-  requireRole("super_admin", "society_admin"),
+  requirePermission("manage_complaints"),
   validate(assignComplaintSchema),
   (req, res, next) => complaintController.assign(req, res, next)
 );

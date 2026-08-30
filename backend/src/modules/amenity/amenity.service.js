@@ -1,6 +1,8 @@
 const { Amenity, Booking } = require("./amenity.model");
 const { MaintenanceCycle, MaintenancePayment } = require("../maintenance/maintenance.model");
 const { AppError } = require("../../shared/utils/errors");
+const { Society } = require("../society/society.model");
+const { hasPermission } = require("../../shared/permissions");
 
 class AmenityService {
   async list(societyId) {
@@ -125,7 +127,13 @@ class AmenityService {
   async cancel(societyId, bookingId, userId, role) {
     const booking = await Booking.findOne({ _id: bookingId, societyId, isActive: true });
     if (!booking) throw new AppError("Booking not found", 404);
-    const isAdmin = ["super_admin", "society_admin"].includes(role);
+    let isAdmin = ["super_admin", "society_admin"].includes(role);
+    if (!isAdmin) {
+      try {
+        const society = await Society.findById(societyId).select("rolePermissions").lean();
+        isAdmin = hasPermission(role, "manage_amenities", society?.rolePermissions);
+      } catch {}
+    }
     if (!isAdmin && String(booking.userId) !== String(userId)) {
       throw new AppError("You can only cancel your own bookings", 403);
     }

@@ -1,12 +1,25 @@
 const { ChatGroup, ChatMessage, DirectMessage } = require("./chat.model");
 const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
+const { Society } = require("../society/society.model");
+const { hasPermission } = require("../../shared/permissions");
+
+async function hasChatAdminPermission(societyId, role) {
+  if (["super_admin", "society_admin"].includes(role)) return true;
+  try {
+    const society = await Society.findById(societyId).select("rolePermissions").lean();
+    return hasPermission(role, "manage_amenities", society?.rolePermissions);
+  } catch {
+    return false;
+  }
+}
 
 class ChatService {
   async isAdmin(societyId, userId) {
     const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
     if (!membership) return false;
-    return ["super_admin", "society_admin"].includes(membership.role);
+    if (["super_admin", "society_admin"].includes(membership.role)) return true;
+    return hasChatAdminPermission(societyId, membership.role);
   }
 
   async ensureMember(societyId, groupId, userId) {
@@ -229,8 +242,8 @@ class ChatService {
     ]);
     if (!senderMem) throw new AppError("Sender is not a society member", 403);
     if (!receiverMem) throw new AppError("Receiver is not a society member", 404);
-    const senderIsAdmin = ["super_admin", "society_admin"].includes(senderMem.role);
-    const receiverIsAdmin = ["super_admin", "society_admin"].includes(receiverMem.role);
+    const senderIsAdmin = await hasChatAdminPermission(societyId, senderMem.role);
+    const receiverIsAdmin = await hasChatAdminPermission(societyId, receiverMem.role);
     if (!senderIsAdmin && !receiverIsAdmin) throw new AppError("Personal chat is only allowed with society admin", 403);
     const payload = { societyId, senderId, receiverId, text: text.trim() };
     if (replyTo) {
@@ -274,8 +287,8 @@ class ChatService {
     const otherMem = await Membership.findOne({ societyId, userId: otherUserId, isActive: true }).lean();
     if (!otherMem) throw new AppError("User not found in society", 404);
     const userMem = await Membership.findOne({ societyId, userId, isActive: true }).lean();
-    const userIsAdmin = userMem && ["super_admin", "society_admin"].includes(userMem.role);
-    const otherIsAdmin = ["super_admin", "society_admin"].includes(otherMem.role);
+    const userIsAdmin = userMem ? await hasChatAdminPermission(societyId, userMem.role) : false;
+    const otherIsAdmin = await hasChatAdminPermission(societyId, otherMem.role);
     if (!userIsAdmin && !otherIsAdmin) throw new AppError("Personal chat only with admin", 403);
     const msgs = await DirectMessage.find({
       societyId,
@@ -312,10 +325,12 @@ class ChatService {
   }
 
   async listAdmins(societyId) {
-    const admins = await Membership.find({ societyId, role: { $in: ["super_admin", "society_admin"] }, isActive: true })
-      .populate("userId", "name")
-      .lean();
-    return admins.map((m) => ({ id: m.userId._id, name: m.userId.name, role: m.role }));
+    const allMemberships = await Membership.find({ societyId, isActive: true }).populate("userId", "name").lean();
+    const society = await Society.findById(societyId).select("rolePermissions").lean();
+    const admins = allMemberships.filter((m) => hasPermission(m.role, "manage_amenities", society?.rolePermissions) || ["super_admin", "society_admin"].includes(m.role));
+    // Fallback: if no one has manage_amenities, still return super_admin/society_admin
+    const result = admins.length ? admins : allMemberships.filter((m) => ["super_admin", "society_admin"].includes(m.role));
+    return result.map((m) => ({ id: m.userId._id, name: m.userId.name, role: m.role }));
   }
 
   async getPinnedMessage(societyId, groupId) {
@@ -329,7 +344,7 @@ class ChatService {
   async listDirectChats(societyId, userId) {
     // Return list of admins for resident, or all residents who messaged admin for admin
     const userMem = await Membership.findOne({ societyId, userId, isActive: true }).lean();
-    const isAdmin = userMem && ["super_admin", "society_admin"].includes(userMem.role);
+    const isAdmin = userMem ? await hasChatAdminPermission(societyId, userMem.role) : false;
     if (isAdmin) {
       // Admin sees all direct chats where they are participant
       const msgs = await DirectMessage.aggregate([

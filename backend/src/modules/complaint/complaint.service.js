@@ -1,7 +1,17 @@
 const { Complaint } = require("./complaint.model");
 const { AppError } = require("../../shared/utils/errors");
+const { Society } = require("../society/society.model");
+const { hasPermission } = require("../../shared/permissions");
 
-const ADMIN_ROLES = ["super_admin", "society_admin"];
+async function hasComplaintPermission(societyId, role) {
+  if (["super_admin", "society_admin"].includes(role)) return true;
+  try {
+    const society = await Society.findById(societyId).select("rolePermissions").lean();
+    return hasPermission(role, "manage_complaints", society?.rolePermissions);
+  } catch {
+    return false;
+  }
+}
 
 // Allowed status transitions for validation (admin can do any, resident limited)
 const VALID_TRANSITIONS = {
@@ -14,7 +24,8 @@ const VALID_TRANSITIONS = {
 };
 
 function isAdminRole(role) {
-  return ADMIN_ROLES.includes(role);
+  // Legacy sync check – kept for non-society contexts; prefer hasComplaintPermission
+  return ["super_admin", "society_admin"].includes(role);
 }
 
 class ComplaintService {
@@ -70,7 +81,7 @@ class ComplaintService {
   }
 
   async list(societyId, userId, role, filters = {}) {
-    const isAdmin = isAdminRole(role);
+    const isAdmin = await hasComplaintPermission(societyId, role);
 
     const baseFilter = {
       societyId,
@@ -148,7 +159,7 @@ class ComplaintService {
     const doc = await query.lean();
     if (!doc) throw new AppError("Complaint not found", 404);
 
-    const isAdmin = isAdminRole(role);
+    const isAdmin = await hasComplaintPermission(societyId, role);
     const isOwner = String(doc.raisedBy?._id || doc.raisedBy) === String(userId);
     const isPublic = doc.isPublic;
 
@@ -181,7 +192,7 @@ class ComplaintService {
     const complaint = await Complaint.findOne({ _id: complaintId, societyId, isActive: true });
     if (!complaint) throw new AppError("Complaint not found", 404);
 
-    const isAdmin = isAdminRole(role);
+    const isAdmin = await hasComplaintPermission(societyId, role);
     const isOwner = String(complaint.raisedBy) === String(userId);
 
     // Residents can only reopen their own resolved/closed complaints
@@ -238,7 +249,7 @@ class ComplaintService {
   }
 
   async getStats(societyId, userId, role) {
-    const isAdmin = isAdminRole(role);
+    const isAdmin = await hasComplaintPermission(societyId, role);
     const match = { societyId, isActive: true };
     if (!isAdmin) {
       match.$or = [{ raisedBy: userId }, { isPublic: true }];

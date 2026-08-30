@@ -146,8 +146,16 @@ class MaintenanceController {
         req.societyId,
         req.params.cycleId
       );
-      // Only assigned member or admin can create order
-      const isAdmin = ["super_admin", "society_admin"].includes(req.membership.role);
+      // Only assigned member or admin/permission can create order
+      const { Society } = require("../society/society.model");
+      const { hasPermission } = require("../../shared/permissions");
+      let isAdmin = ["super_admin", "society_admin"].includes(req.membership.role);
+      if (!isAdmin) {
+        try {
+          const society = await Society.findById(req.societyId).select("rolePermissions").lean();
+          isAdmin = hasPermission(req.membership.role, "manage_maintenance", society?.rolePermissions);
+        } catch {}
+      }
       const myUnitIds = (req.membership.units || []).map((id) => String(id));
       if (!isAdmin && !myUnitIds.includes(String(req.params.unitId))) {
         return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "This house is not assigned to you" } });
