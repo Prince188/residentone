@@ -59,19 +59,34 @@ function getGreeting() {
   return "Good evening";
 }
 
+const ROLE_TITLES = {
+  super_admin: "Super Admin",
+  society_admin: "Society Admin",
+  manager: "Manager",
+  treasurer: "Treasurer",
+  accountant: "Accountant",
+  helpdesk_manager: "Helpdesk Manager",
+  auditor: "Auditor",
+  committee_member: "Committee Member",
+  owner: "Owner",
+  tenant: "Tenant",
+  staff: "Staff",
+  security_guard: "Security",
+};
+
 function RolePill({ role, isSuper }) {
-  const isAdmin = role === "society_admin" || role === "super_admin" || isSuper;
-  const label = isSuper ? "Super Admin" : isAdmin ? "Society Admin" : "Resident";
+  const label = isSuper ? "Super Admin" : ROLE_TITLES[role] || "Resident";
+  const isPrivileged = isSuper || ["society_admin", "super_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member"].includes(role);
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-label-sm font-semibold shadow-sm ${
-        isAdmin
+        isPrivileged
           ? "bg-white text-primary"
           : "bg-white/20 text-white backdrop-blur-sm"
       }`}
     >
       <span className="material-symbols-outlined text-[15px]">
-        {isSuper ? "verified_user" : isAdmin ? "shield_person" : "person"}
+        {isSuper ? "verified_user" : isPrivileged ? "shield_person" : "person"}
       </span>
       {label}
     </span>
@@ -175,6 +190,16 @@ export default function DashboardPage() {
   const isAdmin =
     activeMembership?.role === "society_admin" ||
     activeMembership?.role === "super_admin";
+  const activeRole = activeMembership?.role;
+  const isCommitteeRole = [
+    "manager",
+    "treasurer",
+    "accountant",
+    "helpdesk_manager",
+    "auditor",
+    "committee_member",
+  ].includes(activeRole);
+  const roleTitle = ROLE_TITLES[activeRole];
 
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id, "recent"],
@@ -297,7 +322,11 @@ export default function DashboardPage() {
         <CardSection title="Super Admin" cards={superAdminCards} variant="admin" />
       )}
 
-      {isAdmin && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}
+      {isCommitteeRole && roleTitle && (
+        <CardSection title={roleTitle} cards={adminCards} variant="admin" />
+      )}
+
+      {isAdmin && !isCommitteeRole && <CardSection title="Society Admin" cards={adminCards} variant="admin" />}
 
       <CardSection title="General" cards={generalCards} />
 
