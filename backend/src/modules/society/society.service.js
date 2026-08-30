@@ -150,6 +150,16 @@ class SocietyService {
     if (!roles.includes("society_admin")) roles.push("society_admin");
     await User.findByIdAndUpdate(user._id, { role: roles });
 
+    // Enforce max 2 society_admin per society
+    const existingMem = await Membership.findOne({ userId: user._id, societyId: society._id, isActive: true });
+    const isAlreadyAdmin = existingMem && existingMem.role === "society_admin";
+    if (!isAlreadyAdmin) {
+      const adminCount = await Membership.countDocuments({ societyId: society._id, role: "society_admin", isActive: true });
+      if (adminCount >= 2) {
+        throw new AppError("Maximum 2 Society Admins allowed per society", 400);
+      }
+    }
+
     await Membership.findOneAndUpdate(
       { userId: user._id, societyId: society._id },
       {

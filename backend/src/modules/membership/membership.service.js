@@ -120,6 +120,12 @@ class MembershipService {
     if (existing) {
       throw new AppError("User is already a member of this society", 409);
     }
+    if (data.role === "society_admin") {
+      const count = await Membership.countDocuments({ societyId: data.societyId, role: "society_admin", isActive: true });
+      if (count >= 2) {
+        throw new AppError("Maximum 2 Society Admins allowed per society", 400);
+      }
+    }
     return Membership.create(data);
   }
 
@@ -132,6 +138,15 @@ class MembershipService {
   }
 
   async updateRole(id, role) {
+    const existing = await Membership.findById(id);
+    if (!existing) throw new AppError("Membership not found", 404);
+    // Enforce max 2 society_admin per society
+    if (role === "society_admin" && existing.role !== "society_admin") {
+      const count = await Membership.countDocuments({ societyId: existing.societyId, role: "society_admin", isActive: true });
+      if (count >= 2) {
+        throw new AppError("Maximum 2 Society Admins allowed per society", 400);
+      }
+    }
     return Membership.findByIdAndUpdate(id, { role }, { new: true, runValidators: true });
   }
 

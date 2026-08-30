@@ -60,7 +60,7 @@ class MembershipController {
 
       const myLevel = ROLE_HIERARCHY[req.role] || 0;
       const targetLevel = ROLE_HIERARCHY[role] || 0;
-      if (targetLevel >= myLevel) {
+      if (targetLevel > myLevel) {
         return res.status(403).json({
           success: false,
           error: { code: "FORBIDDEN", message: "Cannot promote user to your level or above" },
