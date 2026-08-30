@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
 import { getComplaints, getComplaintStats, STATUS_UI, timeAgo, extractApiError } from "../../lib/complaints";
+import useBadgeSeen from "../../hooks/useBadgeSeen";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -40,6 +41,7 @@ function ComplaintCard({ c }) {
 }
 
 export default function ComplaintsPage() {
+  useBadgeSeen("complaints");
   const activeSociety = useSocietyStore(selectActiveSociety);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");

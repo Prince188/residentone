@@ -4,8 +4,10 @@ import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "..
 import { getSurveys, extractApiError, formatEndDate } from "../../lib/surveys";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
+import useBadgeSeen from "../../hooks/useBadgeSeen";
 
 export default function SurveysPage() {
+  useBadgeSeen("surveys");
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
   const permissionsQuery = useQuery({

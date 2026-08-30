@@ -10,6 +10,7 @@ import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
+import { getBadges } from "../../lib/dashboard";
 
 const superAdminCards = [
   { icon: "apartment", label: "Societies", to: "/admin/societies" },
@@ -32,10 +33,10 @@ const generalCards = [
   { icon: "group_add", label: "Add Members", to: "/family-members" },
   { icon: "campaign", label: "Notices", to: "/notices" },
   { icon: "badge", label: "Visitors", to: "/visitors" },
-  { icon: "report_problem", label: "Complaints", to: "/complaints" },
+  { icon: "report_problem", label: "Complaints", to: "/complaints", badgeKey: "complaints" },
   { icon: "pool", label: "Amenities", to: "/amenities" },
-  { icon: "how_to_vote", label: "Polls", to: "/polls" },
-  { icon: "assignment", label: "Surveys", to: "/surveys" },
+  { icon: "how_to_vote", label: "Polls", to: "/polls", badgeKey: "polls" },
+  { icon: "assignment", label: "Surveys", to: "/surveys", badgeKey: "surveys" },
   { icon: "chat", label: "Chat", to: "/chat" },
   { icon: "folder_open", label: "Documents", to: "/documents" },
   { icon: "emergency", label: "Emergency", to: "/emergency-contacts" },
@@ -104,12 +105,19 @@ function SectionTitle({ children }) {
   );
 }
 
-function SquareCard({ icon, label, to, tint }) {
+function SquareCard({ icon, label, to, tint, badge }) {
+  const showBadge = badge != null && Number(badge) > 0;
+  const display = showBadge ? (Number(badge) > 99 ? "99+" : String(badge)) : null;
   return (
     <Link
       to={to}
-      className="group flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 no-underline transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-lg active:translate-y-0"
+      className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 no-underline transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-lg active:translate-y-0"
     >
+      {showBadge && (
+        <span className="absolute -right-1.5 -top-1.5 z-10 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-error px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-error shadow-md ring-2 ring-surface-container-lowest">
+          {display}
+        </span>
+      )}
       <span
         className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-110 group-active:scale-95 sm:h-12 sm:w-12 ${tint}`}
       >
@@ -122,7 +130,7 @@ function SquareCard({ icon, label, to, tint }) {
   );
 }
 
-function CardSection({ title, cards, variant = "general" }) {
+function CardSection({ title, cards, variant = "general", badges }) {
   const cols =
     cards.length <= 4
       ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-6"
@@ -135,6 +143,7 @@ function CardSection({ title, cards, variant = "general" }) {
           <SquareCard
             key={card.label}
             {...card}
+            badge={card.badgeKey ? badges?.[card.badgeKey] : 0}
             tint={
               variant === "admin"
                 ? "bg-primary/10 text-primary"
@@ -227,6 +236,15 @@ export default function DashboardPage() {
         return hasPermission(activeRole, perm, customPermissions);
       })
     : []);
+
+  const badgesQuery = useQuery({
+    queryKey: ["dashboard-badges", activeSociety?.id, isSuperAdmin ? "super" : "member"],
+    queryFn: async () => (await getBadges()).data.data,
+    enabled: Boolean(activeSociety) || Boolean(isSuperAdmin),
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
+  const badges = badgesQuery.data || {};
 
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id, "recent"],
@@ -360,18 +378,18 @@ export default function DashboardPage() {
       )}
 
       {isSuperAdmin && (
-        <CardSection title="Super Admin" cards={superAdminCards} variant="admin" />
+        <CardSection title="Super Admin" cards={superAdminCards} variant="admin" badges={badges} />
       )}
 
       {isCommitteeRole && roleTitle && filteredAdminCards.length > 0 && (
-        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" />
+        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" badges={badges} />
       )}
 
       {isAdmin && !isCommitteeRole && filteredAdminCards.length > 0 && (
-        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" />
+        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" badges={badges} />
       )}
 
-      <CardSection title="General" cards={generalCards} />
+      <CardSection title="General" cards={generalCards} badges={badges} />
 
       <section>
         <div className="flex items-center justify-between">

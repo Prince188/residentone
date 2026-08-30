@@ -6,6 +6,7 @@ import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "..
 import { getPolls, votePoll, closePoll, deletePoll, extractApiError, formatPollEndDate } from "../../lib/polls";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
+import useBadgeSeen from "../../hooks/useBadgeSeen";
 
 function VotersModal({ poll, onClose }) {
   useEffect(() => {
@@ -199,6 +200,7 @@ function AdminActions({ poll, onClose, closingId, onDelete }) {
 }
 
 export default function PollsPage() {
+  useBadgeSeen("polls");
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const permissionsQuery = useQuery({
