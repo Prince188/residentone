@@ -63,6 +63,7 @@ class MaintenanceService {
       ownerAmount: finalOwner,
       renterAmount: finalRenter,
       dueDate: data.dueDate,
+      durationMonths: data.durationMonths || 1,
     });
   }
 
@@ -98,6 +99,7 @@ class MaintenanceService {
       ownerAmount: cycle.ownerAmount != null ? cycle.ownerAmount : cycle.amount,
       renterAmount: cycle.renterAmount != null ? cycle.renterAmount : cycle.amount,
       dueDate: cycle.dueDate,
+      durationMonths: cycle.durationMonths || 1,
       createdAt: cycle.createdAt,
     };
   }
@@ -276,6 +278,7 @@ class MaintenanceService {
         ownerAmount: cycle.ownerAmount,
         renterAmount: cycle.renterAmount,
         dueDate: cycle.dueDate,
+        durationMonths: cycle.durationMonths || 1,
         status: this.statusFor(payment, cycle),
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,

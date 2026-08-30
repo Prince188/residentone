@@ -11,6 +11,7 @@ import {
   getCycles,
   getCycleUnits,
   createCycle,
+  periodLabel,
 } from "../../lib/maintenance";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
@@ -66,16 +67,48 @@ function DuesCard({ unit, cycle }) {
   );
 }
 
-function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
-  const today = new Date();
-  const [month, setMonth] = useState(today.getMonth() + 1);
-  const [year, setYear] = useState(today.getFullYear());
+function CreateMaintenanceModal({ onClose, onCreate, loading, apiError, latestCycle }) {
+  const nextStart = useMemo(() => {
+    if (!latestCycle) {
+      const today = new Date();
+      return {
+        month: today.getMonth() + 1,
+        year: today.getFullYear(),
+      };
+    }
+    const duration = latestCycle.durationMonths || 1;
+    const totalMonths = (latestCycle.month - 1) + duration;
+    return {
+      month: (totalMonths % 12) + 1,
+      year: latestCycle.year + Math.floor(totalMonths / 12),
+    };
+  }, [latestCycle]);
+
+  const defaultFrom = useMemo(() => {
+    return `${nextStart.year}-${String(nextStart.month).padStart(2, "0")}`;
+  }, [nextStart]);
+
+  const defaultTo = useMemo(() => {
+    // 3 month range default: from nextStart to nextStart + 2 months
+    const totalMonths = (nextStart.month - 1) + 2;
+    const toMonth = (totalMonths % 12) + 1;
+    const toYear = nextStart.year + Math.floor(totalMonths / 12);
+    return `${toYear}-${String(toMonth).padStart(2, "0")}`;
+  }, [nextStart]);
+
+  const [fromMonthStr, setFromMonthStr] = useState(defaultFrom);
+  const [toMonthStr, setToMonthStr] = useState(defaultTo);
   const [dueDate, setDueDate] = useState("");
   const [ownerAmount, setOwnerAmount] = useState("");
   const [renterAmount, setRenterAmount] = useState("");
   const [error, setError] = useState("");
 
-  const years = [today.getFullYear(), today.getFullYear() + 1];
+  const duration = useMemo(() => {
+    if (!fromMonthStr || !toMonthStr) return 0;
+    const [fY, fM] = fromMonthStr.split("-").map(Number);
+    const [tY, tM] = toMonthStr.split("-").map(Number);
+    return (tY - fY) * 12 + (tM - fM) + 1;
+  }, [fromMonthStr, toMonthStr]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -87,12 +120,29 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
       setError("Enter valid Renter amount.");
       return;
     }
+    if (duration <= 1) {
+      setError("To month must be after From month.");
+      return;
+    }
     if (!dueDate) {
       setError("Select a due date.");
       return;
     }
     setError("");
-    onCreate({ month, year, dueDate, ownerAmount: Number(ownerAmount), renterAmount: Number(renterAmount), amount: Number(ownerAmount) });
+
+    const [fY, fM] = fromMonthStr.split("-").map(Number);
+    const finalOwnerAmount = Number(ownerAmount) * duration;
+    const finalRenterAmount = Number(renterAmount) * duration;
+
+    onCreate({
+      month: fM,
+      year: fY,
+      dueDate,
+      ownerAmount: finalOwnerAmount,
+      renterAmount: finalRenterAmount,
+      amount: finalOwnerAmount,
+      durationMonths: duration,
+    });
   };
 
   return (
@@ -123,38 +173,28 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="cm-month" className="mb-1 block text-label-sm text-on-surface-variant">
-                Month
+              <label htmlFor="cm-from" className="mb-1 block text-label-sm text-on-surface-variant">
+                From Month *
               </label>
-              <select
-                id="cm-month"
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
+              <input
+                id="cm-from"
+                type="month"
+                value={fromMonthStr}
+                onChange={(e) => setFromMonthStr(e.target.value)}
                 className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {MONTHS.map((label, i) => (
-                  <option key={label} value={i + 1}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
-              <label htmlFor="cm-year" className="mb-1 block text-label-sm text-on-surface-variant">
-                Year
+              <label htmlFor="cm-to" className="mb-1 block text-label-sm text-on-surface-variant">
+                To Month *
               </label>
-              <select
-                id="cm-year"
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
+              <input
+                id="cm-to"
+                type="month"
+                value={toMonthStr}
+                onChange={(e) => setToMonthStr(e.target.value)}
                 className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
@@ -174,7 +214,7 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="cm-owner-amount" className="mb-1 block text-label-sm text-on-surface-variant">
-                Owner Amount (₹) *
+                Owner Amount (₹/month) *
               </label>
               <input
                 id="cm-owner-amount"
@@ -188,7 +228,7 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
             </div>
             <div>
               <label htmlFor="cm-renter-amount" className="mb-1 block text-label-sm text-on-surface-variant">
-                Renter Amount (₹) *
+                Renter Amount (₹/month) *
               </label>
               <input
                 id="cm-renter-amount"
@@ -202,6 +242,12 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError }) {
             </div>
           </div>
           <p className="text-label-sm text-outline">Owner pays owner amount, Renter pays renter amount — shown accordingly.</p>
+
+          {duration > 1 && (ownerAmount || renterAmount) && (
+            <p className="rounded-lg bg-primary/10 px-3 py-2 text-label-md font-semibold text-primary">
+              Total for {duration} months: ₹{(Number(ownerAmount || 0) * duration).toLocaleString("en-IN")} (Owner) / ₹{(Number(renterAmount || 0) * duration).toLocaleString("en-IN")} (Renter)
+            </p>
+          )}
 
           {(error || apiError) && (
             <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">
@@ -300,7 +346,7 @@ export default function SocietyDuesPage() {
       setShowCreate(false);
       setSelectedCycleId(created.id);
       setToast(
-        `Maintenance created for ${MONTHS[created.month - 1]} ${created.year}. Members will see a payment alert on their dashboard.`
+        `Maintenance created for ${periodLabel(created.month, created.year, created.durationMonths)}. Members will see a payment alert on their dashboard.`
       );
       setTimeout(() => setToast(""), 5000);
     },
@@ -395,7 +441,7 @@ export default function SocietyDuesPage() {
               >
                 {cycles.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {`${MONTHS[c.month - 1]} ${c.year} · Owner ${formatAmount(c.ownerAmount || c.amount)} / Renter ${formatAmount(c.renterAmount || c.amount)} · due ${formatDate(c.dueDate)}`}
+                    {`${periodLabel(c.month, c.year, c.durationMonths)} · Owner ${formatAmount(c.ownerAmount || c.amount)} / Renter ${formatAmount(c.renterAmount || c.amount)} · due ${formatDate(c.dueDate)}`}
                   </option>
                 ))}
               </select>
@@ -515,6 +561,7 @@ export default function SocietyDuesPage() {
       {showCreate && (
         <CreateMaintenanceModal
           onClose={() => setShowCreate(false)}
+          latestCycle={cycles[0]}
           loading={createMutation.isPending}
           apiError={
             createMutation.isError

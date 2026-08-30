@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCycleUnitDetail, createRazorpayOrder, verifyRazorpayPayment, extractApiError, formatAmount, formatDate } from "../../lib/maintenance";
+import { getCycleUnitDetail, createRazorpayOrder, verifyRazorpayPayment, extractApiError, formatAmount, formatDate, periodLabel } from "../../lib/maintenance";
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -119,7 +119,7 @@ export default function PayMaintenancePage() {
         <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back
       </Link>
       <h1 className="page-title">Pay Maintenance</h1>
-      <p className="page-subtitle">House {r.label} · {roleLabel} · {new Date(r.cycle.year, r.cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · {formatAmount(base)} due</p>
+      <p className="page-subtitle">House {r.label} · {roleLabel} · {periodLabel(r.cycle.month, r.cycle.year, r.cycle.durationMonths)} · {formatAmount(base)} due</p>
 
       {isPaid ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">

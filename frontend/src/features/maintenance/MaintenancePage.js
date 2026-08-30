@@ -7,6 +7,7 @@ import {
   formatAmount,
   formatDate,
   getLatestCycle,
+  periodLabel,
 } from "../../lib/maintenance";
 
 function UnitCard({ unit, cycleId }) {
@@ -80,7 +81,7 @@ export default function MaintenancePage() {
         <h1 className="page-title">Maintenance</h1>
         <p className="page-subtitle">
           {cycle
-            ? `${new Date(cycle.year, cycle.month - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · Owner ${formatAmount(cycle.ownerAmount || cycle.amount)} / Renter ${formatAmount(cycle.renterAmount || cycle.amount)} · due by ${formatDate(cycle.dueDate)}`
+            ? `${periodLabel(cycle.month, cycle.year, cycle.durationMonths)} · Owner ${formatAmount(cycle.ownerAmount || cycle.amount)} / Renter ${formatAmount(cycle.renterAmount || cycle.amount)} · due by ${formatDate(cycle.dueDate)}`
             : "Select a house to view dues."}
         </p>
       </section>

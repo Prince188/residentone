@@ -86,6 +86,12 @@ export const STATUS_UI = {
   },
 };
 
-export function periodLabel(month, year) {
-  return `${MONTHS[month - 1] || month} ${year}`;
+export function periodLabel(month, year, durationMonths = 1) {
+  if (!month || !year) return "—";
+  if (durationMonths <= 1) {
+    return `${MONTHS[month - 1] || month} ${year}`;
+  }
+  const endMonthIndex = (month - 1 + durationMonths - 1) % 12;
+  const endYear = year + Math.floor((month - 1 + durationMonths - 1) / 12);
+  return `${MONTHS[month - 1]} ${year} - ${MONTHS[endMonthIndex]} ${endYear}`;
 }

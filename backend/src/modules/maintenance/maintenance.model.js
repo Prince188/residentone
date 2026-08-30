@@ -32,6 +32,11 @@ const cycleSchema = new mongoose.Schema(
       type: Date,
       required: [true, "Due date is required"],
     },
+    durationMonths: {
+      type: Number,
+      default: 1,
+      min: [1, "Duration must be at least 1 month"],
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
