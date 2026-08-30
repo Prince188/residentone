@@ -19,12 +19,15 @@ async function hasManageHousesPermission(req) {
 class UnitController {
   async list(req, res, next) {
     try {
+      console.log('[units/list] societyId', req.societyId, 'user', req.userId, 'role', req.membership?.role);
       const units = await unitService.ensureUnitsForSociety(req.societyId);
+      console.log('[units/list] found', units.length, 'for', req.societyId);
       res.json({
         success: true,
         data: units.map((u) => unitService.mapUnitCard(u)),
       });
     } catch (error) {
+      console.error('[units/list] error', error.message);
       next(error);
     }
   }
