@@ -1,5 +1,4 @@
-/* eslint-disable */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
@@ -31,6 +30,17 @@ export default function ManageCommitteePage() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
+  // Strict isolation: when selected society changes, reset all local UI state
+  // This prevents mixing data from previous society when admin is in 2 societies
+  useEffect(() => {
+    setSearch("");
+    setSelected(null);
+    setShowForm(false);
+    setEditingId(null);
+    setMsg("");
+    setErr("");
+  }, [activeSociety?.id]);
+
   const membersQuery = useQuery({
     queryKey: ["committee-full", activeSociety?.id],
     queryFn: async () => {
@@ -40,14 +50,19 @@ export default function ManageCommitteePage() {
     enabled: Boolean(activeSociety),
   });
 
+  // eslint-disable-next-line no-unused-vars
   const directoryQuery = useQuery({
     queryKey: ["directory", activeSociety?.id],
     queryFn: async () => (await getSocietyDirectory()).data.data,
     enabled: Boolean(activeSociety),
   });
 
-  const allMemberships = membersQuery.data || [];
-  const committeeRolesSet = new Set(COMMITTEE_ROLES.map((r) => r.value).concat(["society_admin", "super_admin"]));
+  // Strictly scoped to selected society: memoize to prevent mixing when switching societies
+  const allMemberships = useMemo(() => membersQuery.data || [], [membersQuery.data]);
+  const committeeRolesSet = useMemo(
+    () => new Set(COMMITTEE_ROLES.map((r) => r.value).concat(["society_admin", "super_admin"])),
+    []
+  );
   // One card per user per role only - Prince Patel with 3 houses = 1 card, but if 2 different roles = 2 cards
   const committeeMembers = useMemo(() => {
     const filtered = allMemberships.filter((m) => committeeRolesSet.has(m.role));
@@ -58,7 +73,7 @@ export default function ManageCommitteePage() {
       if (!map.has(key)) map.set(key, m);
     });
     return Array.from(map.values());
-  }, [allMemberships]);
+  }, [allMemberships, committeeRolesSet]);
 
   // Group by role for headings: Society Admin, Manager, etc. One person with 2 roles appears in 2 groups
   const ROLE_ORDER = ["super_admin", "society_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member"];

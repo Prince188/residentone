@@ -22,7 +22,8 @@ class MembershipController {
 
   async list(req, res, next) {
     try {
-      const members = await membershipService.findBySociety(req.params.societyId);
+      const societyId = req.societyId || req.params.societyId;
+      const members = await membershipService.findBySociety(societyId);
       res.json({ success: true, data: members });
     } catch (error) {
       next(error);
