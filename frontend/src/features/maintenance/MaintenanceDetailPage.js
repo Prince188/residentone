@@ -268,9 +268,21 @@ export default function MaintenanceDetailPage() {
             label="Period"
             value={periodLabel(record.cycle.month, record.cycle.year, record.cycle.durationMonths)}
           />
-          <DetailRow label="Amount" value={formatAmount(record.amount || record.cycle.amount)} />
+          <DetailRow
+            label="Base Amount"
+            value={formatAmount(record.amount - (["overdue", "late_paid"].includes(record.status) ? (record.cycle.lateCharge || 0) : 0))}
+          />
+          {record.cycle.lateCharge > 0 && (
+            <DetailRow
+              label={["overdue", "late_paid"].includes(record.status) ? "Late Charge (Applied)" : "Late Charge (Applies after due date)"}
+              value={formatAmount(record.cycle.lateCharge)}
+            />
+          )}
           {record.fee > 0 && <DetailRow label="Gateway Fee (2% + GST)" value={formatAmount(record.fee)} />}
-          <DetailRow label="Total Paid" value={record.totalAmount ? formatAmount(record.totalAmount) : formatAmount(record.cycle.amount)} />
+          <DetailRow
+            label={["paid", "late_paid"].includes(record.status) ? "Total Paid" : "Total Due"}
+            value={formatAmount(record.totalAmount || record.amount)}
+          />
           <DetailRow label="Due Date" value={formatDate(record.cycle.dueDate)} />
           <DetailRow label="Paid On" value={formatDate(record.paidOn)} />
           <DetailRow label="Payment Method" value={record.method} />

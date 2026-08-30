@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { extractApiError } from "../../lib/houses";
 import {
-  MONTHS,
   STATUS_UI,
   formatAmount,
   formatDate,
@@ -101,6 +100,7 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError, latestCy
   const [dueDate, setDueDate] = useState("");
   const [ownerAmount, setOwnerAmount] = useState("");
   const [renterAmount, setRenterAmount] = useState("");
+  const [lateCharge, setLateCharge] = useState("");
   const [error, setError] = useState("");
 
   const duration = useMemo(() => {
@@ -128,6 +128,10 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError, latestCy
       setError("Select a due date.");
       return;
     }
+    if (lateCharge && Number(lateCharge) < 0) {
+      setError("Late charge cannot be negative.");
+      return;
+    }
     setError("");
 
     const [fY, fM] = fromMonthStr.split("-").map(Number);
@@ -142,6 +146,7 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError, latestCy
       renterAmount: finalRenterAmount,
       amount: finalOwnerAmount,
       durationMonths: duration,
+      lateCharge: Number(lateCharge) || 0,
     });
   };
 
@@ -198,17 +203,33 @@ function CreateMaintenanceModal({ onClose, onCreate, loading, apiError, latestCy
             </div>
           </div>
 
-          <div>
-            <label htmlFor="cm-due" className="mb-1 block text-label-sm text-on-surface-variant">
-              Due Date
-            </label>
-            <input
-              id="cm-due"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="cm-due" className="mb-1 block text-label-sm text-on-surface-variant">
+                Due Date *
+              </label>
+              <input
+                id="cm-due"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label htmlFor="cm-late-charge" className="mb-1 block text-label-sm text-on-surface-variant">
+                Late Charge (₹)
+              </label>
+              <input
+                id="cm-late-charge"
+                type="number"
+                min="0"
+                value={lateCharge}
+                onChange={(e) => setLateCharge(e.target.value)}
+                placeholder="e.g. 200"
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

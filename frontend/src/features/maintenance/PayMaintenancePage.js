@@ -121,6 +121,18 @@ export default function PayMaintenancePage() {
       <h1 className="page-title">Pay Maintenance</h1>
       <p className="page-subtitle">House {r.label} · {roleLabel} · {periodLabel(r.cycle.month, r.cycle.year, r.cycle.durationMonths)} · {formatAmount(base)} due</p>
 
+      {r.status === "overdue" && r.cycle.lateCharge > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-body-sm font-semibold text-red-800">
+          <span className="material-symbols-outlined text-[20px] text-red-600 shrink-0">error</span>
+          <div>
+            <p>Late Charge Applied</p>
+            <p className="mt-0.5 font-normal text-red-700">
+              An overdue charge of {formatAmount(r.cycle.lateCharge)} has been added as the payment deadline ({formatDate(r.cycle.dueDate)}) has passed.
+            </p>
+          </div>
+        </div>
+      )}
+
       {isPaid ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
           <span className="material-symbols-outlined text-[36px] text-emerald-600">check_circle</span>

@@ -37,6 +37,11 @@ const cycleSchema = new mongoose.Schema(
       default: 1,
       min: [1, "Duration must be at least 1 month"],
     },
+    lateCharge: {
+      type: Number,
+      default: 0,
+      min: [0, "Late charge cannot be negative"],
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

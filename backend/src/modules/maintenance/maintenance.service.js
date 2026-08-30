@@ -64,6 +64,7 @@ class MaintenanceService {
       renterAmount: finalRenter,
       dueDate: data.dueDate,
       durationMonths: data.durationMonths || 1,
+      lateCharge: data.lateCharge || 0,
     });
   }
 
@@ -100,6 +101,7 @@ class MaintenanceService {
       renterAmount: cycle.renterAmount != null ? cycle.renterAmount : cycle.amount,
       dueDate: cycle.dueDate,
       durationMonths: cycle.durationMonths || 1,
+      lateCharge: cycle.lateCharge || 0,
       createdAt: cycle.createdAt,
     };
   }
@@ -137,6 +139,10 @@ class MaintenanceService {
       const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
       const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
       const unitAmount = this.getAmountForUnit(cycle, unit);
+      const status = this.statusFor(payment, cycle);
+      const isLate = ["overdue", "late_paid"].includes(status);
+      const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+      const finalAmount = payment ? (payment.amount || unitAmount) : (unitAmount + appliedLateCharge);
       // Renter priority for display
       const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
       const displayPhone = unit.tenantId?.phone || unit.ownerId?.phone || null;
@@ -149,8 +155,8 @@ class MaintenanceService {
         tenantId: tenantIdStr,
         isOccupied: Boolean(unit.ownerId || unit.tenantId),
         isRenterOccupied: Boolean(unit.tenantId),
-        amount: unitAmount,
-        status: this.statusFor(payment, cycle),
+        amount: finalAmount,
+        status: status,
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
@@ -214,6 +220,11 @@ class MaintenanceService {
     const isTenantFlag = tenantIdStr ? tenantIdStr === userIdStr : false;
 
     const unitAmount = this.getAmountForUnit(cycle, unit);
+    const status = this.statusFor(payment, cycle);
+    const isLate = ["overdue", "late_paid"].includes(status);
+    const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+    const finalAmount = payment ? (payment.amount || unitAmount) : (unitAmount + appliedLateCharge);
+
     const record = {
       unitId: unit._id,
       label: unit.label,
@@ -227,14 +238,14 @@ class MaintenanceService {
       isTenant: isTenantFlag,
       houseRole: isTenantFlag ? "tenant" : isOwnerFlag ? "owner" : membership.role,
       isRenterOccupied: Boolean(unit.tenantId),
-      amount: unitAmount,
-      dueAmount: unitAmount,
-      status: this.statusFor(payment, cycle),
+      amount: finalAmount,
+      dueAmount: finalAmount,
+      status: status,
       paidOn: payment?.paidOn || null,
       method: payment?.method || null,
       receiptNo: payment?.receiptNo || null,
       fee: payment?.fee || 0,
-      totalAmount: payment?.totalAmount || payment?.amount || unitAmount,
+      totalAmount: payment?.totalAmount || payment?.amount || finalAmount,
       gatewayStatus: payment?.gatewayStatus || "cash",
     };
 
@@ -296,7 +307,10 @@ class MaintenanceService {
 
     const paidOn = data.paidOn || new Date();
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
-    const unitAmount = this.getAmountForUnit(cycle, unit);
+    const baseAmount = this.getAmountForUnit(cycle, unit);
+    const isLate = new Date(paidOn) > new Date(cycle.dueDate);
+    const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+    const finalAmount = baseAmount + appliedLateCharge;
 
     return MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
@@ -306,9 +320,9 @@ class MaintenanceService {
         unitId,
         paidOn,
         method: data.method || "Cash",
-        amount: unitAmount,
+        amount: finalAmount,
         fee: 0,
-        totalAmount: unitAmount,
+        totalAmount: finalAmount,
         gatewayStatus: "cash",
         razorpayOrderId: null,
         razorpayPaymentId: null,
@@ -336,8 +350,11 @@ class MaintenanceService {
 
     const { createOrder } = require("../../shared/services/razorpay.service");
     const receipt = `rcpt_${cycle.year}${String(cycle.month).padStart(2, "0")}_${String(unitId).slice(-6)}`;
-    const unitAmount = this.getAmountForUnit(cycle, unit);
-    const order = await createOrder({ amount: unitAmount, receipt });
+    const baseAmount = this.getAmountForUnit(cycle, unit);
+    const isLate = new Date() > new Date(cycle.dueDate);
+    const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+    const finalAmount = baseAmount + appliedLateCharge;
+    const order = await createOrder({ amount: finalAmount, receipt });
 
     // Create pending payment record with order id
     await MaintenancePayment.findOneAndUpdate(
