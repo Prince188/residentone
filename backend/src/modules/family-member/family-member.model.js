@@ -8,7 +8,8 @@ const familyMemberSchema = new mongoose.Schema(
     unitId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Unit",
-      required: true,
+      required: false,
+      default: null,
     },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,

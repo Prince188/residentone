@@ -4,14 +4,11 @@ const { AppError } = require("../../shared/utils/errors");
 
 class FamilyMemberService {
   async list(societyId, userId, membership) {
-    // Residents see their house members; admin sees all in society
+    // Residents see their own family members (general, not per-house); admin sees all in society
     const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
     const filter = { societyId, isActive: true };
     if (!isAdmin) {
-      // Only show members for houses owned/rented by this user
-      const myUnitIds = (membership.units || []).map((id) => String(id));
-      if (!myUnitIds.length) return [];
-      filter.unitId = { $in: myUnitIds };
+      filter.addedBy = userId;
     }
     return FamilyMember.find(filter).populate("unitId", "label").populate("addedBy", "name").sort({ createdAt: -1 }).lean();
   }
@@ -19,16 +16,31 @@ class FamilyMemberService {
   async create(societyId, userId, membership, data) {
     const myUnitIds = (membership.units || []).map((id) => String(id));
     const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
-    // Must be owner/renter of that house (or admin)
-    if (!isAdmin && !myUnitIds.includes(String(data.unitId))) {
-      throw new AppError("You can only add members to your own house", 403);
+    // For general family members, no specific house required — just need to be a member of the society
+    // If a unitId is provided (legacy), validate it; otherwise store as general (null)
+    let unitId = null;
+    if (data.unitId) {
+      const targetId = String(data.unitId).trim();
+      if (targetId) {
+        if (!isAdmin && !myUnitIds.includes(targetId)) {
+          throw new AppError("You can only add members to your own house", 403);
+        }
+        const unit = await Unit.findOne({ _id: targetId, societyId, isActive: true });
+        if (!unit) throw new AppError("House not found", 404);
+        unitId = targetId;
+      }
+    } else {
+      // General family member: ensure user is part of society (has at least one unit or is admin)
+      if (!isAdmin && myUnitIds.length === 0) {
+        throw new AppError("You need a house in this society to add family members", 403);
+      }
+      // Use first house as fallback for legacy display, or keep null for truly general
+      unitId = null;
     }
-    const unit = await Unit.findOne({ _id: data.unitId, societyId, isActive: true });
-    if (!unit) throw new AppError("House not found", 404);
 
     const member = await FamilyMember.create({
       societyId,
-      unitId: data.unitId,
+      unitId,
       addedBy: userId,
       name: data.name.trim(),
       relation: data.relation || "other",

@@ -11,7 +11,7 @@ export default function FamilyMembersPage() {
   const membership = useSocietyStore(selectActiveMembership);
   const myHouses = membership?.units || [];
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ unitId: myHouses[0]?.id || "", name: "", relation: "other", phone: "" });
+  const [form, setForm] = useState({ name: "", relation: "other", phone: "" });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -27,7 +27,7 @@ export default function FamilyMembersPage() {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       setMsg("Family member added");
       setErr("");
-      setForm({ unitId: myHouses[0]?.id || "", name: "", relation: "other", phone: "" });
+      setForm({ name: "", relation: "other", phone: "" });
       setTimeout(() => setMsg(""), 3000);
     },
     onError: (e) => setErr(extractApiError(e, "Failed to add")),
@@ -52,10 +52,9 @@ export default function FamilyMembersPage() {
 
   const handleAdd = (e) => {
     e.preventDefault();
-    if (!form.unitId) { setErr("Select your house"); return; }
     if (!form.name.trim() || form.name.trim().length < 2) { setErr("Enter valid name (min 2 chars)"); return; }
     setErr("");
-    addMut.mutate({ unitId: form.unitId, name: form.name.trim(), relation: form.relation, phone: form.phone.trim() });
+    addMut.mutate({ name: form.name.trim(), relation: form.relation, phone: form.phone.trim() });
   };
 
   return (
@@ -65,21 +64,13 @@ export default function FamilyMembersPage() {
       </Link>
       <div>
         <h1 className="page-title">Add Family Members</h1>
-        <p className="page-subtitle">{activeSociety?.name} · Add your family to your house</p>
+        <p className="page-subtitle">{activeSociety?.name} · General for all your houses{myHouses.length > 1 ? ` (${myHouses.length} houses)` : ""}</p>
       </div>
 
       {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-label-md text-emerald-800">{msg}</p>}
       {err && <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">{err}</p>}
 
       <form onSubmit={handleAdd} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 space-y-4">
-        <div>
-          <label className="text-label-md font-medium">Select Your House *</label>
-          <select value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
-            {myHouses.map((u) => (
-              <option key={u.id} value={u.id}>House {u.label}</option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className="text-label-md font-medium">Family Member Name *</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sunita Patel" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
@@ -113,7 +104,7 @@ export default function FamilyMembersPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">{m.name.charAt(0).toUpperCase()}</span>
               <div>
                 <p className="text-body-md font-semibold">{m.name} <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-medium capitalize text-primary">{m.relation}</span></p>
-                <p className="text-label-sm text-on-surface-variant">House {m.unitLabel || m.unitId} {m.phone ? `· ${m.phone}` : ""}</p>
+                <p className="text-label-sm text-on-surface-variant">General · All houses {m.phone ? `· ${m.phone}` : ""}</p>
               </div>
             </div>
             <button type="button" onClick={() => { if (window.confirm(`Remove ${m.name}?`)) removeMut.mutate(m.id); }} className="rounded-full border border-outline-variant px-3 py-1 text-label-sm hover:border-error hover:text-error">Remove</button>
