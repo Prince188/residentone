@@ -24,6 +24,19 @@ router.get(
   requireRole("super_admin", "society_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member", "owner", "tenant"),
   (req, res, next) => societyController.getPermissions(req, res, next)
 );
+router.get(
+  "/me",
+  authenticate,
+  resolveSocietyContext,
+  (req, res, next) => societyController.getMySociety(req, res, next)
+);
+router.patch(
+  "/me",
+  authenticate,
+  resolveSocietyContext,
+  (req, res, next) => societyController.updateMySociety(req, res, next)
+);
+
 router.put(
   "/permissions",
   authenticate,

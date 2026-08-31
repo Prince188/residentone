@@ -19,6 +19,16 @@ const membershipSchema = new mongoose.Schema(
       enum: SOCIETY_ROLES,
       required: true,
     },
+    additionalRoles: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (v) {
+          return Array.isArray(v) && v.every((r) => SOCIETY_ROLES.includes(r));
+        },
+        message: "additionalRoles must be valid roles",
+      },
+    },
     assignedWings: {
       type: [String],
       default: [],

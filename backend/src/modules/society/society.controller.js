@@ -151,6 +151,37 @@ class SocietyController {
     }
   }
 
+  async updateMySociety(req, res, next) {
+    try {
+      if (!req.societyId) {
+        return res.status(400).json({ success: false, error: { code: "NO_SOCIETY", message: "Society context required (x-society-id header)" } });
+      }
+      if (!["society_admin", "super_admin"].includes(req.membership?.role) && req.accountRole !== "super_admin") {
+        return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Only Society Admin can update society info" } });
+      }
+      const allowed = ["name", "address", "city", "state", "pincode", "contactPersonName", "contactEmail", "contactPhone"];
+      const payload = {};
+      for (const k of allowed) if (req.body[k] !== undefined) payload[k] = req.body[k];
+      payload.updatedBy = req.userId;
+      const society = await societyService.update(req.societyId, payload);
+      if (!society) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Society not found" } });
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getMySociety(req, res, next) {
+    try {
+      if (!req.societyId) return res.status(400).json({ success: false, error: { code: "NO_SOCIETY", message: "Society context required" } });
+      const society = await societyService.findById(req.societyId);
+      if (!society) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Society not found" } });
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async deactivate(req, res, next) {
     try {
       const society = await societyService.deactivate(req.params.id);

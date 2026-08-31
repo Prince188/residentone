@@ -19,6 +19,7 @@ const superAdminCards = [
 
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
+  { icon: "domain", label: "Manage Society", to: "/society/manage", perm: "manage_society" },
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
   { icon: "volunteer_activism", label: "Manage Collections", to: "/collections/manage" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
@@ -223,6 +224,7 @@ export default function DashboardPage() {
 
   const cardPermissionMap = {
     "Manage Houses": "manage_houses",
+    "Manage Society": "manage_society",
     "Manage Maintenance": "manage_maintenance",
     "Manage Collections": "manage_collections",
     "Create Collection": "manage_collections",
@@ -235,6 +237,7 @@ export default function DashboardPage() {
 
   const filteredAdminCards = (isCommitteeRole || isAdmin
     ? adminCards.filter((card) => {
+        if (card.label === "Manage Society") return isAdmin || activeRole === "wing_admin" || hasPermission(activeRole, "manage_committee", customPermissions);
         const perm = cardPermissionMap[card.label];
         if (!perm) return true;
         return hasPermission(activeRole, perm, customPermissions);
