@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getSocietyDirectory } from "../../lib/directory";
 import api from "../../lib/api";
-import { hasPermission } from "../../lib/permissions";
+import { hasPermission, PERMISSIONS as SHARED_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS as SHARED_DEFAULTS } from "../../lib/permissions";
 
 const COMMITTEE_ROLES = [
   { value: "committee_member", label: "Committee Member" },
@@ -328,31 +328,8 @@ export default function ManageCommitteePage() {
   );
 }
 
-const PERMISSIONS = [
-  { key: "manage_committee", label: "Manage Committee", desc: "Add / remove roles", icon: "groups" },
-  { key: "manage_houses", label: "Manage Houses", desc: "Assign owner / renter", icon: "home" },
-  { key: "manage_maintenance", label: "Manage Maintenance", desc: "Billing & dues", icon: "request_quote" },
-  { key: "create_notice", label: "Create Notice", desc: "Publish notices", icon: "campaign" },
-  { key: "manage_amenities", label: "Manage Amenities", desc: "Facility setup", icon: "event_available" },
-  { key: "manage_bookings", label: "Manage Bookings", desc: "Approve amenities", icon: "event" },
-  { key: "create_poll", label: "Create Poll", desc: "Voting", icon: "how_to_vote" },
-  { key: "create_survey", label: "Create Survey", desc: "Feedback", icon: "assignment" },
-  { key: "manage_complaints", label: "Manage Complaints", desc: "Resolve complaints", icon: "report" },
-  { key: "manage_visitors", label: "Manage Visitors", desc: "Gate & visitors", icon: "badge" },
-  { key: "view_financials", label: "View Financials", desc: "Reports, dues", icon: "account_balance" },
-  { key: "manage_directory", label: "View Directory", desc: "Resident list", icon: "contacts" },
-];
-
-const ROLE_PERMISSIONS_DEFAULT = {
-  society_admin: PERMISSIONS.map((p) => p.key),
-  super_admin: PERMISSIONS.map((p) => p.key),
-  manager: ["manage_houses", "manage_maintenance", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory"],
-  treasurer: ["manage_maintenance", "view_financials", "manage_directory"],
-  accountant: ["manage_maintenance", "view_financials"],
-  helpdesk_manager: ["manage_complaints", "manage_visitors", "manage_directory"],
-  auditor: ["view_financials", "manage_directory"],
-  committee_member: ["create_notice", "create_poll", "create_survey", "manage_directory"],
-};
+const PERMISSIONS = SHARED_PERMISSIONS;
+const ROLE_PERMISSIONS_DEFAULT = SHARED_DEFAULTS;
 
 function PermissionsModal({ societyId, societyName, onClose }) {
   const queryClient = useQueryClient();
@@ -429,13 +406,12 @@ function PermissionsModal({ societyId, societyName, onClose }) {
         </div>
 
         <div className="flex-1 overflow-auto">
-          <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left">
-              <thead className="sticky top-0 z-10 bg-surface-container-low border-b border-outline-variant">
+              <thead className="sticky top-0 z-20 bg-surface-container-low border-b border-outline-variant">
                 <tr>
-                  <th className="px-4 py-3 text-label-sm font-semibold uppercase tracking-wide text-on-surface">Permission</th>
+                  <th className="sticky left-0 top-0 z-30 bg-surface-container-low px-4 py-3 text-label-sm font-semibold uppercase tracking-wide text-on-surface border-r border-outline-variant shadow-[2px_0_4px_rgba(0,0,0,0.06)]">Permission</th>
                   {Object.keys(ROLE_PERMISSIONS_DEFAULT).filter((r) => r !== "super_admin").map((role) => (
-                    <th key={role} className="px-3 py-3 text-center">
+                    <th key={role} className="sticky top-0 z-20 bg-surface-container-low px-3 py-3 text-center">
                       <span className="block text-label-sm font-bold capitalize text-on-surface">{role.replace("_", " ")}</span>
                       <span className="block text-[10px] font-normal normal-case text-outline">{(permissions[role] || []).length} perms</span>
                     </th>
@@ -444,8 +420,8 @@ function PermissionsModal({ societyId, societyName, onClose }) {
               </thead>
               <tbody className="divide-y divide-outline-variant/40">
                 {PERMISSIONS.map((perm) => (
-                  <tr key={perm.key} className="hover:bg-surface-container-low/50">
-                    <td className="px-4 py-3">
+                  <tr key={perm.key} className="group hover:bg-surface-container-low/50">
+                    <td className="sticky left-0 z-10 bg-surface-container-lowest px-4 py-3 border-r border-outline-variant shadow-[2px_0_4px_rgba(0,0,0,0.06)] group-hover:bg-surface-container-low">
                       <div className="flex items-center gap-2.5">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                           <span className="material-symbols-outlined text-[18px]">{perm.icon}</span>
@@ -478,7 +454,6 @@ function PermissionsModal({ societyId, societyName, onClose }) {
                 ))}
               </tbody>
             </table>
-          </div>
           <p className="px-5 py-3 text-label-sm text-outline border-t border-outline-variant bg-surface-container-low">
             Society Admin always has all permissions and cannot be changed. Changes are saved per-society in this browser (localStorage) for now.
           </p>
