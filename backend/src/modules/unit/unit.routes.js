@@ -26,6 +26,7 @@ router.post(
 // Society admin only
 router.use(authenticate, resolveSocietyContext, requireSociety);
 
+router.post("/bulk-generate", requirePermission("manage_houses"), (req, res, next) => unitController.bulkGenerate(req, res, next));
 router.get("/", (req, res, next) => unitController.list(req, res, next));
 router.get("/search-users", requirePermission("manage_houses"), (req, res, next) => unitController.searchUsers(req, res, next));
 router.get(

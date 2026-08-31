@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "../stores/auth.store";
+import useSocietyModalStore from "../stores/societyModal.store";
 
 const navItems = [
   { label: "Features", to: "/features" },
@@ -12,6 +13,7 @@ const navItems = [
 export default function Navbar() {
   const location = useLocation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const openSocietyModal = useSocietyModalStore((s) => s.open);
   const [open, setOpen] = useState(false);
 
   // Close drawer on route change
@@ -77,27 +79,29 @@ export default function Navbar() {
                 Login
               </Link>
             )}
-            <Link
-              to="/create-society"
-              className="bg-primary text-on-primary font-label-md text-label-md px-5 lg:px-6 py-3 rounded-lg hover:bg-inverse-surface transition-colors uppercase tracking-widest no-underline flex items-center gap-2 whitespace-nowrap"
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); openSocietyModal(); }}
+              className="bg-primary text-on-primary font-label-md text-label-md px-5 lg:px-6 py-3 rounded-lg hover:bg-inverse-surface transition-colors uppercase tracking-widest flex items-center gap-2 whitespace-nowrap cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">add_business</span>
               Create Society
-            </Link>
+            </button>
           </div>
 
           {/* Mobile actions */}
           <div className="flex md:hidden items-center gap-2">
-            <Link
-              to="/create-society"
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); openSocietyModal(); }}
               aria-label="Create Society"
-              className="bg-primary text-on-primary font-label-md px-3.5 py-2 rounded-lg transition-colors no-underline flex items-center gap-1.5 whitespace-nowrap"
+              className="bg-primary text-on-primary font-label-md px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">add_business</span>
               <span className="text-[11px] sm:text-[12px] tracking-widest uppercase font-semibold">
                 Create
               </span>
-            </Link>
+            </button>
             <button
               type="button"
               onClick={() => setOpen(!open)}
@@ -179,14 +183,14 @@ export default function Navbar() {
                 Join
               </Link>
             </div>
-            <Link
-              to="/create-society"
-              onClick={() => setOpen(false)}
-              className="mt-3 w-full flex items-center justify-center gap-2 bg-surface-container border border-outline-variant/30 text-on-surface rounded-xl py-3.5 text-sm font-bold tracking-widest uppercase no-underline hover:bg-surface-container-high transition-colors"
+            <button
+              type="button"
+              onClick={() => { setOpen(false); openSocietyModal(); }}
+              className="mt-3 w-full flex items-center justify-center gap-2 bg-surface-container border border-outline-variant/30 text-on-surface rounded-xl py-3.5 text-sm font-bold tracking-widest uppercase hover:bg-surface-container-high transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">add_business</span>
               Create Society
-            </Link>
+            </button>
             <p className="text-center text-xs text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
               <span className="material-symbols-outlined text-[14px]">verified_user</span>
               Trusted by 500+ societies

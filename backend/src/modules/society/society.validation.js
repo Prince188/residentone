@@ -26,9 +26,28 @@ const registrationBaseSchema = z.object({
   contactEmail: z.string().email("Invalid email address"),
 });
 
-const publicRegistrationSchema = registrationBaseSchema;
+const structureWingSchema = z.object({
+  name: z.string().min(1).max(10),
+  floors: z.coerce.number().int().min(1).max(100),
+  hasGround: z.boolean().optional().default(false),
+  groundFlats: z.coerce.number().int().min(0).max(50).optional(),
+  defaultPerFloor: z.coerce.number().int().min(0).max(50).optional(),
+  numberingMode: z.enum(["sequential", "floor_based"]).optional(),
+  perFloorMap: z.record(z.coerce.number().int().min(0).max(50)).optional(),
+});
 
-const manualCreateSchema = registrationBaseSchema;
+const structureSchema = z.object({
+  wings: z.array(structureWingSchema).min(1).max(26),
+  numberingMode: z.enum(["sequential", "floor_based"]).optional(),
+}).optional();
+
+const publicRegistrationSchema = registrationBaseSchema.extend({
+  structure: structureSchema,
+});
+
+const manualCreateSchema = registrationBaseSchema.extend({
+  structure: structureSchema,
+});
 
 const updateSocietySchema = z.object({
   name: z.string().min(1).max(200).optional(),

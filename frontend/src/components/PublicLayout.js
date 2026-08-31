@@ -1,5 +1,6 @@
 import Navbar from "./Navbar";
 import Footer from "./Footer";
+import CreateSocietyModal from "../features/society/CreateSocietyModal";
 
 export default function PublicLayout({ children }) {
   return (
@@ -7,6 +8,7 @@ export default function PublicLayout({ children }) {
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
+      <CreateSocietyModal />
     </div>
   );
 }

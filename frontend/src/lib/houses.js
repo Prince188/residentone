@@ -14,6 +14,8 @@ export const getHouseInvitePreview = (token) => api.get(`/units/invite/${token}`
 export const submitHouseInvite = (token, payload) =>
   api.post(`/units/invite/${token}`, payload);
 
+export const bulkGenerateUnits = (payload) => api.post("/units/bulk-generate", payload);
+
 export function extractApiError(error, fallback) {
   return error?.response?.data?.error?.message || fallback;
 }

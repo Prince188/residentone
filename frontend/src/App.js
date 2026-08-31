@@ -61,6 +61,7 @@ import CollectionUnitPayPage from "./features/collections/CollectionUnitPayPage"
 import ManageCollectionsPage from "./features/collections/ManageCollectionsPage";
 import CollectionsHistoryPage from "./features/collections/CollectionsHistoryPage";
 import PayCollectionsPage from "./features/collections/PayCollectionsPage";
+import CreateSocietyModal from "./features/society/CreateSocietyModal";
 
 function App() {
   return (
@@ -154,6 +155,7 @@ function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <CreateSocietyModal />
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

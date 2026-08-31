@@ -150,6 +150,15 @@ class UnitController {
     }
   }
 
+  async bulkGenerate(req, res, next) {
+    try {
+      const units = await unitService.bulkGenerateFromStructure(req.societyId, req.body);
+      res.status(201).json({ success: true, data: units.map((u) => unitService.mapUnitCard(u)) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getInvitePreview(req, res, next) {
     try {
       const result = await unitService.getInvitePreview(req.params.token);

@@ -82,7 +82,7 @@ class MembershipService {
 
   async findUserSocieties(userId) {
     const memberships = await Membership.find({ userId, isActive: true })
-      .populate("societyId", "name city state pincode address isActive")
+      .populate("societyId", "name city state pincode address isActive societyType")
       .populate("units")
       .sort({ createdAt: 1 })
       .lean();
@@ -98,6 +98,7 @@ class MembershipService {
           name: membership.societyId.name,
           city: membership.societyId.city,
           address: membership.societyId.address,
+          societyType: membership.societyId.societyType || "apartment",
         },
         units: (membership.units || [])
           .filter((unit) => unit && unit.isActive !== false)

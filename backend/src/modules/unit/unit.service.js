@@ -63,6 +63,88 @@ class UnitService {
     return this.listUnits(societyId);
   }
 
+  async bulkGenerateFromStructure(societyId, structure) {
+    const society = await Society.findById(societyId).lean();
+    if (!society) throw new AppError("Society not found", 404);
+
+    const wings = Array.isArray(structure?.wings) ? structure.wings : [];
+    const globalNumbering = structure?.numberingMode === "sequential" ? "sequential" : "floor_based";
+    if (wings.length === 0) throw new AppError("At least one wing is required", 400);
+
+    const existing = await Unit.find({ societyId: society._id }).select("label").lean();
+    const existingLabels = new Set(existing.map((u) => String(u.label)));
+    const propertyType = society.societyType === "row_house" ? "row_house" : "flat";
+
+    const toCreate = [];
+    let unitCounter = existing.length + 1;
+
+    for (const wing of wings) {
+      const wingName = String(wing.name || "").trim().toUpperCase();
+      if (!wingName) throw new AppError("Wing name is required", 400);
+      if (!/^[A-Z0-9]{1,10}$/.test(wingName)) throw new AppError(`Invalid wing name: ${wingName}`, 400);
+      const floors = Number(wing.floors);
+      if (!Number.isInteger(floors) || floors < 1 || floors > 100) throw new AppError(`Invalid floors for wing ${wingName}`, 400);
+      const numberingMode = wing.numberingMode === "sequential" || wing.numberingMode === "floor_based" ? wing.numberingMode : globalNumbering;
+      const hasGround = Boolean(wing.hasGround);
+      const groundFlats = Number.isInteger(wing.groundFlats) ? wing.groundFlats : (hasGround ? 2 : 0);
+      const defaultPerFloor = Number.isInteger(wing.defaultPerFloor) && wing.defaultPerFloor >= 0 ? wing.defaultPerFloor : 4;
+      const perFloorMap = wing.perFloorMap && typeof wing.perFloorMap === "object" ? wing.perFloorMap : {};
+
+      let seqCounter = 1;
+      for (let f = hasGround ? 0 : 1; f <= floors; f += 1) {
+        const key = String(f);
+        let count;
+        if (f === 0) count = groundFlats;
+        else if (perFloorMap[key] !== undefined) count = Number(perFloorMap[key]);
+        else if (perFloorMap[String(f)] !== undefined) count = Number(perFloorMap[String(f)]);
+        else count = defaultPerFloor;
+        count = Number(count);
+        if (!Number.isInteger(count) || count < 0 || count > 50) throw new AppError(`Invalid flat count for wing ${wingName} floor ${f === 0 ? "G" : f}`, 400);
+        for (let door = 1; door <= count; door += 1) {
+          let label;
+          let floorStr;
+          let doorNo;
+          if (numberingMode === "sequential") {
+            label = `${wingName}-${seqCounter}`;
+            floorStr = f === 0 ? "G" : String(f);
+            doorNo = String(seqCounter);
+            seqCounter += 1;
+          } else {
+            if (f === 0) {
+              label = `${wingName}-G${door}`;
+              floorStr = "G";
+              doorNo = `G${door}`;
+            } else {
+              label = `${wingName}-${f}0${door}`;
+              floorStr = String(f);
+              doorNo = `${f}0${door}`;
+            }
+          }
+          if (existingLabels.has(label)) continue;
+          existingLabels.add(label);
+          toCreate.push({
+            societyId: society._id,
+            propertyType,
+            label,
+            block: wingName,
+            floor: floorStr,
+            doorNo,
+            unitNumber: unitCounter++,
+          });
+        }
+      }
+    }
+
+    if (toCreate.length > 0) {
+      try {
+        await Unit.insertMany(toCreate, { ordered: false });
+      } catch (error) {
+        if (!error || error.code !== 11000) throw error;
+      }
+    }
+    return this.listUnits(societyId);
+  }
+
   async listUnits(societyId) {
     return Unit.find({ societyId })
       .sort({ unitNumber: 1, label: 1 })

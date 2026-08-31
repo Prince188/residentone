@@ -31,7 +31,7 @@ function HouseCard({ house, familyMembers = [], onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`block w-full rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md h-[180px] flex flex-col justify-between ${
+      className={`block w-full rounded-xl border p-3 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md h-[148px] sm:h-[156px] flex flex-col justify-between ${
         house.isAssigned || house.isRented
           ? "border-success bg-secondary-fixed"
           : "border-outline-variant bg-surface-container-lowest"
@@ -39,11 +39,11 @@ function HouseCard({ house, familyMembers = [], onClick }) {
     >
       <div className="w-full">
         <div className="flex items-center justify-between gap-2">
-          <span className="material-symbols-outlined text-[26px] text-primary">
+          <span className="material-symbols-outlined text-[22px] text-primary">
             {house.isAssigned || house.isRented ? "home" : "home_work"}
           </span>
           <span
-            className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${
+            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
               house.isAssigned || house.isRented
                 ? "bg-primary-fixed text-on-primary-fixed"
                 : "bg-surface-container-high text-on-surface-variant"
@@ -52,8 +52,8 @@ function HouseCard({ house, familyMembers = [], onClick }) {
             {status}
           </span>
         </div>
-        <p className="mt-3 text-headline-sm font-semibold text-on-surface leading-tight">
-          House {house.label}
+        <p className="mt-2 text-title-md font-bold text-on-surface leading-tight truncate">
+          {house.label}
         </p>
         <p className="mt-0.5 truncate text-body-sm text-on-surface-variant font-medium">
           {(house.tenant || house.owner)?.name || "No resident assigned"}
@@ -151,6 +151,8 @@ export default function ManageHousesPage() {
           const fam = familyByHouse[String(h.id)] || [];
           return (
             String(h.label).toLowerCase().includes(q) ||
+            (h.block || "").toLowerCase().includes(q) ||
+            (h.floor || "").toLowerCase().includes(q) ||
             (h.owner?.name || "").toLowerCase().includes(q) ||
             (h.tenant?.name || "").toLowerCase().includes(q) ||
             (h.owner?.phone || "").includes(q) ||
@@ -166,6 +168,48 @@ export default function ManageHousesPage() {
   }, [houses, search, statusFilter, familyByHouse]);
 
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
+
+  // Apartment detection: wings exist via block field
+  const isApartmentStructure = useMemo(() => {
+    if (activeSociety?.societyType === "row_house") return false;
+    // show wing grouping only if at least one house has block (wing) defined
+    return houses.some((h) => Boolean(h.block));
+  }, [houses, activeSociety]);
+
+  const groupedWings = useMemo(() => {
+    if (!isApartmentStructure) return null;
+    const wingMap = {};
+    filtered.forEach((h) => {
+      const wing = (h.block || "General").trim() || "General";
+      const floor = (h.floor || "1").trim() || "1";
+      if (!wingMap[wing]) wingMap[wing] = {};
+      if (!wingMap[wing][floor]) wingMap[wing][floor] = [];
+      wingMap[wing][floor].push(h);
+    });
+    // sort wings A-Z, General last
+    const sortedWings = Object.keys(wingMap).sort((a, b) => {
+      if (a === "General") return 1;
+      if (b === "General") return -1;
+      return a.localeCompare(b);
+    });
+    return sortedWings.map((wing) => {
+      const floorsObj = wingMap[wing];
+      const sortedFloors = Object.keys(floorsObj).sort((a, b) => {
+        if (a === "G" && b !== "G") return -1;
+        if (b === "G" && a !== "G") return 1;
+        const na = Number(a);
+        const nb = Number(b);
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+        return String(a).localeCompare(String(b));
+      });
+      const floorGroups = sortedFloors.map((floor) => {
+        const list = floorsObj[floor].slice().sort((x, y) => String(x.label).localeCompare(String(y.label), undefined, { numeric: true }));
+        return { floor, houses: list };
+      });
+      const totalWing = floorGroups.reduce((sum, g) => sum + g.houses.length, 0);
+      return { wing, floorGroups, totalWing };
+    });
+  }, [filtered, isApartmentStructure]);
 
   if (!canManageHouses) {
     return (
@@ -300,6 +344,45 @@ export default function ManageHousesPage() {
           ) : filtered.length === 0 ? (
             <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center text-body-md text-on-surface-variant">
               No houses match your search or filter.
+            </div>
+          ) : isApartmentStructure ? (
+            <div className="space-y-6">
+              {groupedWings.map(({ wing, floorGroups, totalWing }) => (
+                <div key={wing} className="rounded-2xl border border-outline-variant/30 bg-white shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 px-4 sm:px-5 py-3 bg-surface-container-low border-b border-outline-variant/20">
+                    <span className="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold text-title-sm shrink-0">{wing}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-title-sm font-bold text-on-surface leading-none">Wing {wing}</h3>
+                      <p className="text-body-sm text-on-surface-variant">{totalWing} houses • {floorGroups.length} floors</p>
+                    </div>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-label-sm font-semibold text-on-surface-variant bg-surface-container rounded-full px-3 py-1">{totalWing} units</span>
+                  </div>
+                  <div className="p-4 sm:p-5 space-y-5">
+                    {floorGroups.map(({ floor, houses }) => (
+                      <div key={floor}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 bg-surface-container text-on-surface-variant rounded-full px-2.5 py-1 text-label-sm font-bold tracking-widest uppercase">
+                            <span className="material-symbols-outlined text-[14px]">layers</span>
+                            Floor {floor}
+                          </span>
+                          <span className="text-body-sm text-outline">{houses.length} houses</span>
+                          <span className="flex-1 h-px bg-outline-variant/30 ml-2" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+                          {houses.map((house) => (
+                            <HouseCard
+                              key={house.id}
+                              house={house}
+                              familyMembers={familyByHouse[String(house.id)] || []}
+                              onClick={() => setSelectedHouse(house)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

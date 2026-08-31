@@ -61,7 +61,8 @@ class SocietyService {
   }
 
   async registerPublic(data) {
-    const mapped = this.mapRegistrationPayload(data);
+    const { structure, ...restData } = data;
+    const mapped = this.mapRegistrationPayload(restData);
     const existing = await Society.findOne({
       name: mapped.name.trim(),
       city: mapped.city.trim(),
@@ -73,11 +74,39 @@ class SocietyService {
         409
       );
     }
+    // If detailed wing structure provided, derive totalUnits from it to avoid mismatch (G=2, rest=4 cases)
+    let effectiveMapped = { ...mapped };
+    if (structure && Array.isArray(structure.wings) && structure.wings.length > 0) {
+      let computed = 0;
+      for (const w of structure.wings) {
+        const hasGround = Boolean(w.hasGround);
+        const groundFlats = Number.isInteger(w.groundFlats) ? w.groundFlats : (hasGround ? 2 : 0);
+        const defaultPerFloor = Number.isInteger(w.defaultPerFloor) ? w.defaultPerFloor : 4;
+        const floors = Number(w.floors) || 0;
+        const perFloorMap = w.perFloorMap || {};
+        for (let f = hasGround ? 0 : 1; f <= floors; f += 1) {
+          if (f === 0) computed += groundFlats;
+          else {
+            const v = perFloorMap[String(f)];
+            computed += v !== undefined ? Number(v) : defaultPerFloor;
+          }
+        }
+      }
+      if (computed > 0) effectiveMapped.totalUnits = computed;
+    }
     const society = await Society.create({
-      ...mapped,
+      ...effectiveMapped,
       status: "pending",
       source: "public_registration",
     });
+    if (structure && Array.isArray(structure.wings) && structure.wings.length > 0) {
+      try {
+        await unitService.bulkGenerateFromStructure(society._id, structure);
+      } catch (e) {
+        // Non-fatal: keep society, log
+        console.error("bulkGenerateFromStructure failed", e.message);
+      }
+    }
     try {
       const s = require("../../socket");
       if (s.emitSocietyChange) s.emitSocietyChange("create", society);
