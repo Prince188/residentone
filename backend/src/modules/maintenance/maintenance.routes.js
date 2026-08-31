@@ -25,6 +25,13 @@ router.get("/units/:unitId/history", (req, res, next) =>
   maintenanceController.getUnitHistory(req, res, next)
 );
 
+// Excel export - same as collections (permission gated)
+router.get(
+  "/cycles/:cycleId/export",
+  requirePermission("manage_maintenance"),
+  (req, res, next) => maintenanceController.exportExcel(req, res, next)
+);
+
 // Permission-based: manage_maintenance (granted via Manage Permissions)
 router.post(
   "/cycles",

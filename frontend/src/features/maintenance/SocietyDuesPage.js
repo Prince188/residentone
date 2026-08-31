@@ -419,14 +419,22 @@ export default function SocietyDuesPage() {
             Maintenance payment status for every house
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md text-on-primary no-underline transition-opacity hover:opacity-90"
-        >
-          <span className="material-symbols-outlined text-[18px]">add_circle</span>
-          Create Maintenance
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/dues/history"
+            className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md text-on-surface hover:border-primary hover:text-primary no-underline"
+          >
+            <span className="material-symbols-outlined text-[18px]">history</span> History
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md text-on-primary no-underline transition-opacity hover:opacity-90"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            Create Maintenance
+          </button>
+        </div>
       </section>
 
       {toast && (
@@ -452,26 +460,13 @@ export default function SocietyDuesPage() {
 
       {cyclesQuery.isSuccess && (
         <>
-          {cycles.length > 0 && (
-            <section className="flex flex-wrap items-center gap-2">
-              <span className="text-label-md text-on-surface-variant">Period</span>
-              <select
-                value={cycle?.id || ""}
-                onChange={(e) => setSelectedCycleId(e.target.value)}
-                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm font-semibold text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {cycles.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {`${periodLabel(c.month, c.year, c.durationMonths)} · Owner ${formatAmount(c.ownerAmount || c.amount)} / Renter ${formatAmount(c.renterAmount || c.amount)} · due ${formatDate(c.dueDate)}`}
-                  </option>
-                ))}
-              </select>
-              {cycle && (
-                <span className="text-label-sm text-outline">
-                  {units.filter((u) => u.isOccupied).length} occupied houses
-                </span>
-              )}
-            </section>
+          {cycle && (
+            <div className="flex flex-wrap items-center gap-2 text-label-sm text-outline">
+              <span className="text-body-md font-semibold text-on-surface">{periodLabel(cycle.month, cycle.year, cycle.durationMonths)}</span>
+              <span>· Owner {formatAmount(cycle.ownerAmount || cycle.amount)} / Renter {formatAmount(cycle.renterAmount || cycle.amount)}</span>
+              <span>· Due {formatDate(cycle.dueDate)}</span>
+              <span>· {units.filter((u) => u.isOccupied).length} occupied · {counts.paid + counts.late_paid} paid</span>
+            </div>
           )}
 
           {cycles.length === 0 && (
@@ -493,57 +488,41 @@ export default function SocietyDuesPage() {
 
           {cycle && units.length > 0 && (
             <>
-              <div className="space-y-3 w-full max-w-md mb-4">
-                {/* Desktop filter buttons */}
-                <section className="hidden flex-wrap gap-2 sm:flex">
-                  {filterOptions.map((opt) => {
-                    const activeClass =
-                      opt.key === "all"
-                        ? "border-primary bg-primary text-on-primary"
-                        : STATUS_UI[opt.key].chip;
-                    const inactiveClass =
-                      "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
-                    return (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setFilter(opt.key)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${
-                          filter === opt.key ? activeClass : inactiveClass
-                        }`}
-                      >
-                        {opt.key !== "all" && (
-                          <span className="material-symbols-outlined text-[15px]">
-                            {STATUS_UI[opt.key].icon}
-                          </span>
-                        )}
-                        {opt.label}
-                        <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
-                      </button>
-                    );
-                  })}
-                </section>
-
-                {/* Search input & Mobile status selector */}
-                <div className="flex items-center gap-2 w-full">
-                  <div className="relative flex-1">
-                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
-                      search
-                    </span>
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search house no. or owner..."
-                      className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="hidden sm:flex flex-wrap gap-2">
+                    {filterOptions.map((opt) => {
+                      const activeClass =
+                        opt.key === "all"
+                          ? "border-primary bg-primary text-on-primary"
+                          : STATUS_UI[opt.key].chip;
+                      const inactiveClass =
+                        "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setFilter(opt.key)}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${
+                            filter === opt.key ? activeClass : inactiveClass
+                          }`}
+                        >
+                          {opt.key !== "all" && (
+                            <span className="material-symbols-outlined text-[15px]">
+                              {STATUS_UI[opt.key].icon}
+                            </span>
+                          )}
+                          {opt.label}
+                          <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-
                   <select
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     aria-label="Filter houses by status"
-                    className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden min-w-[110px] max-w-[140px]"
+                    className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden min-w-[110px]"
                   >
                     {filterOptions.map((opt) => (
                       <option key={opt.key} value={opt.key}>
@@ -551,6 +530,18 @@ export default function SocietyDuesPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="relative w-full sm:w-72 sm:shrink-0">
+                  <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search house no. or owner..."
+                    className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
               </div>
 

@@ -237,6 +237,25 @@ class MaintenanceController {
       next(error);
     }
   }
+
+  async exportExcel(req, res, next) {
+    try {
+      const cycle = await maintenanceService.getCycle(req.societyId, req.params.cycleId);
+      const buffer = await maintenanceService.generateExcelBuffer(req.societyId, cycle);
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const period = cycle.durationMonths > 1
+        ? `${MONTHS[cycle.month - 1]}${cycle.year}-${MONTHS[(cycle.month - 1 + cycle.durationMonths - 1) % 12]}${cycle.year + Math.floor((cycle.month - 1 + cycle.durationMonths - 1)/12)}`
+        : `${MONTHS[cycle.month - 1]}-${cycle.year}`;
+      const safePeriod = period.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const filename = `Maintenance_${safePeriod}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new MaintenanceController();

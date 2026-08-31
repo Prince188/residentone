@@ -34,7 +34,7 @@ export default function ManageCollectionsPage() {
   const membership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
@@ -158,87 +158,64 @@ export default function ManageCollectionsPage() {
         </div>
       )}
 
-      {collectionsQuery.isSuccess && collections.length > 0 && (
+      {collectionsQuery.isSuccess && collections.length > 0 && selected && (
         <>
-          <section className="flex flex-wrap items-center gap-2">
-            <span className="text-label-md text-on-surface-variant">Collection</span>
-            <select
-              value={selected?.id || ""}
-              onChange={handleSelect}
-              className="min-w-[260px] max-w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm font-semibold text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {collections.map((c) => {
-                const cat = CATEGORY_UI[c.category] || CATEGORY_UI.other;
-                return (
-                  <option key={c.id} value={c.id}>
-                    {`${c.title} · ${cat.label} · ${formatAmount(c.amount)} · due ${formatDate(c.dueDate)} · ${c.status}`}
+          <div className="flex flex-wrap items-center gap-2 text-label-sm text-outline">
+            <span className="text-body-md font-semibold text-on-surface">{selected.title}</span>
+            <span className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${(CATEGORY_UI[selected.category] || CATEGORY_UI.other).pill}`}>
+              {(CATEGORY_UI[selected.category] || CATEGORY_UI.other).label}
+            </span>
+            <span>{formatAmount(selected.amount)} per house</span>
+            <span>· Due {formatDate(selected.dueDate)}</span>
+            {selected.isOverdue && <span className="text-error font-semibold">· Overdue</span>}
+            <span>· {selected.status}</span>
+            <span className="text-outline">· {units.filter((u) => u.isOccupied).length} occupied · {counts.paid + counts.late_paid} paid</span>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="hidden sm:flex flex-wrap gap-2">
+                {filterOptions.map((opt) => {
+                  const isActive = filter === opt.key;
+                  const activeClass = opt.key === "all" ? "border-primary bg-primary text-on-primary" : STATUS_UI[opt.key]?.pill || "bg-zinc-100";
+                  const inactiveClass = "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setFilter(opt.key)}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${isActive ? activeClass : inactiveClass}`}
+                    >
+                      {opt.key !== "all" && STATUS_UI[opt.key] && <span className="material-symbols-outlined text-[15px]">{STATUS_UI[opt.key].icon}</span>}
+                      {opt.label}
+                      <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm sm:hidden min-w-[110px]"
+              >
+                {filterOptions.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
+                    {opt.label} ({opt.count})
                   </option>
-                );
-              })}
-            </select>
-            {selected && (
-              <span className="text-label-sm text-outline">
-                {units.filter((u) => u.isOccupied).length} occupied · {counts.paid + counts.late_paid} paid
-              </span>
-            )}
-          </section>
-
-          {selected && (
-            <>
-              <div className="flex flex-wrap items-center gap-2 text-label-sm text-outline">
-                <span className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${(CATEGORY_UI[selected.category] || CATEGORY_UI.other).pill}`}>
-                  {(CATEGORY_UI[selected.category] || CATEGORY_UI.other).label}
-                </span>
-                <span>{formatAmount(selected.amount)} per house</span>
-                <span>· Due {formatDate(selected.dueDate)}</span>
-                {selected.isOverdue && <span className="text-error font-semibold">· Overdue</span>}
-                <span>· {selected.status}</span>
-              </div>
-
-              <div className="space-y-3 w-full max-w-md">
-                <section className="hidden flex-wrap gap-2 sm:flex">
-                  {filterOptions.map((opt) => {
-                    const isActive = filter === opt.key;
-                    const activeClass = opt.key === "all" ? "border-primary bg-primary text-on-primary" : STATUS_UI[opt.key]?.pill || "bg-zinc-100";
-                    const inactiveClass = "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
-                    return (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setFilter(opt.key)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${isActive ? activeClass : inactiveClass}`}
-                      >
-                        {opt.key !== "all" && STATUS_UI[opt.key] && <span className="material-symbols-outlined text-[15px]">{STATUS_UI[opt.key].icon}</span>}
-                        {opt.label}
-                        <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
-                      </button>
-                    );
-                  })}
-                </section>
-                <div className="flex items-center gap-2 w-full">
-                  <div className="relative flex-1">
-                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">search</span>
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search house no. or owner..."
-                      className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm sm:hidden min-w-[110px]"
-                  >
-                    {filterOptions.map((opt) => (
-                      <option key={opt.key} value={opt.key}>
-                        {opt.label} ({opt.count})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                ))}
+              </select>
+            </div>
+            <div className="relative w-full sm:w-72 sm:shrink-0">
+              <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">search</span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search house no. or owner..."
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
 
               <section>
                 {unitsQuery.isLoading ? (
@@ -261,8 +238,6 @@ export default function ManageCollectionsPage() {
               </section>
             </>
           )}
-        </>
-      )}
     </div>
   );
 }

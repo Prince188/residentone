@@ -11,6 +11,8 @@ export const getCycleUnits = (cycleId) =>
   api.get(`/maintenance/cycles/${cycleId}/units`);
 export const getCycleUnitDetail = (cycleId, unitId) =>
   api.get(`/maintenance/cycles/${cycleId}/units/${unitId}`);
+export const exportMaintenanceExcel = (cycleId) =>
+  api.get(`/maintenance/cycles/${cycleId}/export`, { responseType: "blob" });
 export const getUnitHistory = (unitId) =>
   api.get(`/maintenance/units/${unitId}/history`);
 export const createCycle = (payload) => api.post("/maintenance/cycles", payload);
