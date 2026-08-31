@@ -47,4 +47,24 @@ function hasPermission(role, permission, customPermissions) {
   return perms.includes(permission);
 }
 
-module.exports = { PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, getPermissionsForRole, hasPermission };
+function getMembershipRoles(membership) {
+  if (!membership) return [];
+  const primary = membership.role ? [membership.role] : [];
+  const additional = Array.isArray(membership.additionalRoles) ? membership.additionalRoles : [];
+  return [...primary, ...additional];
+}
+
+function hasPermissionForMembership(membership, permission, customPermissions) {
+  const roles = getMembershipRoles(membership);
+  if (roles.includes("society_admin") || roles.includes("super_admin")) return true;
+  for (const r of roles) {
+    if (hasPermission(r, permission, customPermissions)) return true;
+  }
+  return false;
+}
+
+function isWingAdmin(membership) {
+  return getMembershipRoles(membership).includes("wing_admin");
+}
+
+module.exports = { PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, getPermissionsForRole, hasPermission, getMembershipRoles, hasPermissionForMembership, isWingAdmin };

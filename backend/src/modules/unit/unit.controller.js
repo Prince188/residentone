@@ -3,10 +3,21 @@ const { config } = require("../../config");
 const { Unit } = require("./unit.model");
 const { Society } = require("../society/society.model");
 const { AppError } = require("../../shared/utils/errors");
-const { hasPermission } = require("../../shared/permissions");
+const { hasPermission, hasPermissionForMembership, getMembershipRoles, isWingAdmin } = require("../../shared/permissions");
 
 async function hasManageHousesPermission(req) {
-  const role = req.membership?.role || (Array.isArray(req.role) ? req.role[0] : req.role);
+  const membership = req.membership;
+  if (membership) {
+    const roles = getMembershipRoles(membership);
+    if (roles.includes("super_admin") || roles.includes("society_admin")) return true;
+    try {
+      const society = await Society.findById(req.societyId).select("rolePermissions").lean();
+      return hasPermissionForMembership(membership, "manage_houses", society?.rolePermissions);
+    } catch {
+      return false;
+    }
+  }
+  const role = (Array.isArray(req.role) ? req.role[0] : req.role);
   if (["super_admin", "society_admin"].includes(role)) return true;
   try {
     const society = await Society.findById(req.societyId).select("rolePermissions").lean();
@@ -17,11 +28,20 @@ async function hasManageHousesPermission(req) {
 }
 
 function canAccessWing(membership, block) {
-  if (!membership || membership.role !== "wing_admin") return true;
+  if (!membership || !isWingAdmin(membership)) return true;
+  // society_admin + wing_admin has both, still allow all wings
+  const roles = getMembershipRoles(membership);
+  if (roles.includes("society_admin") || roles.includes("super_admin")) return true;
   const wings = (membership.assignedWings || []).map((w) => String(w).trim().toUpperCase());
   if (wings.length === 0) return false;
   const b = String(block || "").trim().toUpperCase();
   return wings.includes(b);
+}
+
+function isPureWingAdmin(membership) {
+  if (!membership) return false;
+  const roles = getMembershipRoles(membership);
+  return roles.includes("wing_admin") && !roles.includes("society_admin") && !roles.includes("super_admin");
 }
 
 class UnitController {
@@ -43,7 +63,8 @@ class UnitController {
   async getById(req, res, next) {
     try {
       // Allow admin, those with manage_houses permission, or house owner/tenant to view
-      const isAdmin = ["super_admin", "society_admin"].includes(req.membership?.role || req.role?.[0]);
+      const roles = getMembershipRoles(req.membership || { role: req.role?.[0] });
+      const isAdmin = roles.includes("super_admin") || roles.includes("society_admin");
       let canManage = isAdmin;
       if (!canManage) {
         canManage = await hasManageHousesPermission(req);
@@ -99,7 +120,7 @@ class UnitController {
         if (!unit || !unit.ownerId || String(unit.ownerId) !== String(req.userId)) {
           throw new AppError("Only the house owner or Society Admin can add renter", 403);
         }
-      } else if (req.membership?.role === "wing_admin") {
+      } else if (isWingAdmin(req.membership) && isPureWingAdmin(req.membership)) {
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
         if (!unit) throw new AppError("House not found", 404);
         if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
@@ -126,7 +147,7 @@ class UnitController {
         if (!unit || !unit.ownerId || String(unit.ownerId) !== String(req.userId)) {
           throw new AppError("Only the house owner or Society Admin can remove renter", 403);
         }
-      } else if (req.membership?.role === "wing_admin") {
+      } else if (isWingAdmin(req.membership) && isPureWingAdmin(req.membership)) {
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
         if (!unit) throw new AppError("House not found", 404);
         if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
@@ -153,7 +174,7 @@ class UnitController {
         }
       } else if (!canManage) {
         throw new AppError("Only Society Admin can invite owner", 403);
-      } else if (req.membership?.role === "wing_admin") {
+      } else if (isWingAdmin(req.membership) && isPureWingAdmin(req.membership)) {
         const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
         if (!unit) throw new AppError("House not found", 404);
         if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
@@ -172,7 +193,7 @@ class UnitController {
 
   async bulkGenerate(req, res, next) {
     try {
-      if (req.membership?.role === "wing_admin") throw new AppError("Wing Admin cannot bulk generate houses", 403);
+      if (isPureWingAdmin(req.membership)) throw new AppError("Wing Admin cannot bulk generate houses", 403);
       const units = await unitService.bulkGenerateFromStructure(req.societyId, req.body);
       res.status(201).json({ success: true, data: units.map((u) => unitService.mapUnitCard(u)) });
     } catch (error) {

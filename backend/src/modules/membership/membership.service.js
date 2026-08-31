@@ -92,6 +92,8 @@ class MembershipService {
       .map((membership) => ({
         membershipId: membership._id,
         role: membership.role,
+        additionalRoles: membership.additionalRoles || [],
+        roles: [membership.role, ...(membership.additionalRoles || [])].filter(Boolean),
         assignedWings: membership.assignedWings || [],
         joinedAt: membership.joinedAt,
         society: {
@@ -142,8 +144,20 @@ class MembershipService {
   async updateRole(id, role, assignedWings) {
     const existing = await Membership.findById(id);
     if (!existing) throw new AppError("Membership not found", 404);
+    const existingRoles = [existing.role, ...(existing.additionalRoles || [])].filter(Boolean);
+    // Additive: if existing is society_admin/super_admin and we add wing_admin, keep society_admin
+    const isWingAdminAdd = role === "wing_admin" && (existingRoles.includes("society_admin") || existingRoles.includes("super_admin"));
+    if (isWingAdminAdd) {
+      const wings = Array.isArray(assignedWings) ? assignedWings.map((w) => String(w).trim().toUpperCase()).filter(Boolean) : [];
+      if (wings.length === 0) throw new AppError("Wing Admin requires at least one wing assignment", 400);
+      const invalid = wings.filter((w) => !/^[A-Z0-9]{1,10}$/.test(w));
+      if (invalid.length) throw new AppError(`Invalid wing names: ${invalid.join(", ")}`, 400);
+      const additional = new Set(existing.additionalRoles || []);
+      additional.add("wing_admin");
+      return Membership.findByIdAndUpdate(id, { additionalRoles: Array.from(additional), assignedWings: wings }, { new: true, runValidators: true });
+    }
     // Enforce max 2 society_admin per society
-    if (role === "society_admin" && existing.role !== "society_admin") {
+    if (role === "society_admin" && !existingRoles.includes("society_admin")) {
       const count = await Membership.countDocuments({ societyId: existing.societyId, role: "society_admin", isActive: true });
       if (count >= 2) {
         throw new AppError("Maximum 2 Society Admins allowed per society", 400);
@@ -156,11 +170,31 @@ class MembershipService {
       const invalid = wings.filter((w) => !/^[A-Z0-9]{1,10}$/.test(w));
       if (invalid.length) throw new AppError(`Invalid wing names: ${invalid.join(", ")}`, 400);
       update.assignedWings = wings;
+      update.additionalRoles = [];
     } else {
-      // clear wings when not wing_admin
+      // clear wings and additional roles when switching away from wing_admin (unless we keep additionalRoles that still includes wing_admin via other path)
       update.assignedWings = [];
+      update.additionalRoles = [];
     }
     return Membership.findByIdAndUpdate(id, update, { new: true, runValidators: true });
+  }
+
+  async removeWingAdminRole(id, wing) {
+    const existing = await Membership.findById(id);
+    if (!existing) throw new AppError("Membership not found", 404);
+    const targetWing = String(wing || "").trim().toUpperCase();
+    const remaining = (existing.assignedWings || []).filter((w) => String(w).toUpperCase() !== targetWing);
+    if (remaining.length > 0) {
+      return Membership.findByIdAndUpdate(id, { assignedWings: remaining }, { new: true, runValidators: true });
+    }
+    // No wings left: if additionalRoles contains wing_admin, remove it but keep primary role
+    const isAdditionalWingAdmin = (existing.additionalRoles || []).includes("wing_admin");
+    if (isAdditionalWingAdmin) {
+      const additional = (existing.additionalRoles || []).filter((r) => r !== "wing_admin");
+      return Membership.findByIdAndUpdate(id, { additionalRoles: additional, assignedWings: [] }, { new: true, runValidators: true });
+    }
+    // primary wing_admin -> demote to owner
+    return Membership.findByIdAndUpdate(id, { role: "owner", assignedWings: [], additionalRoles: [] }, { new: true, runValidators: true });
   }
 
   async deactivate(id) {

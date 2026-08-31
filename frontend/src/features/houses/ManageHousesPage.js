@@ -10,7 +10,7 @@ import { getHouseCards, extractApiError } from "../../lib/houses";
 import { getFamilyMembers } from "../../lib/familyMembers";
 import AssignHouseModal from "./AssignHouseModal";
 import api from "../../lib/api";
-import { hasPermission } from "../../lib/permissions";
+import { hasPermissionForMembership, getMembershipRoles, isPureWingAdmin } from "../../lib/permissions";
 
 const STATUS_FILTERS = [
   { id: "all", label: "All" },
@@ -106,7 +106,7 @@ export default function ManageHousesPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canManageHouses = hasPermission(activeMembership?.role, "manage_houses", permissionsQuery.data);
+  const canManageHouses = hasPermissionForMembership(activeMembership, "manage_houses", permissionsQuery.data);
 
   const housesQuery = useQuery({
     queryKey: ["house-cards", activeSociety?.id],
@@ -141,10 +141,10 @@ export default function ManageHousesPage() {
 
   const filtered = useMemo(() => {
     let result = houses;
-    // Wing admin sees only assigned wings
-    if (activeMembership?.role === "wing_admin" && Array.isArray(activeMembership.assignedWings) && activeMembership.assignedWings.length > 0) {
-      const allowed = new Set(activeMembership.assignedWings.map((w) => String(w).toUpperCase()));
-      result = result.filter((h) => allowed.has(String(h.block || "").toUpperCase()));
+    // Pure wing admin sees only assigned wings; dual society_admin+wing_admin sees all
+    if (isPureWingAdmin(activeMembership)) {
+      const allowed = new Set((activeMembership.assignedWings || []).map((w) => String(w).toUpperCase()));
+      if (allowed.size > 0) result = result.filter((h) => allowed.has(String(h.block || "").toUpperCase()));
     }
     if (statusFilter === "owner") result = result.filter((h) => h.isAssigned && !h.isRented);
     else if (statusFilter === "renter") result = result.filter((h) => h.isRented);
@@ -174,7 +174,7 @@ export default function ManageHousesPage() {
 
   const displayedCount = filtered.length;
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
-  const isWingAdmin = activeMembership?.role === "wing_admin";
+  const isWingAdmin = isPureWingAdmin(activeMembership);
 
   // Apartment detection: wings exist via block field
   const isApartmentStructure = useMemo(() => {

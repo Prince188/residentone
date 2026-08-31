@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import api from "../../lib/api";
 import { getHouseCards } from "../../lib/houses";
-import { hasPermission } from "../../lib/permissions";
+import { getMembershipRoles, isWingAdmin } from "../../lib/permissions";
 
 function extractError(e, fallback) {
   return e?.response?.data?.error?.message || fallback;
@@ -14,7 +14,7 @@ export default function ManageSocietyPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const queryClient = useQueryClient();
-  const isSocietyAdmin = activeMembership?.role === "society_admin" || activeMembership?.role === "super_admin";
+  const isSocietyAdmin = getMembershipRoles(activeMembership).includes("society_admin") || getMembershipRoles(activeMembership).includes("super_admin");
   const canEdit = isSocietyAdmin;
 
   const societyQuery = useQuery({
@@ -88,7 +88,7 @@ export default function ManageSocietyPage() {
   }, [housesQuery.data]);
 
   const allMemberships = membersQuery.data || [];
-  const wingAdmins = useMemo(() => allMemberships.filter((m) => m.role === "wing_admin"), [allMemberships]);
+  const wingAdmins = useMemo(() => allMemberships.filter((m) => isWingAdmin(m)), [allMemberships]);
 
   const wingAdminByWing = useMemo(() => {
     const map = {};
@@ -116,14 +116,15 @@ export default function ManageSocietyPage() {
 
   const assignWingAdmin = useMutation({
     mutationFn: async ({ memberId, wing }) => {
-      // find membership, merge wings
       const m = allMemberships.find((x) => String(x._id) === String(memberId));
       if (!m) throw new Error("Member not found");
       const existing = (m.assignedWings || []).map((w) => String(w).toUpperCase());
       let newWings;
       let newRole = m.role;
-      if (m.role === "wing_admin") {
+      const roles = getMembershipRoles(m);
+      if (roles.includes("wing_admin")) {
         newWings = existing.includes(wing) ? existing : [...existing, wing];
+        newRole = m.role; // keep primary, backend will handle additive
       } else {
         newRole = "wing_admin";
         newWings = [wing];
@@ -142,15 +143,7 @@ export default function ManageSocietyPage() {
 
   const unassignWing = useMutation({
     mutationFn: async ({ memberId, wing }) => {
-      const m = allMemberships.find((x) => String(x._id) === String(memberId));
-      if (!m) throw new Error("Member not found");
-      const remaining = (m.assignedWings || []).map((w) => String(w).toUpperCase()).filter((w) => w !== wing);
-      if (remaining.length === 0) {
-        // demote to owner
-        const res = await api.patch(`/memberships/${memberId}`, { role: "owner", assignedWings: [] });
-        return res.data.data;
-      }
-      const res = await api.patch(`/memberships/${memberId}`, { role: "wing_admin", assignedWings: remaining });
+      const res = await api.patch(`/memberships/${memberId}`, { action: "removeWing", wing });
       return res.data.data;
     },
     onSuccess: () => {

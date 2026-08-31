@@ -68,6 +68,7 @@ function getGreeting() {
 const ROLE_TITLES = {
   super_admin: "Super Admin",
   society_admin: "Society Admin",
+  wing_admin: "Wing Admin",
   manager: "Manager",
   treasurer: "Treasurer",
   accountant: "Accountant",
@@ -82,7 +83,7 @@ const ROLE_TITLES = {
 
 function RolePill({ role, isSuper }) {
   const label = isSuper ? "Super Admin" : ROLE_TITLES[role] || "Resident";
-  const isPrivileged = isSuper || ["society_admin", "super_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member"].includes(role);
+  const isPrivileged = isSuper || ["society_admin", "super_admin", "wing_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member"].includes(role);
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-label-sm font-semibold shadow-sm ${

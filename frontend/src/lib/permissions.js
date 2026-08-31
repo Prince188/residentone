@@ -44,8 +44,32 @@ export function hasPermission(role, permission, customPermissions) {
   return perms.includes(permission);
 }
 
+export function getMembershipRoles(membership) {
+  if (!membership) return [];
+  const primary = membership.role ? [membership.role] : [];
+  const additional = Array.isArray(membership.additionalRoles) ? membership.additionalRoles : [];
+  // legacy support: roles array
+  const rolesArr = Array.isArray(membership.roles) ? membership.roles : [];
+  return [...new Set([...primary, ...additional, ...rolesArr])];
+}
+
+export function hasPermissionForMembership(membership, permission, customPermissions) {
+  const roles = getMembershipRoles(membership);
+  if (roles.includes("society_admin") || roles.includes("super_admin")) return true;
+  for (const r of roles) if (hasPermission(r, permission, customPermissions)) return true;
+  return false;
+}
+
+export function isWingAdmin(membership) {
+  return getMembershipRoles(membership).includes("wing_admin");
+}
+
+export function isPureWingAdmin(membership) {
+  const roles = getMembershipRoles(membership);
+  return roles.includes("wing_admin") && !roles.includes("society_admin") && !roles.includes("super_admin");
+}
+
 // Hook helper for React
 export function useHasPermission(activeMembership, permission, customPermissions) {
-  const role = activeMembership?.role;
-  return hasPermission(role, permission, customPermissions);
+  return hasPermissionForMembership(activeMembership, permission, customPermissions);
 }

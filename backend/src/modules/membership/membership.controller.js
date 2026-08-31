@@ -49,13 +49,19 @@ class MembershipController {
 
   async updateRole(req, res, next) {
     try {
-      const { role, assignedWings } = req.body;
+      const { role, assignedWings, action, wing } = req.body;
       const membership = await membershipService.findById(req.params.memberId);
       if (!membership) {
         return res.status(404).json({
           success: false,
           error: { code: "NOT_FOUND", message: "Membership not found" },
         });
+      }
+
+      // Support wing unassign via action
+      if (action === "removeWing" && wing) {
+        const updated = await membershipService.removeWingAdminRole(req.params.memberId, wing);
+        return res.json({ success: true, data: updated });
       }
 
       const myLevel = ROLE_HIERARCHY[req.role] || 0;

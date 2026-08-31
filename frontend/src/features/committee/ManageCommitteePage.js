@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getSocietyDirectory } from "../../lib/directory";
 import api from "../../lib/api";
-import { hasPermission, PERMISSIONS as SHARED_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS as SHARED_DEFAULTS } from "../../lib/permissions";
+import { hasPermission, hasPermissionForMembership, getMembershipRoles, PERMISSIONS as SHARED_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS as SHARED_DEFAULTS } from "../../lib/permissions";
 import { getHouseCards } from "../../lib/houses";
 
 const COMMITTEE_ROLES = [
@@ -30,8 +30,8 @@ export default function ManageCommitteePage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canManageCommittee = hasPermission(activeMembership?.role, "manage_committee", permissionsQuery.data);
-  const canManagePermissions = ["society_admin", "super_admin"].includes(activeMembership?.role);
+  const canManageCommittee = hasPermissionForMembership(activeMembership, "manage_committee", permissionsQuery.data);
+  const canManagePermissions = getMembershipRoles(activeMembership).includes("society_admin") || getMembershipRoles(activeMembership).includes("super_admin");
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
@@ -90,14 +90,19 @@ export default function ManageCommitteePage() {
     () => new Set(COMMITTEE_ROLES.map((r) => r.value).concat(["society_admin", "super_admin", "wing_admin"])),
     []
   );
-  // One card per user per role only - Prince Patel with 3 houses = 1 card, but if 2 different roles = 2 cards
+  // One card per user per role only - supports dual roles (society_admin + wing_admin = separate cards)
   const committeeMembers = useMemo(() => {
-    const filtered = allMemberships.filter((m) => committeeRolesSet.has(m.role));
+    const expanded = [];
+    allMemberships.forEach((m) => {
+      const roles = getMembershipRoles(m).filter((r) => committeeRolesSet.has(r));
+      if (roles.length === 0 && committeeRolesSet.has(m.role)) roles.push(m.role);
+      roles.forEach((r) => {
+        expanded.push({ ...m, role: r, _virtualKey: `${String(m._id)}-${r}`, originalRole: m.role, _isAdditional: (m.additionalRoles || []).includes(r) && m.role !== r });
+      });
+    });
     const map = new Map();
-    filtered.forEach((m) => {
-      const uid = String(m.userId?._id || m.userId || m._id);
-      const key = `${uid}-${m.role}`;
-      if (!map.has(key)) map.set(key, m);
+    expanded.forEach((m) => {
+      if (!map.has(m._virtualKey)) map.set(m._virtualKey, m);
     });
     return Array.from(map.values());
   }, [allMemberships, committeeRolesSet]);
@@ -165,12 +170,19 @@ export default function ManageCommitteePage() {
   });
 
   const removeMut = useMutation({
-    mutationFn: async (id) => {
+    mutationFn: async ({ id, virtualRole, isAdditional, originalRole }) => {
+      // For additional wing_admin virtual card, remove only wing_admin additional, keep primary
+      if (isAdditional && virtualRole === "wing_admin") {
+        const res = await api.patch(`/memberships/${id}`, { role: originalRole || "society_admin" }, { headers: { "x-society-id": activeSociety.id } });
+        // The backend clears wing_admin when role !== wing_admin, so this removes wing_admin additional
+        return res.data.data;
+      }
       const res = await api.patch(`/memberships/${id}`, { role: "owner" }, { headers: { "x-society-id": activeSociety.id } });
       return res.data.data;
     },
-    onSuccess: () => {
-      setMsg("Removed from committee — now Owner");
+    onSuccess: (_data, vars) => {
+      if (vars?.isAdditional) setMsg("Wing Admin role removed — society admin retained");
+      else setMsg("Removed from committee — now Owner");
       queryClient.invalidateQueries({ queryKey: ["committee-full"] });
       queryClient.invalidateQueries({ queryKey: ["directory"] });
       setTimeout(() => setMsg(""), 3000);
@@ -321,15 +333,21 @@ export default function ManageCommitteePage() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
                 {members.map((m) => {
                   const name = m.userId?.name || "Unknown";
-                  const isEditing = editingId === String(m._id);
+                  const isEditing = editingId === String(m._virtualKey || m._id);
                   return (
-                    <div key={m._id} className="flex flex-col items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-md">
+                    <div key={m._virtualKey || m._id} className="flex flex-col items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-md">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-on-primary font-bold text-body-md">{name.charAt(0).toUpperCase()}</span>
                       <p className="w-full truncate text-body-sm font-semibold text-on-surface sm:text-body-md">{name}</p>
                       {!isEditing ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold capitalize text-primary sm:text-label-sm">{m.role.replace("_", " ")}</span>
+                        <>
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold capitalize text-primary sm:text-label-sm">{m.role.replace("_", " ")}</span>
+                          {m._isAdditional && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">+ Wing Admin (additional)</span>}
+                          {!m._isAdditional && m.additionalRoles && m.additionalRoles.includes("wing_admin") && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Also Wing Admin • { (m.assignedWings||[]).join(", ")}</span>
+                          )}
+                        </>
                       ) : (
-                        <select value={editRole} onChange={(e) => { setEditRole(e.target.value); if (e.target.value !== "wing_admin") setEditWings([]); }} className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm">
+                        <select value={editRole} onChange={(e) => { setEditRole(e.target.value); if (e.target.value !== "wing_admin") setEditWings([]); }} disabled={m._isAdditional} className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm disabled:opacity-60 disabled:cursor-not-allowed">
                           {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
@@ -340,6 +358,7 @@ export default function ManageCommitteePage() {
                           {m.assignedWings.map((w) => <span key={w} className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">Wing {w}</span>)}
                         </span>
                       )}
+                      {m._isAdditional && !isEditing && <span className="text-[10px] text-amber-700 font-semibold">Additional • Society Admin retained</span>}
                       {isEditing && editRole === "wing_admin" && (
                         <div className="w-full mt-1">
                           <p className="text-[11px] font-semibold mb-1">Wings</p>
@@ -361,8 +380,8 @@ export default function ManageCommitteePage() {
                       {!isEditing ? (
                         canManageCommittee ? (
                           <div className="mt-1 flex gap-1">
-                            <button type="button" onClick={() => { setEditingId(String(m._id)); setEditRole(m.role); setEditWings(m.assignedWings || []); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
-                            <button type="button" onClick={() => { if (window.confirm(`Remove ${name} from committee? Will become Owner.`)) removeMut.mutate(m._id); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
+                            <button type="button" onClick={() => { setEditingId(String(m._virtualKey || m._id)); setEditRole(m.role); setEditWings(m.assignedWings || []); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
+                            <button type="button" onClick={() => { const confirmMsg = m._isAdditional ? `Remove Wing Admin from ${name}? Society Admin will be retained.` : `Remove ${name} from committee? Will become Owner.`; if (window.confirm(confirmMsg)) removeMut.mutate({ id: m._id, virtualRole: m.role, isAdditional: !!m._isAdditional, originalRole: m.originalRole }); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
                           </div>
                         ) : (
                           <span className="text-[10px] text-outline">View only</span>
@@ -372,6 +391,7 @@ export default function ManageCommitteePage() {
                           <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole, wings: editWings })} disabled={updateMut.isPending || !canManageCommittee} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
                           <button type="button" onClick={() => setEditingId(null)} className="rounded-full border border-outline-variant px-2 py-1 text-[11px]">Cancel</button>
                         </div>
+                      )}
                       )}
                     </div>
                   );
