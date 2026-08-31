@@ -5,8 +5,10 @@ import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "..
 import { getSocietyDirectory } from "../../lib/directory";
 import api from "../../lib/api";
 import { hasPermission, PERMISSIONS as SHARED_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS as SHARED_DEFAULTS } from "../../lib/permissions";
+import { getHouseCards } from "../../lib/houses";
 
 const COMMITTEE_ROLES = [
+  { value: "wing_admin", label: "Wing Admin" },
   { value: "committee_member", label: "Committee Member" },
   { value: "manager", label: "Manager" },
   { value: "treasurer", label: "Treasurer" },
@@ -34,8 +36,10 @@ export default function ManageCommitteePage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [role, setRole] = useState("committee_member");
+  const [selectedWings, setSelectedWings] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editRole, setEditRole] = useState("committee_member");
+  const [editWings, setEditWings] = useState([]);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [showPermissions, setShowPermissions] = useState(false);
@@ -67,10 +71,23 @@ export default function ManageCommitteePage() {
     enabled: Boolean(activeSociety),
   });
 
+  // Available wings for Wing Admin (derived from houses block)
+  const wingsQuery = useQuery({
+    queryKey: ["house-cards", activeSociety?.id],
+    queryFn: async () => (await getHouseCards()).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const availableWings = useMemo(() => {
+    const houses = wingsQuery.data || [];
+    const set = new Set();
+    houses.forEach((h) => { if (h.block) set.add(String(h.block).toUpperCase()); });
+    return Array.from(set).sort();
+  }, [wingsQuery.data]);
+
   // Strictly scoped to selected society: memoize to prevent mixing when switching societies
   const allMemberships = useMemo(() => membersQuery.data || [], [membersQuery.data]);
   const committeeRolesSet = useMemo(
-    () => new Set(COMMITTEE_ROLES.map((r) => r.value).concat(["society_admin", "super_admin"])),
+    () => new Set(COMMITTEE_ROLES.map((r) => r.value).concat(["society_admin", "super_admin", "wing_admin"])),
     []
   );
   // One card per user per role only - Prince Patel with 3 houses = 1 card, but if 2 different roles = 2 cards
@@ -86,8 +103,8 @@ export default function ManageCommitteePage() {
   }, [allMemberships, committeeRolesSet]);
 
   // Group by role for headings: Society Admin, Manager, etc. One person with 2 roles appears in 2 groups
-  const ROLE_ORDER = ["super_admin", "society_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member"];
-  const ROLE_LABELS = { super_admin: "Super Admin", society_admin: "Society Admin", manager: "Manager", treasurer: "Treasurer", accountant: "Accountant", helpdesk_manager: "Helpdesk Manager", auditor: "Auditor", committee_member: "Committee Member" };
+  const ROLE_ORDER = ["super_admin", "society_admin", "wing_admin", "manager", "treasurer", "accountant", "helpdesk_manager", "auditor", "committee_member"];
+  const ROLE_LABELS = { super_admin: "Super Admin", society_admin: "Society Admin", wing_admin: "Wing Admin", manager: "Manager", treasurer: "Treasurer", accountant: "Accountant", helpdesk_manager: "Helpdesk Manager", auditor: "Auditor", committee_member: "Committee Member" };
   const groupedByRole = useMemo(() => {
     const groups = {};
     committeeMembers.forEach((m) => {
@@ -113,7 +130,9 @@ export default function ManageCommitteePage() {
       if (!selected) throw new Error("Select a person");
       const membershipId = selected._id || selected.id;
       if (!membershipId) throw new Error("Membership not found");
-      const update = await api.patch(`/memberships/${membershipId}`, { role }, { headers: { "x-society-id": activeSociety.id } });
+      if (role === "wing_admin" && selectedWings.length === 0) throw new Error("Select at least one wing for Wing Admin");
+      const payload = role === "wing_admin" ? { role, assignedWings: selectedWings } : { role };
+      const update = await api.patch(`/memberships/${membershipId}`, payload, { headers: { "x-society-id": activeSociety.id } });
       return update.data.data;
     },
     onSuccess: () => {
@@ -129,8 +148,10 @@ export default function ManageCommitteePage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: async ({ id, newRole }) => {
-      const res = await api.patch(`/memberships/${id}`, { role: newRole }, { headers: { "x-society-id": activeSociety.id } });
+    mutationFn: async ({ id, newRole, wings }) => {
+      const payload = newRole === "wing_admin" ? { role: newRole, assignedWings: wings || editWings } : { role: newRole };
+      if (newRole === "wing_admin" && (!payload.assignedWings || payload.assignedWings.length === 0)) throw new Error("Wing Admin requires at least one wing");
+      const res = await api.patch(`/memberships/${id}`, payload, { headers: { "x-society-id": activeSociety.id } });
       return res.data.data;
     },
     onSuccess: (data, vars) => {
@@ -239,13 +260,34 @@ export default function ManageCommitteePage() {
 
               <div>
                 <label className="mb-1 block text-label-md font-medium">Select Role *</label>
-                <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
+                <select value={role} onChange={(e) => { setRole(e.target.value); if (e.target.value !== "wing_admin") setSelectedWings([]); }} className="w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm">
                   {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
-                <p className="mt-1 text-label-sm text-outline">Manager, Treasurer, Accountant or Society Admin (max 2).</p>
+                <p className="mt-1 text-label-sm text-outline">Wing Admin manages selected wings only.</p>
               </div>
+              {role === "wing_admin" && (
+                <div>
+                  <label className="mb-1 block text-label-md font-medium">Assign Wings *</label>
+                  {availableWings.length === 0 ? (
+                    <p className="text-body-sm text-outline border rounded-lg p-3 bg-surface-container-low">No wings found — create apartment structure first (Wings A/B). This society appears to be row-house or has no block data.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {availableWings.map((w) => (
+                        <label key={w} className={`flex items-center gap-2 border rounded-xl px-3 py-2 cursor-pointer ${selectedWings.includes(w) ? "bg-primary/10 border-primary" : "bg-white border-outline-variant"}`}>
+                          <input type="checkbox" checked={selectedWings.includes(w)} onChange={(e) => {
+                            if (e.target.checked) setSelectedWings((p) => [...p, w]);
+                            else setSelectedWings((p) => p.filter((x) => x !== w));
+                          }} />
+                          <span className="text-body-sm font-semibold">Wing {w}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {selectedWings.length > 0 && <p className="mt-1 text-label-sm text-primary">Selected: {selectedWings.join(", ")}</p>}
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:border-primary">Cancel</button>
@@ -287,16 +329,39 @@ export default function ManageCommitteePage() {
                       {!isEditing ? (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold capitalize text-primary sm:text-label-sm">{m.role.replace("_", " ")}</span>
                       ) : (
-                        <select value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm">
+                        <select value={editRole} onChange={(e) => { setEditRole(e.target.value); if (e.target.value !== "wing_admin") setEditWings([]); }} className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm">
                           {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
                         </select>
                       )}
+                      {m.role === "wing_admin" && !isEditing && m.assignedWings && m.assignedWings.length > 0 && (
+                        <span className="mt-1 inline-flex flex-wrap gap-1 justify-center">
+                          {m.assignedWings.map((w) => <span key={w} className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">Wing {w}</span>)}
+                        </span>
+                      )}
+                      {isEditing && editRole === "wing_admin" && (
+                        <div className="w-full mt-1">
+                          <p className="text-[11px] font-semibold mb-1">Wings</p>
+                          {availableWings.length === 0 ? <p className="text-[11px] text-outline">No wings</p> : (
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              {availableWings.map((w) => (
+                                <label key={w} className={`flex items-center gap-1 border rounded-full px-2 py-0.5 text-[11px] cursor-pointer ${editWings.includes(w) ? "bg-primary text-on-primary border-primary" : "bg-white border-outline-variant"}`}>
+                                  <input type="checkbox" className="sr-only" checked={editWings.includes(w)} onChange={(e) => {
+                                    if (e.target.checked) setEditWings((p) => [...p, w]);
+                                    else setEditWings((p) => p.filter((x) => x !== w));
+                                  }} />
+                                  {w}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {!isEditing ? (
                         canManageCommittee ? (
                           <div className="mt-1 flex gap-1">
-                            <button type="button" onClick={() => { setEditingId(String(m._id)); setEditRole(m.role); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
+                            <button type="button" onClick={() => { setEditingId(String(m._id)); setEditRole(m.role); setEditWings(m.assignedWings || []); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
                             <button type="button" onClick={() => { if (window.confirm(`Remove ${name} from committee? Will become Owner.`)) removeMut.mutate(m._id); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
                           </div>
                         ) : (
@@ -304,7 +369,7 @@ export default function ManageCommitteePage() {
                         )
                       ) : (
                         <div className="mt-1 flex gap-1">
-                          <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole })} disabled={updateMut.isPending || !canManageCommittee} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
+                          <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole, wings: editWings })} disabled={updateMut.isPending || !canManageCommittee} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
                           <button type="button" onClick={() => setEditingId(null)} className="rounded-full border border-outline-variant px-2 py-1 text-[11px]">Cancel</button>
                         </div>
                       )}

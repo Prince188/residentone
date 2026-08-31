@@ -23,6 +23,7 @@ export default function PayMaintenancePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [feeInfo, setFeeInfo] = useState(null);
+  const [selectedMonths, setSelectedMonths] = useState(1);
 
   const detailQuery = useQuery({
     queryKey: ["maintenance", "unit-detail", cycleId, unitId],
@@ -32,7 +33,7 @@ export default function PayMaintenancePage() {
 
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      const res = await createRazorpayOrder(cycleId, unitId);
+      const res = await createRazorpayOrder(cycleId, unitId, selectedMonths);
       return res.data.data;
     },
     onSuccess: async (order) => {
@@ -48,8 +49,9 @@ export default function PayMaintenancePage() {
             razorpayOrderId: order.id,
             razorpayPaymentId: fakePaymentId,
             razorpaySignature: fakeSignature,
+            months: selectedMonths,
           });
-          setSuccess(`Payment successful (mock) — ₹${order.total} paid (₹${order.baseAmount} + ₹${order.fee} fee). Receipt generated.`);
+          setSuccess(`Payment successful (mock) — ₹${order.total} for ${selectedMonths} month${selectedMonths>1?"s":""} (₹${order.baseAmount} + ₹${order.fee} fee). Receipt generated.`);
           queryClient.invalidateQueries({ queryKey: ["maintenance"] });
           setTimeout(() => navigate(`/maintenance/${unitId}?cycle=${cycleId}`), 1500);
         } catch (e) {
@@ -84,8 +86,9 @@ export default function PayMaintenancePage() {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
+              months: selectedMonths,
             });
-            setSuccess(`Payment successful — ₹${order.total} paid. Receipt generated.`);
+            setSuccess(`Payment successful — ₹${order.total} for ${selectedMonths} month${selectedMonths>1?"s":""} paid. Receipt generated.`);
             queryClient.invalidateQueries({ queryKey: ["maintenance"] });
             setTimeout(() => navigate(`/maintenance/${unitId}?cycle=${cycleId}`), 1500);
           } catch (e) {
@@ -108,10 +111,12 @@ export default function PayMaintenancePage() {
 
   const r = detailQuery.data;
   const isPaid = ["paid", "late_paid"].includes(r.status);
-  const base = r.amount || r.dueAmount || r.cycle.amount;
+  const basePerMonth = r.amount || r.dueAmount || r.cycle.amount;
   const roleLabel = r.isOwner ? "Owner" : r.isTenant ? "Renter" : r.houseRole === "owner" ? "Owner" : "Renter";
-  const mockFee = Math.ceil(base * 0.02 * 1.18);
-  const total = base + mockFee;
+  const totalBase = basePerMonth * selectedMonths;
+  const mockFee = Math.ceil(totalBase * 0.02 * 1.18);
+  const total = totalBase + mockFee;
+  const base = basePerMonth;
 
   return (
     <div className="mx-auto max-w-xl space-y-5 sm:space-y-6">
@@ -142,6 +147,29 @@ export default function PayMaintenancePage() {
       ) : (
         <>
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5">
+            <h3 className="text-body-md font-semibold text-on-surface">Pay for how many months?</h3>
+            <p className="mt-1 text-label-sm text-on-surface-variant">Pay 4 or 6 months at once as advance — future months auto-marked paid</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[1,4,6,12].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setSelectedMonths(m)}
+                  className={`rounded-full border px-4 py-2 text-label-md font-medium transition-colors ${selectedMonths===m ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface border-outline-variant hover:border-primary"}`}
+                >
+                  {m === 1 ? "1 Month" : `${m} Months`}
+                  {m>1 && <span className="ml-1 text-label-sm opacity-80">· {formatAmount(basePerMonth * m)}</span>}
+                </button>
+              ))}
+            </div>
+            {selectedMonths > 1 && (
+              <div className="mt-3 rounded-lg bg-primary/10 px-3 py-2 text-label-sm text-primary">
+                Advance: {formatAmount(totalBase)} for {selectedMonths} months ({periodLabel(r.cycle.month, r.cycle.year, selectedMonths)}) — next {selectedMonths-1} cycles auto-marked paid after this payment
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5">
             <h3 className="text-body-md font-semibold text-on-surface">Choose how to pay</h3>
 
             <div className="mt-4 space-y-3">
@@ -152,11 +180,11 @@ export default function PayMaintenancePage() {
                   <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-label-sm text-on-primary">Recommended</span>
                 </div>
                 <div className="mt-3 space-y-1 rounded-lg bg-white p-3 text-body-sm">
-                  <div className="flex justify-between"><span className="text-on-surface-variant">Maintenance ({roleLabel})</span><span className="font-semibold text-on-surface">{formatAmount(base)}</span></div>
+                  <div className="flex justify-between"><span className="text-on-surface-variant">Maintenance ({roleLabel} × {selectedMonths} month{selectedMonths>1?"s":""})</span><span className="font-semibold text-on-surface">{formatAmount(totalBase)}</span></div>
                   <div className="flex justify-between"><span className="text-on-surface-variant">Gateway fee (2% + GST)</span><span className="font-semibold text-on-surface">+{formatAmount(feeInfo ? feeInfo.fee : mockFee)}</span></div>
                   <div className="flex justify-between border-t border-outline-variant pt-2 font-bold"><span>Total you pay</span><span className="text-primary">{formatAmount(feeInfo ? feeInfo.total : total)}</span></div>
                 </div>
-                <p className="mt-2 text-label-sm text-on-surface-variant">Society gets full {formatAmount(base)} ({roleLabel} rate) — Razorpay keeps fee. Instant receipt.</p>
+                <p className="mt-2 text-label-sm text-on-surface-variant">Society gets full {formatAmount(totalBase)} ({roleLabel} rate{selectedMonths>1 ? ` × ${selectedMonths}` : ""}) — Razorpay keeps fee. Instant receipt.</p>
                 <button
                   type="button"
                   onClick={() => createOrderMutation.mutate()}
@@ -175,7 +203,7 @@ export default function PayMaintenancePage() {
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-label-sm text-emerald-800">No fee</span>
                 </div>
                 <p className="mt-2 text-body-sm text-on-surface-variant">
-                  Pay <span className="font-semibold text-on-surface">{formatAmount(base)} only</span> cash at society office. No extra fee. Admin will mark as <span className="font-semibold">Cash</span> and give receipt. Takes 1-2 hours.
+                  Pay <span className="font-semibold text-on-surface">{formatAmount(totalBase)} only</span> cash at society office for {selectedMonths} month{selectedMonths>1?"s":""}. No extra fee. Admin will mark as <span className="font-semibold">Cash</span> and give receipt. Takes 1-2 hours.
                 </p>
                 <div className="mt-3 rounded-lg bg-amber-50 p-3 text-label-sm text-amber-800">
                   <span className="font-semibold">Save {formatAmount(mockFee)}</span> by paying cash — but need to visit office.

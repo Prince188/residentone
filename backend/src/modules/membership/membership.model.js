@@ -19,6 +19,16 @@ const membershipSchema = new mongoose.Schema(
       enum: SOCIETY_ROLES,
       required: true,
     },
+    assignedWings: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (v) {
+          return Array.isArray(v) && v.every((w) => typeof w === "string" && /^[A-Z0-9]{1,10}$/.test(w.trim().toUpperCase()));
+        },
+        message: "assignedWings must be valid wing names",
+      },
+    },
     isPrimary: {
       type: Boolean,
       default: false,

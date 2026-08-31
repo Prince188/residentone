@@ -92,6 +92,7 @@ class MembershipService {
       .map((membership) => ({
         membershipId: membership._id,
         role: membership.role,
+        assignedWings: membership.assignedWings || [],
         joinedAt: membership.joinedAt,
         society: {
           id: membership.societyId._id,
@@ -138,7 +139,7 @@ class MembershipService {
     );
   }
 
-  async updateRole(id, role) {
+  async updateRole(id, role, assignedWings) {
     const existing = await Membership.findById(id);
     if (!existing) throw new AppError("Membership not found", 404);
     // Enforce max 2 society_admin per society
@@ -148,7 +149,18 @@ class MembershipService {
         throw new AppError("Maximum 2 Society Admins allowed per society", 400);
       }
     }
-    return Membership.findByIdAndUpdate(id, { role }, { new: true, runValidators: true });
+    const update = { role };
+    if (role === "wing_admin") {
+      const wings = Array.isArray(assignedWings) ? assignedWings.map((w) => String(w).trim().toUpperCase()).filter(Boolean) : [];
+      if (wings.length === 0) throw new AppError("Wing Admin requires at least one wing assignment", 400);
+      const invalid = wings.filter((w) => !/^[A-Z0-9]{1,10}$/.test(w));
+      if (invalid.length) throw new AppError(`Invalid wing names: ${invalid.join(", ")}`, 400);
+      update.assignedWings = wings;
+    } else {
+      // clear wings when not wing_admin
+      update.assignedWings = [];
+    }
+    return Membership.findByIdAndUpdate(id, update, { new: true, runValidators: true });
   }
 
   async deactivate(id) {

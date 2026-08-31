@@ -1,6 +1,7 @@
 const SOCIETY_ROLES = [
   "super_admin",
   "society_admin",
+  "wing_admin",
   "committee_member",
   "manager",
   "treasurer",
@@ -26,6 +27,7 @@ const PROPERTY_TYPES = ["flat", "row_house"];
 const ROLE_HIERARCHY = {
   super_admin: 100,
   society_admin: 80,
+  wing_admin: 65,
   committee_member: 60,
   manager: 55,
   treasurer: 50,

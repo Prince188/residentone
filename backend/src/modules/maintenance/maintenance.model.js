@@ -122,6 +122,15 @@ const paymentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    advanceMonths: {
+      type: Number,
+      default: 1,
+      min: [1, "Advance months at least 1"],
+    },
+    isAdvance: {
+      type: Boolean,
+      default: false,
+    },
     isActive: {
       type: Boolean,
       default: true,

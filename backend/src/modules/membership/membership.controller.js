@@ -49,7 +49,7 @@ class MembershipController {
 
   async updateRole(req, res, next) {
     try {
-      const { role } = req.body;
+      const { role, assignedWings } = req.body;
       const membership = await membershipService.findById(req.params.memberId);
       if (!membership) {
         return res.status(404).json({
@@ -67,7 +67,7 @@ class MembershipController {
         });
       }
 
-      const updated = await membershipService.updateRole(req.params.memberId, role);
+      const updated = await membershipService.updateRole(req.params.memberId, role, assignedWings);
       res.json({ success: true, data: updated });
     } catch (error) {
       next(error);

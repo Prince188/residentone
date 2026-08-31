@@ -55,7 +55,7 @@ class MaintenanceService {
     const finalOwner = ownerAmount != null ? ownerAmount : finalAmount;
     const finalRenter = renterAmount != null ? renterAmount : finalAmount;
 
-    return MaintenanceCycle.create({
+    const created = await MaintenanceCycle.create({
       societyId,
       createdBy: userId,
       month: data.month,
@@ -67,6 +67,60 @@ class MaintenanceService {
       durationMonths: data.durationMonths || 1,
       lateCharge: data.lateCharge || 0,
     });
+
+    // Auto-apply existing advances to this new cycle (for future cycles not yet existed at payment time)
+    try {
+      const advances = await MaintenancePayment.find({
+        societyId,
+        isActive: true,
+        isAdvance: true,
+        advanceMonths: { $gt: 1 },
+        gatewayStatus: "paid",
+      }).lean();
+      for (const adv of advances) {
+        // Find the cycle that this advance was originally for
+        const advCycle = await MaintenanceCycle.findById(adv.cycleId).lean();
+        if (!advCycle) continue;
+        // Calculate month distance between advCycle and newly created cycle
+        const advIndex = advCycle.year * 12 + advCycle.month;
+        const newIndex = created.year * 12 + created.month;
+        const diff = newIndex - advIndex;
+        if (diff > 0 && diff < adv.advanceMonths) {
+          // Within advance window: auto-create payment for new cycle for same unit
+          const exists = await MaintenancePayment.findOne({
+            societyId,
+            cycleId: created._id,
+            unitId: adv.unitId,
+            isActive: true,
+          }).lean();
+          if (exists) continue;
+          const unit = await Unit.findById(adv.unitId).lean();
+          const amt = unit ? this.getAmountForUnit(created, unit) : created.amount;
+          await MaintenancePayment.create({
+            societyId,
+            cycleId: created._id,
+            unitId: adv.unitId,
+            paidOn: new Date(),
+            method: adv.method || "Razorpay",
+            amount: amt,
+            fee: 0,
+            totalAmount: amt,
+            razorpayOrderId: adv.razorpayOrderId,
+            razorpayPaymentId: adv.razorpayPaymentId ? `${adv.razorpayPaymentId}-auto${diff}` : null,
+            gatewayStatus: "paid",
+            receiptNo: `RCPT-${created.year}${String(created.month).padStart(2, "0")}-${String(adv.unitId).slice(-4).toUpperCase()}-ADV`,
+            recordedBy: adv.recordedBy,
+            isActive: true,
+            advanceMonths: 1,
+            isAdvance: true,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Auto-apply advance on createCycle failed", e?.message);
+    }
+
+    return created;
   }
 
   async listCycles(societyId) {
@@ -335,10 +389,12 @@ class MaintenanceService {
     ).lean();
   }
 
-  // Razorpay: create order for online payment (fee passed to resident)
-  async createRazorpayOrder(societyId, cycle, unitId, userId) {
+  // Razorpay: create order for online payment (fee passed to resident) - supports advance months
+  async createRazorpayOrder(societyId, cycle, unitId, userId, months = 1) {
     const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true });
     if (!unit) throw new AppError("House not found", 404);
+
+    const advanceMonths = Math.max(1, Math.min(12, Number(months) || 1));
 
     const existing = await MaintenancePayment.findOne({
       societyId,
@@ -350,14 +406,34 @@ class MaintenanceService {
     if (existing) throw new AppError("Payment already recorded for this house", 409);
 
     const { createOrder } = require("../../shared/services/razorpay.service");
-    const receipt = `rcpt_${cycle.year}${String(cycle.month).padStart(2, "0")}_${String(unitId).slice(-6)}`;
+    const receipt = `rcpt_${cycle.year}${String(cycle.month).padStart(2, "0")}_${String(unitId).slice(-6)}${advanceMonths > 1 ? `_adv${advanceMonths}` : ""}`;
     const baseAmount = this.getAmountForUnit(cycle, unit);
     const isLate = new Date() > new Date(cycle.dueDate);
     const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
-    const finalAmount = baseAmount + appliedLateCharge;
+    const singleFinal = baseAmount + appliedLateCharge;
+    // For advance, calculate total for N months (without late for future months)
+    let finalAmount = singleFinal;
+    if (advanceMonths > 1) {
+      // Find next cycles to calculate proper total
+      const allCycles = await MaintenanceCycle.find({ societyId, isActive: true }).sort({ year: 1, month: 1 }).lean();
+      const idx = allCycles.findIndex((c) => String(c._id) === String(cycle._id));
+      let total = 0;
+      for (let i = 0; i < advanceMonths; i++) {
+        const c = allCycles[idx + i];
+        if (c) {
+          const amt = this.getAmountForUnit(c, unit);
+          const late = i === 0 && new Date() > new Date(c.dueDate) ? (c.lateCharge || 0) : 0;
+          total += amt + late;
+        } else {
+          // Future cycle not yet created: use current base
+          total += baseAmount;
+        }
+      }
+      finalAmount = total;
+    }
     const order = await createOrder({ amount: finalAmount, receipt });
 
-    // Create pending payment record with order id
+    // Create pending payment record with order id (for current cycle)
     await MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
       {
@@ -373,15 +449,20 @@ class MaintenanceService {
         gatewayStatus: "created",
         recordedBy: userId,
         isActive: false,
+        advanceMonths: advanceMonths,
+        isAdvance: advanceMonths > 1,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    // Attach advanceMonths to order for frontend
+    order.advanceMonths = advanceMonths;
+    order.months = advanceMonths;
     return order;
   }
 
   async verifyRazorpayPayment(societyId, cycle, unitId, userId, data) {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = data;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, months } = data;
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       throw new AppError("Missing Razorpay payment details", 400);
     }
@@ -402,6 +483,7 @@ class MaintenanceService {
     });
     if (!pending) throw new AppError("Order not found. Create order first.", 404);
 
+    const advanceMonths = Math.max(1, Math.min(12, Number(months) || Number(pending.advanceMonths) || 1));
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
 
     const updated = await MaintenancePayment.findOneAndUpdate(
@@ -418,11 +500,57 @@ class MaintenanceService {
         receiptNo,
         recordedBy: userId,
         isActive: true,
+        advanceMonths: advanceMonths,
+        isAdvance: advanceMonths > 1,
       },
       { new: true }
     ).lean();
 
     if (!updated) throw new AppError("Failed to record payment", 500);
+
+    // If advance >1, create payments for next N-1 cycles that already exist
+    if (advanceMonths > 1) {
+      try {
+        const allCycles = await MaintenanceCycle.find({ societyId, isActive: true }).sort({ year: 1, month: 1 }).lean();
+        const idx = allCycles.findIndex((c) => String(c._id) === String(cycle._id));
+        const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true }).lean();
+        for (let i = 1; i < advanceMonths; i++) {
+          const nextCycle = allCycles[idx + i];
+          if (!nextCycle) break;
+          const exists = await MaintenancePayment.findOne({ societyId, cycleId: nextCycle._id, unitId, isActive: true, gatewayStatus: "paid" }).lean();
+          if (exists) continue;
+          const amt = unit ? this.getAmountForUnit(nextCycle, unit) : nextCycle.amount;
+          const nextReceipt = `RCPT-${nextCycle.year}${String(nextCycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}-ADV`;
+          await MaintenancePayment.findOneAndUpdate(
+            { societyId, cycleId: nextCycle._id, unitId },
+            {
+              societyId,
+              cycleId: nextCycle._id,
+              unitId,
+              paidOn: new Date(),
+              method: "Razorpay",
+              amount: amt,
+              fee: 0,
+              totalAmount: amt,
+              razorpayOrderId,
+              razorpayPaymentId: `${razorpayPaymentId}-adv${i}`,
+              razorpaySignature: `${razorpaySignature}-adv${i}`,
+              gatewayStatus: "paid",
+              receiptNo: nextReceipt,
+              recordedBy: userId,
+              isActive: true,
+              advanceMonths: 1,
+              isAdvance: true,
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        }
+      } catch (e) {
+        // Non-critical: log but don't fail main payment
+        console.error("Advance auto-apply failed", e?.message);
+      }
+    }
+
     return updated;
   }
 

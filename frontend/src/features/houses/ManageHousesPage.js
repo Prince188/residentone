@@ -141,6 +141,11 @@ export default function ManageHousesPage() {
 
   const filtered = useMemo(() => {
     let result = houses;
+    // Wing admin sees only assigned wings
+    if (activeMembership?.role === "wing_admin" && Array.isArray(activeMembership.assignedWings) && activeMembership.assignedWings.length > 0) {
+      const allowed = new Set(activeMembership.assignedWings.map((w) => String(w).toUpperCase()));
+      result = result.filter((h) => allowed.has(String(h.block || "").toUpperCase()));
+    }
     if (statusFilter === "owner") result = result.filter((h) => h.isAssigned && !h.isRented);
     else if (statusFilter === "renter") result = result.filter((h) => h.isRented);
     else if (statusFilter === "vacant") result = result.filter((h) => !h.isAssigned && !h.isRented);
@@ -167,7 +172,9 @@ export default function ManageHousesPage() {
     return result;
   }, [houses, search, statusFilter, familyByHouse]);
 
+  const displayedCount = filtered.length;
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
+  const isWingAdmin = activeMembership?.role === "wing_admin";
 
   // Apartment detection: wings exist via block field
   const isApartmentStructure = useMemo(() => {
@@ -247,7 +254,7 @@ export default function ManageHousesPage() {
             {activeSociety ? activeSociety.name : ""} ·{" "}
             {housesQuery.isLoading
               ? "Loading houses..."
-              : `${assignedCount} of ${houses.length} houses assigned`}
+              : isWingAdmin ? `Wing ${ (activeMembership.assignedWings||[]).join(", ") } • ${displayedCount} houses (of ${houses.length}) • ${assignedCount} assigned total` : `${assignedCount} of ${houses.length} houses assigned`}
           </p>
         </div>
         <div className="w-full max-w-md space-y-2">

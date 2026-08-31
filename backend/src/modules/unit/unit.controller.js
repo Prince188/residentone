@@ -16,6 +16,14 @@ async function hasManageHousesPermission(req) {
   }
 }
 
+function canAccessWing(membership, block) {
+  if (!membership || membership.role !== "wing_admin") return true;
+  const wings = (membership.assignedWings || []).map((w) => String(w).trim().toUpperCase());
+  if (wings.length === 0) return false;
+  const b = String(block || "").trim().toUpperCase();
+  return wings.includes(b);
+}
+
 class UnitController {
   async list(req, res, next) {
     try {
@@ -91,6 +99,10 @@ class UnitController {
         if (!unit || !unit.ownerId || String(unit.ownerId) !== String(req.userId)) {
           throw new AppError("Only the house owner or Society Admin can add renter", 403);
         }
+      } else if (req.membership?.role === "wing_admin") {
+        const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
+        if (!unit) throw new AppError("House not found", 404);
+        if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
       }
       const result = await unitService.assignOwner(
         req.societyId,
@@ -114,6 +126,10 @@ class UnitController {
         if (!unit || !unit.ownerId || String(unit.ownerId) !== String(req.userId)) {
           throw new AppError("Only the house owner or Society Admin can remove renter", 403);
         }
+      } else if (req.membership?.role === "wing_admin") {
+        const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
+        if (!unit) throw new AppError("House not found", 404);
+        if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
       }
       const result = await unitService.unassignOwner(
         req.societyId,
@@ -137,6 +153,10 @@ class UnitController {
         }
       } else if (!canManage) {
         throw new AppError("Only Society Admin can invite owner", 403);
+      } else if (req.membership?.role === "wing_admin") {
+        const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
+        if (!unit) throw new AppError("House not found", 404);
+        if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
       }
       const result = await unitService.createInviteLink(
         req.societyId,
@@ -152,6 +172,7 @@ class UnitController {
 
   async bulkGenerate(req, res, next) {
     try {
+      if (req.membership?.role === "wing_admin") throw new AppError("Wing Admin cannot bulk generate houses", 403);
       const units = await unitService.bulkGenerateFromStructure(req.societyId, req.body);
       res.status(201).json({ success: true, data: units.map((u) => unitService.mapUnitCard(u)) });
     } catch (error) {

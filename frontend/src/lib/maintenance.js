@@ -20,8 +20,8 @@ export const recordPayment = (cycleId, unitId, payload) =>
   api.post(`/maintenance/cycles/${cycleId}/units/${unitId}/pay`, payload);
 export const removePayment = (cycleId, unitId) =>
   api.post(`/maintenance/cycles/${cycleId}/units/${unitId}/unpay`);
-export const createRazorpayOrder = (cycleId, unitId) =>
-  api.post(`/maintenance/cycles/${cycleId}/units/${unitId}/create-order`);
+export const createRazorpayOrder = (cycleId, unitId, months = 1) =>
+  api.post(`/maintenance/cycles/${cycleId}/units/${unitId}/create-order`, { months });
 export const verifyRazorpayPayment = (cycleId, unitId, payload) =>
   api.post(`/maintenance/cycles/${cycleId}/units/${unitId}/verify`, payload);
 export const getReceipt = (cycleId, unitId) =>

@@ -160,11 +160,13 @@ class MaintenanceController {
       if (!isAdmin && !myUnitIds.includes(String(req.params.unitId))) {
         return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "This house is not assigned to you" } });
       }
+      const months = Number(req.body?.months || req.body?.advanceMonths || 1);
       const order = await maintenanceService.createRazorpayOrder(
         req.societyId,
         cycle,
         req.params.unitId,
-        req.userId
+        req.userId,
+        months
       );
       res.json({ success: true, data: order });
     } catch (error) {
