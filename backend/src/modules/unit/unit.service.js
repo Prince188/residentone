@@ -34,8 +34,30 @@ class UnitService {
     if (totalUnits <= 0) return [];
 
     const existing = await Unit.find({ societyId: society._id })
-      .select("label doorNo")
+      .select("label doorNo block")
       .lean();
+    // If wings already exist (apartment with block), don't create sequential 1..N duplicates that cause General wing doubling
+    const hasWingedUnits = existing.some((u) => Boolean(u.block));
+    if (hasWingedUnits) {
+      // Auto-cleanup legacy General sequential houses for apartments (created before wing structure)
+      if (society.societyType !== "row_house") {
+        const generalCount = existing.filter((u) => !u.block).length;
+        if (generalCount > 0 && existing.length > totalUnits) {
+          try {
+            await Unit.deleteMany({ societyId: society._id, block: null });
+            // also block empty string
+            await Unit.deleteMany({ societyId: society._id, block: "" });
+            const cleaned = await Unit.find({ societyId: society._id }).lean();
+            if (cleaned.length >= totalUnits) return this.listUnits(societyId);
+          } catch (_) {}
+        }
+      }
+      // If count already matches totalUnits, skip
+      if (existing.length >= totalUnits) return this.listUnits(societyId);
+      // If winged but count less than totalUnits, still skip sequential creation - wing structure is authoritative
+      // Only create sequential for row_house without wings
+      if (society.societyType !== "row_house") return this.listUnits(societyId);
+    }
     const existingLabels = new Set(existing.map((u) => String(u.label)));
 
     const propertyType = society.societyType === "row_house" ? "row_house" : "flat";

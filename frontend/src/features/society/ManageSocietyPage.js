@@ -39,8 +39,7 @@ export default function ManageSocietyPage() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
-  const [wingSearch, setWingSearch] = useState("");
-  const [wingSelections, setWingSelections] = useState({}); // wing -> selected membershipId
+  const [wingSearches, setWingSearches] = useState({}); // { [wing]: query }
   const [assignMsg, setAssignMsg] = useState("");
 
   useEffect(() => {
@@ -80,11 +79,11 @@ export default function ManageSocietyPage() {
       entry.count += 1;
       if (h.floor) entry.floors.add(String(h.floor));
     });
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.wing === "General") return 1;
-      if (b.wing === "General") return -1;
-      return a.wing.localeCompare(b.wing);
-    }).map((x) => ({ wing: x.wing, count: x.count, floors: Array.from(x.floors).sort() }));
+    let list = Array.from(map.values());
+    // For apartments: hide General if real wings exist (prevents double counting from legacy sequential 1..N houses)
+    const hasRealWing = list.some((x) => x.wing !== "General");
+    if (hasRealWing) list = list.filter((x) => x.wing !== "General");
+    return list.sort((a, b) => a.wing.localeCompare(b.wing)).map((x) => ({ wing: x.wing, count: x.count, floors: Array.from(x.floors).sort() }));
   }, [housesQuery.data]);
 
   const allMemberships = membersQuery.data || [];
@@ -103,16 +102,16 @@ export default function ManageSocietyPage() {
     return map;
   }, [wingAdmins]);
 
-  // Search members for assignment (reuse directory-style filter)
-  const filteredForWing = useMemo(() => {
-    const q = wingSearch.trim().toLowerCase();
+  // per-wing search helper
+  const getFilteredForWing = (wing) => {
+    const q = (wingSearches[wing] || "").trim().toLowerCase();
     if (q.length < 2) return [];
     return allMemberships.filter((m) => {
       const name = (m.userId?.name || "").toLowerCase();
       const phone = (m.userId?.phone || "").toLowerCase();
       return name.includes(q) || phone.includes(q);
     }).slice(0, 6);
-  }, [allMemberships, wingSearch]);
+  };
 
   const assignWingAdmin = useMutation({
     mutationFn: async ({ memberId, wing }) => {
@@ -132,11 +131,11 @@ export default function ManageSocietyPage() {
       const res = await api.patch(`/memberships/${memberId}`, { role: newRole, assignedWings: newWings });
       return res.data.data;
     },
-    onSuccess: () => {
-      setAssignMsg("Wing admin assigned");
+    onSuccess: (_data, vars) => {
+      setAssignMsg(`Wing admin assigned to Wing ${vars.wing}`);
       queryClient.invalidateQueries({ queryKey: ["committee-full"] });
       setTimeout(() => setAssignMsg(""), 2000);
-      setWingSearch("");
+      setWingSearches((prev) => ({ ...prev, [vars.wing]: "" }));
     },
     onError: (e) => setAssignMsg(extractError(e, "Failed to assign")),
   });
@@ -161,7 +160,7 @@ export default function ManageSocietyPage() {
             <span className="material-symbols-outlined text-[16px]">arrow_back</span> Dashboard
           </Link>
           <h1 className="page-title">Manage Society</h1>
-          <p className="page-subtitle">{activeSociety.name} · {societyQuery.data?.city || ""} · {wings.length} wing(s) · {housesQuery.data?.length || 0} houses</p>
+          <p className="page-subtitle">{activeSociety.name} · {societyQuery.data?.city || ""} · {wings.length} wing(s) · {wings.reduce((s,w)=>s+w.count,0) || housesQuery.data?.length || 0} houses</p>
         </div>
         {!canEdit && <span className="text-label-sm text-outline">View only — Society Admin can edit</span>}
       </section>
@@ -211,7 +210,7 @@ export default function ManageSocietyPage() {
         )}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           <div className="rounded-xl bg-surface-container-low p-3">
-            <div className="text-title-md font-bold">{housesQuery.data?.length || 0}</div>
+            <div className="text-title-md font-bold">{wings.reduce((s,w)=>s+w.count,0) || housesQuery.data?.length || 0}</div>
             <div className="text-label-sm text-on-surface-variant">Houses</div>
           </div>
           <div className="rounded-xl bg-surface-container-low p-3">
@@ -277,19 +276,19 @@ export default function ManageSocietyPage() {
                   <p className="text-label-sm font-semibold mb-1">Assign Wing Admin to Wing {wing}</p>
                   <div className="flex gap-2">
                     <div className="flex-1 relative">
-                      <input value={wingSelections[wing] ? "" : wingSearch} onChange={(e) => setWingSearch(e.target.value)} placeholder="Search name/phone (min 2 chars)" className="w-full rounded-xl border border-outline-variant px-3 py-2 text-body-sm" />
-                      {wingSearch.trim().length >= 2 && (
+                      <input value={wingSearches[wing] || ""} onChange={(e) => setWingSearches((prev) => ({ ...prev, [wing]: e.target.value }))} placeholder="Search name/phone (min 2 chars)" className="w-full rounded-xl border border-outline-variant px-3 py-2 text-body-sm" />
+                      {(wingSearches[wing] || "").trim().length >= 2 && (
                         <div className="absolute z-10 mt-1 w-full bg-white border rounded-xl shadow-lg max-h-40 overflow-auto">
-                          {filteredForWing.length === 0 ? <p className="p-2 text-body-sm text-outline">No members</p> : filteredForWing.map((mem) => (
-                            <button key={mem._id} type="button" onClick={() => { setWingSelections((p) => ({ ...p, [mem._id]: wing })); setWingSearch(""); assignWingAdmin.mutate({ memberId: mem._id, wing }); }} className="w-full text-left px-3 py-2 hover:bg-primary/10 text-body-sm">
-                              {mem.userId?.name} • {mem.userId?.phone} <span className="text-label-sm text-outline">({mem.role})</span>
+                          {getFilteredForWing(wing).length === 0 ? <p className="p-2 text-body-sm text-outline">No members</p> : getFilteredForWing(wing).map((mem) => (
+                            <button key={mem._id} type="button" onClick={() => { setWingSearches((prev) => ({ ...prev, [wing]: "" })); assignWingAdmin.mutate({ memberId: mem._id, wing }); }} className="w-full text-left px-3 py-2 hover:bg-primary/10 text-body-sm">
+                              {mem.userId?.name} • {mem.userId?.phone} <span className="text-label-sm text-outline">({[...[mem.role], ...((mem.additionalRoles)||[])].join(", ")})</span>
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
                   </div>
-                  <p className="text-label-sm text-outline mt-1">Different wings can have different admins. Selecting a person here will make them Wing Admin for this wing.</p>
+                  <p className="text-label-sm text-outline mt-1">Different wings can have different admins. Independent per wing.</p>
                 </div>
               )}
             </div>

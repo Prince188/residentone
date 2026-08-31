@@ -193,12 +193,10 @@ export default function ManageHousesPage() {
       if (!wingMap[wing][floor]) wingMap[wing][floor] = [];
       wingMap[wing][floor].push(h);
     });
-    // sort wings A-Z, General last
-    const sortedWings = Object.keys(wingMap).sort((a, b) => {
-      if (a === "General") return 1;
-      if (b === "General") return -1;
-      return a.localeCompare(b);
-    });
+    let wingKeys = Object.keys(wingMap);
+    const hasRealWing = wingKeys.some((w) => w !== "General");
+    if (hasRealWing) wingKeys = wingKeys.filter((w) => w !== "General");
+    const sortedWings = wingKeys.sort((a, b) => a.localeCompare(b));
     return sortedWings.map((wing) => {
       const floorsObj = wingMap[wing];
       const sortedFloors = Object.keys(floorsObj).sort((a, b) => {
