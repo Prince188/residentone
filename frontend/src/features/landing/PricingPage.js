@@ -1,46 +1,45 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-const BASE_PRICE = { starter: 249, professional: 499, enterprise: 999 };
-const EXTRA_RATE = { starter: 0.5, professional: 1, enterprise: 2 };
-const BASE_UNITS = 200;
+const RATE = { starter: 6, professional: 10, enterprise: 15 };
 const YEARLY_MONTHS = 10;
 
 function getPlans(units, billing) {
-  const extra = Math.max(0, units - BASE_UNITS);
   const keys = ["starter", "professional", "enterprise"];
-  const names = { starter: "Starter", professional: "Professional", enterprise: "Enterprise" };
+  const names = { starter: "Basic", professional: "Standard", enterprise: "Premium" };
   const descs = {
-    starter: "Essential management for small societies.",
-    professional: "Advanced automation for growing communities.",
-    enterprise: "Custom solutions for large complexes.",
+    starter: "Essential billing and resident directories for small societies.",
+    professional: "Automated visitor security and amenity bookings for active communities.",
+    enterprise: "Deep financial compliance, elections, and documents for large complexes.",
   };
   const featureSet = {
     starter: [
-      "Maintenance billing",
-      "Complaint management",
-      "Notice board",
+      "Maintenance billing & UPI payments",
+      "Notice board & communications",
+      "Complaint management helpdesk",
+      "Masked resident directory",
+      "Family & vehicle profiles",
     ],
     professional: [
-      "Maintenance billing",
-      "Complaint management",
-      "Notice board",
-      "Visitor management",
-      "Advanced reports",
+      "All Basic features",
+      "Visitor gate security tracking",
+      "Companion guard app interface",
+      "Amenity slot booking calendar",
+      "Real-time group chat & DMs",
+      "Live dashboard badges",
     ],
     enterprise: [
-      "Maintenance billing",
-      "Complaint management",
-      "Notice board",
-      "Visitor management",
-      "Advanced reports",
-      "Priority support",
-      "Dedicated account manager",
+      "All Standard features",
+      "Full ledgers & GST compliance exports",
+      "Secret & open ballot polling",
+      "Surveys & feedback analytics",
+      "Secured flat document vault",
+      "Priority setup & support manager",
     ],
   };
 
   return keys.map((k) => {
-    const monthly = BASE_PRICE[k] + extra * EXTRA_RATE[k];
+    const monthly = units * RATE[k];
     const isYearly = billing === "yearly";
     const price = isYearly ? monthly * YEARLY_MONTHS : monthly;
 
@@ -59,7 +58,7 @@ function getPlans(units, billing) {
 
 export default function PricingPage() {
   const [billing, setBilling] = useState("monthly");
-  const [units, setUnits] = useState(200);
+  const [units, setUnits] = useState(100);
 
   const plans = getPlans(units, billing);
   const formatPrice = (n) => n.toLocaleString("en-IN");
@@ -76,27 +75,45 @@ export default function PricingPage() {
           ResidentOne scales with your community's unique needs. No hidden fees.
         </p>
 
-        {/* Unit Selector */}
-        <div className="mb-6">
+        {/* Unit Selector Slider */}
+        <div className="mb-8 max-w-md mx-auto">
           <div className="text-label-sm font-semibold text-on-surface mb-3">Number of Units</div>
-          <div className="inline-flex items-center gap-3">
+          
+          {/* Buttons and Display */}
+          <div className="flex items-center justify-center gap-4 mb-4">
             <button
-              className="w-10 h-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-xl font-semibold cursor-pointer flex items-center justify-center text-on-surface hover:bg-surface-container-low transition-colors"
-              onClick={() => setUnits((u) => Math.max(200, u - 2))}
-              disabled={units <= 200}
+              className="w-10 h-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-xl font-semibold cursor-pointer flex items-center justify-center text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setUnits((u) => Math.max(50, u - 10))}
+              disabled={units <= 50}
             >
               −
             </button>
-            <div className="text-[24px] font-bold text-primary min-w-[70px] text-center">{units}</div>
+            <div className="text-[28px] font-bold text-primary min-w-[80px] text-center">{units}</div>
             <button
-              className="w-10 h-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-xl font-semibold cursor-pointer flex items-center justify-center text-on-surface hover:bg-surface-container-low transition-colors"
-              onClick={() => setUnits((u) => Math.min(1000, u + 2))}
-              disabled={units >= 1000}
+              className="w-10 h-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-xl font-semibold cursor-pointer flex items-center justify-center text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setUnits((u) => Math.min(3000, u + 10))}
+              disabled={units >= 3000}
             >
               +
             </button>
           </div>
-          <div className="text-label-sm text-outline mt-2">Min 200 — Max 1,000 — Steps of 2</div>
+
+          {/* Range Input Slider */}
+          <div className="px-4">
+            <input
+              type="range"
+              min="50"
+              max="3000"
+              step="10"
+              value={units}
+              onChange={(e) => setUnits(Number(e.target.value))}
+              className="w-full h-2 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <div className="flex justify-between text-label-sm text-outline mt-2">
+              <span>Min: 50 units</span>
+              <span>Max: 3,000 units</span>
+            </div>
+          </div>
         </div>
 
         {/* Billing Toggle */}
@@ -145,7 +162,7 @@ export default function PricingPage() {
                 <h3 className="text-[20px] md:text-[24px] font-semibold text-on-surface mb-1">{plan.name}</h3>
                 <p className="text-body-sm text-on-surface-variant mb-5 h-10">{plan.desc}</p>
                 <div className="mb-6">
-                  <span className="text-[36px] md:text-[42px] leading-none font-bold text-on-surface">{plan.popular ? "₹" : ""}{formatPrice(plan.price)}</span>
+                  <span className="text-[36px] md:text-[42px] leading-none font-bold text-on-surface">₹{formatPrice(plan.price)}</span>
                   <span className="text-body-sm text-on-surface-variant ml-1">{plan.perUnit}</span>
                 </div>
                 {plan.save && (
