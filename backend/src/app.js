@@ -19,6 +19,7 @@ const pollRoutes = require("./modules/poll/poll.routes");
 const chatRoutes = require("./modules/chat/chat.routes");
 const surveyRoutes = require("./modules/survey/survey.routes");
 const collectionRoutes = require("./modules/collections/collection.routes");
+const documentRoutes = require("./modules/document/document.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const healthRoutes = require("./modules/health/health.routes");
 
@@ -69,6 +70,7 @@ app.use("/api/v1/polls", pollRoutes);
 app.use("/api/v1/chat", chatRoutes);
 app.use("/api/v1/surveys", surveyRoutes);
 app.use("/api/v1/collections", collectionRoutes);
+app.use("/api/v1/documents", documentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 

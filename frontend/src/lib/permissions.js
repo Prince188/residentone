@@ -12,14 +12,15 @@ export const PERMISSIONS = [
   { key: "view_financials", label: "View Financials", desc: "Reports, dues", icon: "account_balance" },
   { key: "manage_directory", label: "View Directory", desc: "Resident list", icon: "contacts" },
   { key: "manage_collections", label: "Manage Collections", desc: "Festival & occasion funds (Navratri, events, etc)", icon: "volunteer_activism" },
+  { key: "manage_documents", label: "Manage Documents", desc: "Upload bills & sheets", icon: "folder_open" },
 ];
 
 export const DEFAULT_ROLE_PERMISSIONS = {
   society_admin: PERMISSIONS.map((p) => p.key),
   super_admin: PERMISSIONS.map((p) => p.key),
-  manager: ["manage_houses", "manage_maintenance", "manage_collections", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory", "manage_committee"],
-  treasurer: ["manage_maintenance", "manage_collections", "view_financials", "manage_directory"],
-  accountant: ["manage_maintenance", "manage_collections", "view_financials"],
+  manager: ["manage_houses", "manage_maintenance", "manage_collections", "manage_documents", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory", "manage_committee"],
+  treasurer: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials", "manage_directory"],
+  accountant: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials"],
   helpdesk_manager: ["manage_complaints", "manage_visitors", "manage_directory"],
   auditor: ["view_financials", "manage_directory"],
   committee_member: ["create_notice", "create_poll", "create_survey", "manage_directory"],
