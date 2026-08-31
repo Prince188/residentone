@@ -20,6 +20,7 @@ const superAdminCards = [
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
+  { icon: "volunteer_activism", label: "Manage Collections", to: "/collections/manage" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
   { icon: "event_available", label: "Manage Amenities", to: "/amenities/manage" },
   { icon: "how_to_vote", label: "Create Poll", to: "/polls/new" },
@@ -29,6 +30,7 @@ const adminCards = [
 
 const generalCards = [
   { icon: "payments", label: "Pay Maintenance", to: "/maintenance" },
+  { icon: "volunteer_activism", label: "Collections", to: "/collections/pay" },
   { icon: "home_work", label: "My Unit", to: "/my-unit" },
   { icon: "group_add", label: "Add Members", to: "/family-members" },
   { icon: "campaign", label: "Notices", to: "/notices" },
@@ -222,6 +224,8 @@ export default function DashboardPage() {
   const cardPermissionMap = {
     "Manage Houses": "manage_houses",
     "Manage Maintenance": "manage_maintenance",
+    "Manage Collections": "manage_collections",
+    "Create Collection": "manage_collections",
     "Create Notice": "create_notice",
     "Manage Amenities": "manage_amenities",
     "Create Poll": "create_poll",

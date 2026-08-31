@@ -52,6 +52,13 @@ import EmergencyContactsPage from "./features/emergency/EmergencyContactsPage";
 import ProfilePage from "./features/profile/ProfilePage";
 import SettingsPage from "./features/settings/SettingsPage";
 import HelpPage from "./features/help/HelpPage";
+import CollectionsPage from "./features/collections/CollectionsPage";
+import CreateCollectionPage from "./features/collections/CreateCollectionPage";
+import CollectionDetailPage from "./features/collections/CollectionDetailPage";
+import CollectionUnitPayPage from "./features/collections/CollectionUnitPayPage";
+import ManageCollectionsPage from "./features/collections/ManageCollectionsPage";
+import CollectionsHistoryPage from "./features/collections/CollectionsHistoryPage";
+import PayCollectionsPage from "./features/collections/PayCollectionsPage";
 
 function App() {
   return (
@@ -111,6 +118,13 @@ function App() {
               <Route path="/surveys" element={<SurveysPage />} />
               <Route path="/surveys/new" element={<CreateSurveyPage />} />
               <Route path="/surveys/:id" element={<SurveyDetailPage />} />
+              <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/collections/manage" element={<ManageCollectionsPage />} />
+              <Route path="/collections/history" element={<CollectionsHistoryPage />} />
+              <Route path="/collections/pay" element={<PayCollectionsPage />} />
+              <Route path="/collections/new" element={<CreateCollectionPage />} />
+              <Route path="/collections/:id" element={<CollectionDetailPage />} />
+              <Route path="/collections/:id/units/:unitId" element={<CollectionUnitPayPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/my-unit" element={<MyUnitPage />} />
               <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />

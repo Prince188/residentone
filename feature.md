@@ -14,23 +14,24 @@
 6. [Dashboard](#6-dashboard)
 7. [Notices](#7-notices)
 8. [Maintenance & Dues](#8-maintenance--dues)
-9. [Complaints / Helpdesk](#9-complaints--helpdesk)
-10. [Amenities & Bookings](#10-amenities--bookings)
-11. [Polls](#11-polls)
-12. [Surveys](#12-surveys)
-13. [Chat (Groups + Direct Admin)](#13-chat-groups--direct-admin)
-14. [Directory](#14-directory)
-15. [Family Members & Vehicles](#15-family-members--vehicles)
-16. [Committee & Permissions](#16-committee--permissions)
-17. [Dashboard Badges (NEW - Poll/Survey/Complaint Only)](#17-dashboard-badges-new)
-18. [Documents, Visitors, Emergency, My Unit, etc](#18-static--placeholder-modules)
-19. [Admin / Super-Admin](#19-admin--super-admin)
-20. [Frontend Routing & Layout](#20-frontend-routing--layout)
-21. [Real-time (Socket.IO)](#21-real-time-socketio)
-22. [Permissions Matrix](#22-permissions-matrix)
-23. [API Conventions](#23-api-conventions)
-24. [Deployment](#24-deployment)
-25. [Gap vs MyGate & Next Steps](#25-gap-vs-mygate--next-steps)
+9. [Collections (Festivals & Special Funds)](#9-collections-festivals--special-funds)
+10. [Complaints / Helpdesk](#10-complaints--helpdesk)
+11. [Amenities & Bookings](#11-amenities--bookings)
+12. [Polls](#12-polls)
+13. [Surveys](#13-surveys)
+14. [Chat (Groups + Direct Admin)](#14-chat-groups--direct-admin)
+15. [Directory](#15-directory)
+16. [Family Members & Vehicles](#16-family-members--vehicles)
+17. [Committee & Permissions](#17-committee--permissions)
+18. [Dashboard Badges (NEW - Poll/Survey/Complaint Only)](#18-dashboard-badges-new)
+19. [Documents, Visitors, Emergency, My Unit, etc](#19-static--placeholder-modules)
+20. [Admin / Super-Admin](#20-admin--super-admin)
+21. [Frontend Routing & Layout](#21-frontend-routing--layout)
+22. [Real-time (Socket.IO)](#22-real-time-socketio)
+23. [Permissions Matrix](#23-permissions-matrix)
+24. [API Conventions](#24-api-conventions)
+25. [Deployment](#25-deployment)
+26. [Gap vs MyGate & Next Steps](#26-gap-vs-mygate--next-steps)
 
 ---
 
@@ -213,7 +214,42 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 9. Complaints / Helpdesk
+## 9. Collections (Festivals & Special Funds)
+
+**Why & Proper Name: “Collections”** — generic one-time collection for *any* occasion, not only festivals. Covers Navratri, Diwali, Holi, Ganesh, Christmas, annual day, sports event, building repair, welfare drive, etc. Each collection is a per-house bill with category + due date + per-house amount + payment tracking. Chosen over narrow “Festival Fund” to stay reusable.
+
+**Models (`backend/src/modules/collections/collection.model.js:4`):**
+- `Collection`: `title(3-150), description(0-1000), category(festival|event|celebration|repair|welfare|other), amount(1-1e6), dueDate, status(active|closed), createdBy, isActive, societyId + indexes {societyId, status, createdAt:-1}`
+- `CollectionPayment`: `collectionId(ref), unitId(ref), amount, fee, totalAmount, paidOn, method(Cash|Razorpay), receiptNo(CC-xxxx-xxxx), gatewayStatus(cash|created|paid), razorpayOrderId/PaymentId/Signature, recordedBy, isActive` + unique `{societyId, collectionId, unitId}`
+
+**Service (`collection.service.js:1`):** `hasCollectionPermission` (checks `manage_collections` or fallback `manage_maintenance`), `create`, `list` (populate name), `getById`, `mapCollection` (isOverdue), `statusFor` (pending|overdue vs paid|late_paid), `getCollectionUnits` (populate owner/tenant, paymentByUnit map), `getMyCollections`, `getUnitDetail` (own-unit or admin check), `recordPayment` (cash upsert, receipt `CC-...`), `createRazorpayOrder` (`razorpay.service createOrder` base+fee), `verifyRazorpayPayment` (signature), `removePayment`, `closeCollection`, `deleteCollection` + socket emits `collection:change`.
+
+**Validation (`collection.validation.js:1`):** `createCollectionSchema` (title 3-150, description 0-1000, category enum, amount number 1-1e6, dueDate ISO), `payCollectionSchema` (method).
+
+**Routes (`collection.routes.js:1`):** All `authenticate + resolveSocietyContext + requireSociety`
+- `GET /collections` — all members (query `?my=1` for resident filtered view)
+- `GET /collections/:id` — detail
+- `GET /collections/:id/units` — `manage_collections`
+- `GET /collections/:collectionId/units/:unitId` — detail (admin or assigned)
+- `POST /collections` — `manage_collections` + validate
+- `POST /collections/:id/close`, `DELETE /collections/:id` — `manage_collections`
+- `POST /collections/:collectionId/units/:unitId/pay` (+ validate) / `unpay` — `manage_collections` (cash)
+- `POST .../create-order`, `POST .../verify` — any member (own house or admin)
+
+**Permissions:** New `manage_collections` in `shared/permissions.js:13` (label: Manage Collections – Festival & occasion funds). `manager, treasurer, accountant` gain it; `society_admin/super_admin` have all.
+
+**Frontend:**
+- `lib/collections.js:1` — `COLLECTION_CATEGORIES` (festival/event/celebration/repair/welfare/other with icons), `getCollections`, `getCollection`, `createCollection`, `close/delete`, `getCollectionUnits`, `getCollectionUnitDetail`, `record/remove/createOrder/verify`, `formatAmount/formatDate`, `CATEGORY_UI`, `STATUS_UI`.
+- `CollectionsPage.js` — hero `volunteer_activism`, subtitle Festivals+repairs, `canCreate` via `manage_collections`, `CollectionCard` (category pill + status stripe overdue/active, amount, due date), info banner, grid 1/2/3, empty state with Create CTA.
+- `CreateCollectionPage.js` — form title/description/category/amount/dueDate, `createCollection` mutation, invalidates `collections`, navigates `/collections`.
+- `CollectionDetailPage.js` — header category icon + due overdue flag, admin sees all units grid (search + status filter All/pending/overdue/paid/late_paid) via `UnitCard`, resident sees own units pay cards.
+- `CollectionUnitPayPage.js` — unit detail (House label, owner, status pill, amount, receipt), admin: Mark as Paid (Cash) + Pay Online + Remove, resident: Pay Online (Razorpay checkout via `window.Razorpay`). Mutations invalidate detail.
+- **Dashboard cards:** `adminCards` add `Create Collection` (`volunteer_activism`, `/collections/new`, perm `manage_collections`), `generalCards` add `Collections` (`volunteer_activism`, `/collections`) in `DashboardPage.js:21,31`.
+- **App routing (`App.js:43`):** `/collections`, `/collections/new`, `/collections/:id`, `/collections/:id/units/:unitId` (protected via `AppLayout`).
+
+---
+
+## 10. Complaints / Helpdesk
 
 **Model (`backend/src/modules/complaint/complaint.model.js:25`):**
 - `title(3-150), description(10-2000), category(plumbing/electrical/housekeeping/security/common_area/parking/other), priority(low/medium/high/urgent), status(open|in_progress|on_hold|resolved|closed|reopened), isPublic(bool), raisedBy(ref User), assignedTo(ref User), unitId(ref Unit), isActive, societyId + indexes`
@@ -232,7 +268,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 10. Amenities & Bookings
+## 11. Amenities & Bookings
 
 **Models (`backend/src/modules/amenity/amenity.model.js:4`):**
 - `Amenity`: `name(unique), description, category, type(free|paid), capacity, price, slots[string[] default 5], bookingMode(slot|full_day), openTime/closeTime, createdBy, isActive`
@@ -253,7 +289,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 11. Polls
+## 12. Polls
 
 **Models (`backend/src/modules/poll/poll.model.js:7`):**
 - `Poll`: `question(5-500), options[2-4]{text, votes}, type(open|secret), status(active|closed), endDate(required), createdBy(ref User), isActive` + indexes.
@@ -272,7 +308,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 12. Surveys
+## 13. Surveys
 
 **Models (`backend/src/modules/survey/survey.model.js:7`):**
 - `Survey`: `title(5-150), description, questions[1-10]{text(5-300), type(single|multiple|text|rating), options[2-4] for choice}, endDate, status(active|closed), createdBy`
@@ -290,7 +326,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 13. Chat (Groups + Direct Admin)
+## 14. Chat (Groups + Direct Admin)
 
 **Models (`backend/src/modules/chat/chat.model.js:4`):**
 - `ChatGroup`: `name(2-80), description, createdBy, members[User], pinnedMessageId(ref), isActive` + indexes.
@@ -308,7 +344,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 14. Directory
+## 15. Directory
 
 **Service (`membership.service.js:28`):** `getDirectory` — finds Memberships + populates user name/phone + units label, expands per house, masks phone, sorted by unitNumber.
 
@@ -318,7 +354,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 15. Family Members & Vehicles
+## 16. Family Members & Vehicles
 
 **FamilyMember Model (`backend/src/modules/family-member/family-member.model.js`):**
 - `userId, societyId, unitId(ref Unit), name, relation, phone, isActive`
@@ -332,7 +368,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 16. Committee & Permissions
+## 17. Committee & Permissions
 
 **Permissions (`backend/src/shared/permissions.js:1`):**
 - 12 keys: `manage_committee, manage_houses, manage_maintenance, create_notice, manage_amenities, manage_bookings, create_poll, create_survey, manage_complaints, manage_visitors, view_financials, manage_directory`
@@ -345,7 +381,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 17. Dashboard Badges (NEW - Poll/Survey/Complaint Only)
+## 18. Dashboard Badges (NEW - Poll/Survey/Complaint Only)
 
 **Goal:** Show red numeric indicator on dashboard cards for **new items since last visit**; cleared after visiting that page (as per spec: “if there is a 2 new notice we will show 2 as indicator, apply on all cards where needed, after visit that page it gone” — now scoped to 3 features per user request).
 
@@ -383,7 +419,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 18. Static / Placeholder Modules
+## 19. Static / Placeholder Modules
 
 - **VisitorsPage.js** — placeholder `badge` icon, no backend.
 - **DocumentsPage.js** — Document Vault placeholder (folder_open icon), no model.
@@ -395,7 +431,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 19. Admin / Super-Admin
+## 20. Admin / Super-Admin
 
 **Society Admin (society_admin):** Full permissions (all 12). Access: Manage Houses, Manage Maintenance (dues), Create Notice, Manage Amenities, Create Poll/Survey, Manage Committee (grant roles), plus General.
 
@@ -409,7 +445,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 20. Frontend Routing & Layout
+## 21. Frontend Routing & Layout
 
 **Public (`PublicLayout` + Navbar/Footer):**
 - `/, /about, /pricing, /contact, /features, /login, /register, /create-society (protected), /house-invite/:token`
@@ -427,7 +463,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 21. Real-time (Socket.IO)
+## 22. Real-time (Socket.IO)
 
 - `backend/src/socket/index.js` — server `io` with `auth` (token) + join `society:{id}` + `user:{id}` rooms.
 - Helpers: `emitToSociety(societyId, event, data)`, `emitToUser(userId, event, data)`, `getIO()`.
@@ -436,7 +472,7 @@ super_admin, society_admin, committee_member, manager, treasurer, accountant, he
 
 ---
 
-## 22. Permissions Matrix
+## 23. Permissions Matrix
 
 | Feature | Route | Permission |
 |---------|-------|------------|
@@ -457,7 +493,7 @@ Residents (`owner|tenant`) default only `manage_directory`.
 
 ---
 
-## 23. API Conventions
+## 24. API Conventions
 
 - Base: `/api/v1`
 - Auth: `Authorization: Bearer <access>` + `x-society-id` header (required for society-scoped routes)
@@ -469,7 +505,7 @@ Residents (`owner|tenant`) default only `manage_directory`.
 
 ---
 
-## 24. Deployment
+## 25. Deployment
 
 **Backend env (`backend/.env`):** `PORT, MONGODB_URI, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, JWT_ACCESS_EXPIRY, JWT_REFRESH_EXPIRY, FRONTEND_URL, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_FEE_PERCENT, RAZORPAY_GST_PERCENT`
 
@@ -481,7 +517,7 @@ Residents (`owner|tenant`) default only `manage_directory`.
 
 ---
 
-## 25. Gap vs MyGate & Next Steps
+## 26. Gap vs MyGate & Next Steps
 
 Implemented vs MYGATE_FEATURES.md checklist:
 
@@ -512,3 +548,4 @@ Implemented vs MYGATE_FEATURES.md checklist:
 ---
 
 *Generated: Aug 2026 for ResidentOne. Source files: `backend/src/app.js:1`, `frontend/src/App.js:1`, `feature.md:1`.*
+

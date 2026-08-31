@@ -18,6 +18,7 @@ const familyMemberRoutes = require("./modules/family-member/family-member.routes
 const pollRoutes = require("./modules/poll/poll.routes");
 const chatRoutes = require("./modules/chat/chat.routes");
 const surveyRoutes = require("./modules/survey/survey.routes");
+const collectionRoutes = require("./modules/collections/collection.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const healthRoutes = require("./modules/health/health.routes");
 
@@ -46,6 +47,7 @@ const corsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-society-id"],
+  exposedHeaders: ["Content-Disposition"],
 };
 
 app.use(cors(corsOptions));
@@ -66,6 +68,7 @@ app.use("/api/v1/family-members", familyMemberRoutes);
 app.use("/api/v1/polls", pollRoutes);
 app.use("/api/v1/chat", chatRoutes);
 app.use("/api/v1/surveys", surveyRoutes);
+app.use("/api/v1/collections", collectionRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
