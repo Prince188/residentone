@@ -1,14 +1,15 @@
-/* eslint-disable */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, {
   selectActiveMembership,
   selectActiveSociety,
 } from "../../stores/society.store";
-import { getHouseCards, extractApiError } from "../../lib/houses";
+import { getHouseCards, updateUnit, deleteUnit, extractApiError } from "../../lib/houses";
 import { getFamilyMembers } from "../../lib/familyMembers";
 import AssignHouseModal from "./AssignHouseModal";
+import EditHouseModal from "./EditHouseModal";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import api from "../../lib/api";
 import { hasPermissionForMembership, getMembershipRoles, isPureWingAdmin } from "../../lib/permissions";
 
@@ -95,11 +96,38 @@ function HouseCard({ house, familyMembers = [], onClick }) {
 }
 
 export default function ManageHousesPage() {
+  const queryClient = useQueryClient();
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedHouse, setSelectedHouse] = useState(null);
+  const [editingHouse, setEditingHouse] = useState(null);
+  const [deletingHouse, setDeletingHouse] = useState(null);
+  const [editError, setEditError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => updateUnit(editingHouse?.id, data).then((r) => r.data.data),
+    onSuccess: () => {
+      setEditingHouse(null);
+      setEditError("");
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["my-societies"] });
+    },
+    onError: (err) => setEditError(extractApiError(err, "Failed to update house")),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteUnit(deletingHouse?.id).then((r) => r.data.data),
+    onSuccess: () => {
+      setDeletingHouse(null);
+      setDeleteError("");
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["my-societies"] });
+    },
+    onError: (err) => setDeleteError(extractApiError(err, "Failed to delete house")),
+  });
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
@@ -409,6 +437,48 @@ export default function ManageHousesPage() {
           key={selectedHouse.id}
           house={selectedHouse}
           onClose={() => setSelectedHouse(null)}
+          onEditHouse={(house) => {
+            setSelectedHouse(null);
+            setEditError("");
+            setEditingHouse(house);
+          }}
+          onDeleteHouse={(house) => {
+            setSelectedHouse(null);
+            setDeleteError("");
+            setDeletingHouse(house);
+          }}
+        />
+      )}
+
+      {editingHouse && (
+        <EditHouseModal
+          key={editingHouse.id}
+          house={editingHouse}
+          open={Boolean(editingHouse)}
+          onClose={() => {
+            setEditingHouse(null);
+            setEditError("");
+          }}
+          onSave={(data) => updateMutation.mutate(data)}
+          isSaving={updateMutation.isPending}
+          error={editError}
+        />
+      )}
+
+      {deletingHouse && (
+        <ConfirmDialog
+          open={Boolean(deletingHouse)}
+          title={`Delete House ${deletingHouse?.label}?`}
+          message={`Are you sure you want to delete House ${deletingHouse?.label}? Any resident associations with this unit will be unlinked.`}
+          confirmLabel="Delete House"
+          danger
+          busy={deleteMutation.isPending}
+          error={deleteError}
+          onConfirm={() => deleteMutation.mutate()}
+          onClose={() => {
+            setDeletingHouse(null);
+            setDeleteError("");
+          }}
         />
       )}
     </div>
