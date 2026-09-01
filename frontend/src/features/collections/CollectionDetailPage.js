@@ -76,7 +76,7 @@ export default function CollectionDetailPage() {
   });
 
   const collection = collectionQuery.data;
-  const units = isAdmin ? (unitsQuery.data || []) : (myQuery.data || []);
+  const units = useMemo(() => (isAdmin ? (unitsQuery.data || []) : (myQuery.data || [])), [isAdmin, unitsQuery.data, myQuery.data]);
 
   const counts = useMemo(() => {
     const base = { paid: 0, pending: 0, overdue: 0, late_paid: 0 };

@@ -86,7 +86,7 @@ export default function ManageSocietyPage() {
     return list.sort((a, b) => a.wing.localeCompare(b.wing)).map((x) => ({ wing: x.wing, count: x.count, floors: Array.from(x.floors).sort() }));
   }, [housesQuery.data]);
 
-  const allMemberships = membersQuery.data || [];
+  const allMemberships = useMemo(() => membersQuery.data || [], [membersQuery.data]);
   const wingAdmins = useMemo(() => allMemberships.filter((m) => isWingAdmin(m)), [allMemberships]);
 
   const wingAdminByWing = useMemo(() => {

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getSocietyDirectory } from "../../lib/directory";
 import api from "../../lib/api";
-import { hasPermission, hasPermissionForMembership, getMembershipRoles, PERMISSIONS as SHARED_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS as SHARED_DEFAULTS } from "../../lib/permissions";
+import { hasPermissionForMembership, getMembershipRoles, PERMISSIONS as SHARED_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS as SHARED_DEFAULTS } from "../../lib/permissions";
 import { getHouseCards } from "../../lib/houses";
 
 const COMMITTEE_ROLES = [

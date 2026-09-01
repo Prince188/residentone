@@ -68,10 +68,10 @@ router.use((err, req, res, next) => {
     }
     return res.status(400).json({ success: false, error: { code: err.code, message: err.message } });
   }
-  if (err) {
+  if (err && err.message && err.message.includes("Only PDF and images")) {
     return res.status(400).json({ success: false, error: { code: "INVALID_FILE", message: err.message } });
   }
-  next();
+  next(err);
 });
 
 module.exports = router;

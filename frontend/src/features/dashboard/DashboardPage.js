@@ -9,7 +9,7 @@ import useSocietyStore, {
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 import api from "../../lib/api";
-import { hasPermission, hasPermissionForMembership, getMembershipRoles, isWingAdmin } from "../../lib/permissions";
+import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 import { getBadges } from "../../lib/dashboard";
 
 const superAdminCards = [

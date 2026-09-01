@@ -32,11 +32,14 @@ class MembershipController {
 
   async addMember(req, res, next) {
     try {
-      const { userId, role, unitIds } = req.body;
+      const { userId, role, unitIds, assignedWings } = req.body;
       const membership = await membershipService.create({
         userId,
         societyId: req.societyId,
         role,
+        assignedWings: Array.isArray(assignedWings)
+          ? assignedWings.map((w) => String(w).trim().toUpperCase())
+          : undefined,
       });
       if (Array.isArray(unitIds) && unitIds.length > 0) {
         await membershipService.addUnitsToMembership(membership._id, unitIds);
