@@ -218,6 +218,38 @@ class UnitController {
       next(error);
     }
   }
+
+  async update(req, res, next) {
+    try {
+      const canManage = await hasManageHousesPermission(req);
+      if (!canManage) throw new AppError("You do not have permission to manage houses", 403);
+      if (isWingAdmin(req.membership) && isPureWingAdmin(req.membership)) {
+        const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
+        if (!unit) throw new AppError("House not found", 404);
+        if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
+      }
+      const result = await unitService.updateUnit(req.societyId, req.params.unitId, req.body);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async remove(req, res, next) {
+    try {
+      const canManage = await hasManageHousesPermission(req);
+      if (!canManage) throw new AppError("You do not have permission to delete houses", 403);
+      if (isWingAdmin(req.membership) && isPureWingAdmin(req.membership)) {
+        const unit = await Unit.findOne({ _id: req.params.unitId, societyId: req.societyId }).lean();
+        if (!unit) throw new AppError("House not found", 404);
+        if (!canAccessWing(req.membership, unit.block)) throw new AppError(`Wing Admin can only manage houses in wings: ${(req.membership.assignedWings||[]).join(", ")}`, 403);
+      }
+      const result = await unitService.deleteUnit(req.societyId, req.params.unitId);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UnitController();

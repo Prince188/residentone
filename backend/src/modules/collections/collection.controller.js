@@ -97,6 +97,15 @@ class CollectionController {
     }
   }
 
+  async update(req, res, next) {
+    try {
+      const data = await collectionService.update(req.societyId, req.params.id, req.body);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async close(req, res, next) {
     try {
       const col = await collectionService.closeCollection(req.societyId, req.params.id);

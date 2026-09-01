@@ -3,9 +3,100 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
-import { getFamilyMembers, addFamilyMember, removeFamilyMember, extractApiError } from "../../lib/familyMembers";
+import { getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember, extractApiError } from "../../lib/familyMembers";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 const RELATIONS = ["spouse", "child", "parent", "sibling", "relative", "other"];
+
+function EditFamilyMemberModal({ member, open, onClose, onSave, isSaving, error }) {
+  const [form, setForm] = useState({
+    name: member?.name || "",
+    relation: member?.relation || "other",
+    phone: member?.phone || "",
+  });
+
+  if (!open || !member) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || form.name.trim().length < 2) return;
+    onSave({
+      id: member.id,
+      payload: {
+        name: form.name.trim(),
+        relation: form.relation,
+        phone: form.phone.trim(),
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={isSaving ? undefined : onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-title-md font-bold text-on-surface">Edit Family Member</h3>
+          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-label-md font-medium text-on-surface">Full Name *</label>
+            <input
+              required
+              minLength={2}
+              maxLength={100}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-label-md font-medium text-on-surface">Relation *</label>
+              <select
+                value={form.relation}
+                onChange={(e) => setForm({ ...form, relation: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm capitalize focus:border-primary focus:outline-none"
+              >
+                {RELATIONS.map((r) => (
+                  <option key={r} value={r} className="capitalize">{r}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-label-md font-medium text-on-surface">Phone</label>
+              <input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="Optional"
+                className="mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !form.name.trim()}
+              className="rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function FamilyMembersPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
@@ -14,6 +105,8 @@ export default function FamilyMembersPage() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", relation: "other", phone: "" });
+  const [editingMember, setEditingMember] = useState(null);
+  const [deletingMember, setDeletingMember] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -35,9 +128,27 @@ export default function FamilyMembersPage() {
     onError: (e) => setErr(extractApiError(e, "Failed to add")),
   });
 
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }) => updateFamilyMember(id, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      setEditingMember(null);
+      setMsg("Family member details updated");
+      setErr("");
+      setTimeout(() => setMsg(""), 3000);
+    },
+    onError: (e) => setErr(extractApiError(e, "Failed to update")),
+  });
+
   const removeMut = useMutation({
     mutationFn: (id) => removeFamilyMember(id).then((r) => r.data.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["family-members"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      setDeletingMember(null);
+      setMsg("Family member removed");
+      setTimeout(() => setMsg(""), 3000);
+    },
+    onError: (e) => setErr(extractApiError(e, "Failed to remove")),
   });
 
   if (!myHouses.length) {
@@ -51,8 +162,6 @@ export default function FamilyMembersPage() {
   }
 
   const rawMembers = listQuery.data || [];
-  // Always show only your own family on this personal page (general for all your houses)
-  // Even society_admin/manager sees only their own here; Manage Houses shows per-house for all
   const members = rawMembers.filter((m) => {
     const addedById = String(m.addedBy?._id || m.addedBy || "");
     const userId = String(user?.id || user?._id || "");
@@ -79,14 +188,14 @@ export default function FamilyMembersPage() {
       {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-label-md text-emerald-800">{msg}</p>}
       {err && <p className="rounded-lg bg-error-container px-3 py-2 text-label-md text-on-error-container">{err}</p>}
 
-      <form onSubmit={handleAdd} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 space-y-4">
+      <form onSubmit={handleAdd} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 space-y-4 shadow-sm">
         <div>
-          <label className="text-label-md font-medium">Family Member Name *</label>
+          <label className="text-label-md font-medium text-on-surface">Family Member Name *</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sunita Patel" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-label-md font-medium">Role / Relation *</label>
+            <label className="text-label-md font-medium text-on-surface">Role / Relation *</label>
             <select value={form.relation} onChange={(e) => setForm({ ...form, relation: e.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm capitalize">
               {RELATIONS.map((r) => (
                 <option key={r} value={r} className="capitalize">{r}</option>
@@ -94,32 +203,81 @@ export default function FamilyMembersPage() {
             </select>
           </div>
           <div>
-            <label className="text-label-md font-medium">Phone (optional)</label>
+            <label className="text-label-md font-medium text-on-surface">Phone (optional)</label>
             <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Optional" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
           </div>
         </div>
-        <button type="submit" disabled={addMut.isPending} className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary disabled:opacity-50">
+        <button type="submit" disabled={addMut.isPending} className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer">
           {addMut.isPending ? "Adding..." : "Add Member"}
         </button>
       </form>
 
       <section className="space-y-3">
-        <h3 className="text-body-lg font-semibold">Your Family Members ({members.length})</h3>
+        <h3 className="text-body-lg font-semibold text-on-surface">Your Family Members ({members.length})</h3>
         {listQuery.isLoading && <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-high" />)}</div>}
         {members.length === 0 && !listQuery.isLoading && <p className="rounded-xl border border-dashed p-8 text-center text-body-sm text-on-surface-variant">No family members added yet.</p>}
         {members.map((m) => (
-          <div key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">{m.name.charAt(0).toUpperCase()}</span>
               <div>
-                <p className="text-body-md font-semibold">{m.name} <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-medium capitalize text-primary">{m.relation}</span></p>
+                <p className="text-body-md font-semibold text-on-surface">
+                  {m.name}{" "}
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-medium capitalize text-primary">
+                    {m.relation}
+                  </span>
+                </p>
                 <p className="text-label-sm text-on-surface-variant">General · All houses {m.phone ? `· ${m.phone}` : ""}</p>
               </div>
             </div>
-            <button type="button" onClick={() => { if (window.confirm(`Remove ${m.name}?`)) removeMut.mutate(m.id); }} className="rounded-full border border-outline-variant px-3 py-1 text-label-sm hover:border-error hover:text-error">Remove</button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setErr("");
+                  setEditingMember(m);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-outline-variant px-3 py-1 text-label-sm text-primary hover:bg-primary/10 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[14px]">edit</span>
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setErr("");
+                  setDeletingMember(m);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-outline-variant px-3 py-1 text-label-sm text-error hover:border-error hover:bg-error-container cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[14px]">delete</span>
+                Remove
+              </button>
+            </div>
           </div>
         ))}
       </section>
+
+      <EditFamilyMemberModal
+        member={editingMember}
+        open={Boolean(editingMember)}
+        onClose={() => setEditingMember(null)}
+        onSave={(data) => updateMut.mutate(data)}
+        isSaving={updateMut.isPending}
+        error={err}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletingMember)}
+        title={`Remove ${deletingMember?.name}?`}
+        message="Are you sure you want to remove this family member from your household?"
+        confirmLabel="Remove Member"
+        danger
+        busy={removeMut.isPending}
+        error={err}
+        onConfirm={() => removeMut.mutate(deletingMember?.id)}
+        onClose={() => setDeletingMember(null)}
+      />
     </div>
   );
 }

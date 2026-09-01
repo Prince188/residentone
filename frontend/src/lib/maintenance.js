@@ -16,6 +16,8 @@ export const exportMaintenanceExcel = (cycleId) =>
 export const getUnitHistory = (unitId) =>
   api.get(`/maintenance/units/${unitId}/history`);
 export const createCycle = (payload) => api.post("/maintenance/cycles", payload);
+export const updateCycle = (cycleId, payload) => api.patch(`/maintenance/cycles/${cycleId}`, payload);
+export const deleteCycle = (cycleId) => api.delete(`/maintenance/cycles/${cycleId}`);
 export const recordPayment = (cycleId, unitId, payload) =>
   api.post(`/maintenance/cycles/${cycleId}/units/${unitId}/pay`, payload);
 export const removePayment = (cycleId, unitId) =>

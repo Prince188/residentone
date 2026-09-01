@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
-import { getCycles, getCycleUnits, exportMaintenanceExcel, extractApiError, formatAmount, formatDate, periodLabel, STATUS_UI } from "../../lib/maintenance";
+import { getCycles, getCycleUnits, updateCycle, deleteCycle, exportMaintenanceExcel, extractApiError, formatAmount, formatDate, periodLabel, STATUS_UI } from "../../lib/maintenance";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 function HouseCard({ unit, cycle }) {
   const status = STATUS_UI[unit.status] || STATUS_UI.pending;
@@ -45,8 +46,112 @@ function HouseCard({ unit, cycle }) {
   );
 }
 
+function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, error }) {
+  const [dueDate, setDueDate] = useState(
+    cycle?.dueDate ? new Date(cycle.dueDate).toISOString().slice(0, 10) : ""
+  );
+  const [ownerAmount, setOwnerAmount] = useState(cycle?.ownerAmount || cycle?.amount || 0);
+  const [renterAmount, setRenterAmount] = useState(cycle?.renterAmount || cycle?.amount || 0);
+
+  useEffect(() => {
+    if (cycle) {
+      setDueDate(cycle.dueDate ? new Date(cycle.dueDate).toISOString().slice(0, 10) : "");
+      setOwnerAmount(cycle.ownerAmount || cycle.amount || 0);
+      setRenterAmount(cycle.renterAmount || cycle.amount || 0);
+    }
+  }, [cycle, open]);
+
+  if (!open || !cycle) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const payload = { dueDate };
+    if (!hasPayments) {
+      payload.ownerAmount = Number(ownerAmount);
+      payload.renterAmount = Number(renterAmount);
+      payload.amount = Number(ownerAmount);
+    }
+    onSave(payload);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={isSaving ? undefined : onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-title-md font-bold text-on-surface">Edit Maintenance Cycle</h3>
+          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Due Date *</label>
+            <input
+              type="date"
+              required
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-label-sm font-semibold text-on-surface mb-1 block">Owner Amount (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={ownerAmount}
+                onChange={(e) => setOwnerAmount(e.target.value)}
+                disabled={hasPayments}
+                className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
+              />
+            </div>
+            <div>
+              <label className="text-label-sm font-semibold text-on-surface mb-1 block">Renter Amount (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={renterAmount}
+                onChange={(e) => setRenterAmount(e.target.value)}
+                disabled={hasPayments}
+                className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
+              />
+            </div>
+          </div>
+
+          {hasPayments && (
+            <p className="text-[12px] text-outline bg-surface-container-low p-2.5 rounded-lg">
+              ℹ️ Billing amounts are locked because payments have already been collected for this cycle. You can still adjust the due date.
+            </p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !dueDate}
+              className="rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function MaintenanceCycleDetailPage() {
   const { cycleId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
@@ -54,6 +159,9 @@ export default function MaintenanceCycleDetailPage() {
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
   const [exportErr, setExportErr] = useState("");
+  const [editingCycle, setEditingCycle] = useState(false);
+  const [deletingCycle, setDeletingCycle] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
@@ -87,6 +195,29 @@ export default function MaintenanceCycleDetailPage() {
     return base;
   }, [units]);
 
+  const hasPayments = (counts.paid + counts.late_paid) > 0;
+
+  const updateMutation = useMutation({
+    mutationFn: (payload) => updateCycle(cycleId, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      setEditingCycle(false);
+      setActionError("");
+      queryClient.invalidateQueries({ queryKey: ["maintenance", "cycles"] });
+      queryClient.invalidateQueries({ queryKey: ["maintenance", "cycle-units", cycleId] });
+    },
+    onError: (err) => setActionError(extractApiError(err, "Failed to update cycle")),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCycle(cycleId).then((r) => r.data.data),
+    onSuccess: () => {
+      setDeletingCycle(false);
+      queryClient.invalidateQueries({ queryKey: ["maintenance", "cycles"] });
+      navigate("/dues/history");
+    },
+    onError: (err) => setActionError(extractApiError(err, "Failed to delete cycle")),
+  });
+
   const filtered = useMemo(() => {
     let list = units;
     if (filter !== "all") list = list.filter((u) => u.status === filter);
@@ -98,35 +229,38 @@ export default function MaintenanceCycleDetailPage() {
   }, [units, search, filter]);
 
   const handleExport = async () => {
+    if (!cycle) return;
     try {
       setExporting(true);
-      setExportErr("");
       setExportMsg("");
+      setExportErr("");
       const res = await exportMaintenanceExcel(cycle.id);
       const disposition = res.headers["content-disposition"] || res.headers["Content-Disposition"];
-      let filename = `${periodLabel(cycle.month, cycle.year, cycle.durationMonths)}.xlsx`;
+      let filename = `Maintenance_${period.replace(/\s+/g, "_")}.xlsx`;
       if (disposition) {
-        const match = disposition.match(/filename="?([^"]+)"?/);
-        if (match && match[1]) filename = match[1];
+        const m = disposition.match(/filename="?([^"]+)"?/);
+        if (m && m[1]) filename = m[1];
       }
-      const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const blob = new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       window.URL.revokeObjectURL(url);
-      setExportMsg("Excel downloaded successfully");
+      setExportMsg(`Downloaded ${filename}`);
       setTimeout(() => setExportMsg(""), 3000);
     } catch (e) {
-      const msg = extractApiError(e, "Failed to download Excel");
+      const msg = extractApiError(e, "Export failed");
       if (e?.response?.data instanceof Blob) {
         try {
           const text = await e.response.data.text();
-          const json = JSON.parse(text);
-          setExportErr(json?.error?.message || json?.message || msg);
+          const j = JSON.parse(text);
+          setExportErr(j?.error?.message || msg);
         } catch {
           setExportErr(msg);
         }
@@ -179,17 +313,45 @@ export default function MaintenanceCycleDetailPage() {
           </p>
           <p className="mt-1 text-label-sm text-outline">{units.length} houses · {counts.paid + counts.late_paid} paid · {cycle.durationMonths > 1 ? `${cycle.durationMonths} months` : "1 month"}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={exporting || unitsQuery.isLoading}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-        >
-          <span className="material-symbols-outlined text-[18px]">{exporting ? "hourglass_top" : "download"}</span>
-          {exporting ? "Exporting..." : "Download Excel"}
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setActionError("");
+              setEditingCycle(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit</span>
+            Edit Cycle
+          </button>
+          {!hasPayments && (
+            <button
+              type="button"
+              onClick={() => {
+                setActionError("");
+                setDeletingCycle(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-error hover:bg-error-container transition-colors cursor-pointer shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">delete</span>
+              Delete
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting || unitsQuery.isLoading}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">{exporting ? "hourglass_top" : "download"}</span>
+            {exporting ? "Exporting..." : "Download Excel"}
+          </button>
+        </div>
       </section>
 
+      {actionError && <p className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">{actionError}</p>}
       {exportMsg && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-body-sm text-emerald-800">{exportMsg}</div>}
       {exportErr && <div className="rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">{exportErr}</div>}
 
@@ -198,61 +360,113 @@ export default function MaintenanceCycleDetailPage() {
           <div className="hidden sm:flex flex-wrap gap-2">
             {filterOptions.map((opt) => {
               const isActive = filter === opt.key;
-              const activeClass = opt.key === "all" ? "border-primary bg-primary text-on-primary" : STATUS_UI[opt.key]?.chip || "bg-zinc-100";
-              const inactiveClass = "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline";
               return (
                 <button
                   key={opt.key}
                   type="button"
                   onClick={() => setFilter(opt.key)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${isActive ? activeClass : inactiveClass}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-md font-semibold transition-colors cursor-pointer ${
+                    isActive
+                      ? "bg-primary text-on-primary"
+                      : "border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-high"
+                  }`}
                 >
-                  {opt.key !== "all" && STATUS_UI[opt.key] && <span className="material-symbols-outlined text-[15px]">{STATUS_UI[opt.key].icon}</span>}
-                  {opt.label}
-                  <span className="rounded-full bg-black/10 px-1.5 text-label-sm">{opt.count}</span>
+                  <span>{opt.label}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-label-sm ${
+                      isActive ? "bg-white/20 text-white" : "bg-surface-container-high text-on-surface-variant"
+                    }`}
+                  >
+                    {opt.count}
+                  </span>
                 </button>
               );
             })}
           </div>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm sm:hidden min-w-[110px]"
-          >
-            {filterOptions.map((opt) => (
-              <option key={opt.key} value={opt.key}>
-                {opt.label} ({opt.count})
-              </option>
-            ))}
-          </select>
+          <div className="sm:hidden w-full">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm"
+            >
+              {filterOptions.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label} ({opt.count})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="relative w-full sm:w-72 sm:shrink-0">
-          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">search</span>
+
+        <div className="relative w-full sm:w-64">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
+            search
+          </span>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search house no. or owner..."
-            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="Search house or owner..."
+            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-3 text-body-sm focus:border-primary focus:outline-none"
           />
         </div>
       </div>
 
-      {unitsQuery.isLoading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 10 }).map((_, i) => (
+      {unitsQuery.isLoading && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-36 animate-pulse rounded-xl bg-surface-container-high" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center text-body-md text-on-surface-variant">No houses match your search or filter.</div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {filtered.map((unit) => (
-            <HouseCard key={unit.unitId} unit={unit} cycle={cycle} />
+      )}
+
+      {unitsQuery.isError && (
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
+          {extractApiError(unitsQuery.error, "Failed to load houses.")}
+        </div>
+      )}
+
+      {unitsQuery.isSuccess && filtered.length === 0 && (
+        <div className="rounded-xl border border-dashed border-outline-variant p-10 text-center text-body-md text-on-surface-variant">
+          No houses match the selected filters.
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {filtered.map((u) => (
+            <HouseCard key={u.unitId} unit={u} cycle={cycle} />
           ))}
         </div>
       )}
+
+      <EditCycleModal
+        cycle={cycle}
+        open={editingCycle}
+        hasPayments={hasPayments}
+        onClose={() => {
+          setEditingCycle(false);
+          setActionError("");
+        }}
+        onSave={(data) => updateMutation.mutate(data)}
+        isSaving={updateMutation.isPending}
+        error={actionError}
+      />
+
+      <ConfirmDialog
+        open={deletingCycle}
+        title={`Delete Maintenance Cycle ${period}?`}
+        message="Are you sure you want to delete this billing cycle? It will be removed since no payments have been recorded."
+        confirmLabel="Delete Cycle"
+        danger
+        busy={deleteMutation.isPending}
+        error={actionError}
+        onConfirm={() => deleteMutation.mutate()}
+        onClose={() => {
+          setDeletingCycle(false);
+          setActionError("");
+        }}
+      />
     </div>
   );
 }

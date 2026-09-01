@@ -10,6 +10,24 @@ class ChatController {
     }
   }
 
+  async updateGroup(req, res, next) {
+    try {
+      const group = await chatService.updateGroup(req.societyId, req.params.groupId, req.userId, req.body);
+      res.json({ success: true, data: group });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteGroup(req, res, next) {
+    try {
+      const result = await chatService.deleteGroup(req.societyId, req.params.groupId, req.userId);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async listGroups(req, res, next) {
     try {
       const groups = await chatService.listGroups(req.societyId, req.userId);

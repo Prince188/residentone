@@ -12,6 +12,7 @@ export const COLLECTION_CATEGORIES = [
 export const getCollections = () => api.get("/collections");
 export const getCollection = (id) => api.get(`/collections/${id}`);
 export const createCollection = (payload) => api.post("/collections", payload);
+export const updateCollection = (id, payload) => api.patch(`/collections/${id}`, payload);
 export const closeCollection = (id) => api.post(`/collections/${id}/close`);
 export const deleteCollection = (id) => api.delete(`/collections/${id}`);
 export const getCollectionUnits = (id) => api.get(`/collections/${id}/units`);

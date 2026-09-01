@@ -56,9 +56,18 @@ const inviteLinkSchema = z.object({
 
 const inviteSubmitSchema = assignOwnerSchema;
 
+const updateUnitSchema = z.object({
+  label: z.string().trim().min(1, "House number is required").max(30).optional(),
+  block: z.string().trim().max(30).optional().nullable(),
+  floor: z.coerce.number().int().min(-5).max(200).optional().nullable(),
+  doorNo: z.string().trim().max(20).optional().nullable(),
+  propertyType: z.enum(["flat", "row_house", "villa", "plot", "shop", "office", "penthouse", "studio"]).optional(),
+});
+
 module.exports = {
   checkOwnerSchema,
   assignOwnerSchema,
   inviteLinkSchema,
   inviteSubmitSchema,
+  updateUnitSchema,
 };

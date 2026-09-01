@@ -15,6 +15,7 @@ router.post("/:id/submit", validate(submitSurveySchema), (req, res, next) => sur
 
 router.post("/", requirePermission("create_survey"), validate(createSurveySchema), (req, res, next) => surveyController.create(req, res, next));
 router.post("/:id/close", requirePermission("create_survey"), (req, res, next) => surveyController.close(req, res, next));
+router.patch("/:id", requirePermission("create_survey"), (req, res, next) => surveyController.update(req, res, next));
 router.delete("/:id", requirePermission("create_survey"), (req, res, next) => surveyController.remove(req, res, next));
 
 module.exports = router;

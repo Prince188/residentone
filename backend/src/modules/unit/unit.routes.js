@@ -8,6 +8,7 @@ const {
   assignOwnerSchema,
   inviteLinkSchema,
   inviteSubmitSchema,
+  updateUnitSchema,
 } = require("./unit.validation");
 const { requirePermission } = require("../../middlewares/permission.middleware");
 
@@ -52,6 +53,17 @@ router.post(
   "/:unitId/invite-link",
   validate(inviteLinkSchema),
   (req, res, next) => unitController.createInviteLink(req, res, next)
+);
+router.patch(
+  "/:unitId",
+  requirePermission("manage_houses"),
+  validate(updateUnitSchema),
+  (req, res, next) => unitController.update(req, res, next)
+);
+router.delete(
+  "/:unitId",
+  requirePermission("manage_houses"),
+  (req, res, next) => unitController.remove(req, res, next)
 );
 
 module.exports = router;

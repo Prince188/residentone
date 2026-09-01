@@ -258,6 +258,24 @@ class MaintenanceController {
       next(error);
     }
   }
+
+  async updateCycle(req, res, next) {
+    try {
+      const cycle = await maintenanceService.updateCycle(req.societyId, req.params.cycleId, req.body);
+      res.json({ success: true, data: cycle });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteCycle(req, res, next) {
+    try {
+      const result = await maintenanceService.deleteCycle(req.societyId, req.params.cycleId);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new MaintenanceController();

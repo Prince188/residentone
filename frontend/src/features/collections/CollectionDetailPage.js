@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
-import { getCollection, getCollectionUnits, getCollectionUnitDetail, exportCollectionExcel, extractApiError, formatAmount, formatDate, CATEGORY_UI, STATUS_UI } from "../../lib/collections";
+import { getCollection, getCollectionUnits, getCollectionUnitDetail, updateCollection, exportCollectionExcel, extractApiError, formatAmount, formatDate, CATEGORY_UI, STATUS_UI, COLLECTION_CATEGORIES } from "../../lib/collections";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
 
@@ -26,8 +26,141 @@ function UnitCard({ unit, collectionId }) {
   );
 }
 
+function EditCollectionModal({ collection, open, onClose, onSave, isSaving, hasPayments, error }) {
+  const [title, setTitle] = useState(collection?.title || "");
+  const [category, setCategory] = useState(collection?.category || "festival");
+  const [description, setDescription] = useState(collection?.description || "");
+  const [amount, setAmount] = useState(collection?.amount || 0);
+  const [dueDate, setDueDate] = useState(
+    collection?.dueDate ? new Date(collection.dueDate).toISOString().slice(0, 10) : ""
+  );
+
+  useEffect(() => {
+    if (collection) {
+      setTitle(collection.title || "");
+      setCategory(collection.category || "festival");
+      setDescription(collection.description || "");
+      setAmount(collection.amount || 0);
+      setDueDate(collection.dueDate ? new Date(collection.dueDate).toISOString().slice(0, 10) : "");
+    }
+  }, [collection, open]);
+
+  if (!open || !collection) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    const payload = {
+      title: title.trim(),
+      category,
+      description: description.trim(),
+      dueDate,
+    };
+    if (!hasPayments) {
+      payload.amount = Number(amount);
+    }
+    onSave(payload);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={isSaving ? undefined : onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-title-md font-bold text-on-surface">Edit Collection Fund</h3>
+          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Title *</label>
+            <input
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-label-sm font-semibold text-on-surface mb-1 block">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+              >
+                {COLLECTION_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-label-sm font-semibold text-on-surface mb-1 block">Due Date *</label>
+              <input
+                type="date"
+                required
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Amount Per House (₹) *</label>
+            <input
+              type="number"
+              min="0"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              disabled={hasPayments}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
+            />
+          </div>
+
+          {hasPayments && (
+            <p className="text-[12px] text-outline bg-surface-container-low p-2.5 rounded-lg">
+              ℹ️ Amount is locked because payments have already been recorded. You can still adjust the title, description, and due date.
+            </p>
+          )}
+
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Description (optional)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3">
+            <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !title.trim() || !dueDate}
+              className="rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function CollectionDetailPage() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
@@ -35,6 +168,8 @@ export default function CollectionDetailPage() {
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
   const [exportErr, setExportErr] = useState("");
+  const [editingCollection, setEditingCollection] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
@@ -60,7 +195,6 @@ export default function CollectionDetailPage() {
   const myQuery = useQuery({
     queryKey: ["collection-my", id, myUnits.map(u=>u.id||u).join(",")],
     queryFn: async () => {
-      // For residents, fetch each unit detail individually? Simpler: fetch admin units if admin else fetch my unit details via loop
       if (isAdmin) return null;
       const results = [];
       for (const uid of myUnits) {
@@ -83,6 +217,19 @@ export default function CollectionDetailPage() {
     (units || []).forEach((u) => { if (base[u.status] !== undefined) base[u.status] += 1; });
     return base;
   }, [units]);
+
+  const hasPayments = (counts.paid + counts.late_paid) > 0;
+
+  const updateMutation = useMutation({
+    mutationFn: (payload) => updateCollection(id, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      setEditingCollection(false);
+      setActionError("");
+      queryClient.invalidateQueries({ queryKey: ["collection", id] });
+      queryClient.invalidateQueries({ queryKey: ["collections"] });
+    },
+    onError: (err) => setActionError(extractApiError(err, "Failed to update collection fund")),
+  });
 
   const filtered = useMemo(() => {
     let list = units;
@@ -119,7 +266,6 @@ export default function CollectionDetailPage() {
       setTimeout(() => setExportMsg(""), 3000);
     } catch (e) {
       const msg = extractApiError(e, "Failed to download Excel");
-      // Blob error responses need special handling
       if (e?.response?.data instanceof Blob) {
         try {
           const text = await e.response.data.text();
@@ -163,25 +309,39 @@ export default function CollectionDetailPage() {
           {collection.description && <p className="mt-1 text-body-sm text-on-surface-variant">{collection.description}</p>}
           <p className="mt-1 text-label-sm text-outline">by {collection.createdByName} · {collection.status}</p>
         </div>
-        {(isAdmin || canExport) && (
-          <div className="flex flex-col items-end gap-2">
-            {isAdmin && <span className="text-label-sm text-outline">{units.length} houses · {counts.paid + counts.late_paid} paid</span>}
+        <div className="flex flex-col items-end gap-2">
+          {isAdmin && <span className="text-label-sm text-outline">{units.length} houses · {counts.paid + counts.late_paid} paid</span>}
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError("");
+                  setEditingCollection(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span>
+                Edit Fund
+              </button>
+            )}
             {canExport && (
               <button
                 type="button"
                 onClick={handleExport}
                 disabled={exporting || unitsQuery.isLoading}
-                className="inline-flex items-center gap-2 rounded-full border border-primary bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Download Excel sheet (only for permitted roles)"
+                className="inline-flex items-center gap-2 rounded-full border border-primary bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+                title="Download Excel sheet"
               >
                 <span className="material-symbols-outlined text-[18px]">{exporting ? "hourglass_top" : "download"}</span>
                 {exporting ? "Exporting..." : "Download Excel"}
               </button>
             )}
           </div>
-        )}
+        </div>
       </section>
 
+      {actionError && <p className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">{actionError}</p>}
       {exportMsg && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-body-sm text-emerald-800">{exportMsg}</div>}
       {exportErr && <div className="rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">{exportErr}</div>}
 
@@ -189,7 +349,7 @@ export default function CollectionDetailPage() {
         <>
           <div className="flex flex-wrap items-center gap-2">
             {["all", "pending", "overdue", "paid", "late_paid"].map((k) => (
-              <button key={k} type="button" onClick={() => setFilter(k)} className={`rounded-full border px-3 py-1.5 text-label-sm ${filter === k ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest"}`}>
+              <button key={k} type="button" onClick={() => setFilter(k)} className={`rounded-full border px-3 py-1.5 text-label-sm cursor-pointer ${filter === k ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest"}`}>
                 {k === "all" ? "All" : STATUS_UI[k]?.label || k} {k !== "all" && `(${counts[k] || 0})`}
                 {k === "all" && ` (${units.length})`}
               </button>
@@ -200,39 +360,37 @@ export default function CollectionDetailPage() {
             </div>
           </div>
 
-          {unitsQuery.isLoading ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-surface-container-high" />)}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-10 text-center text-on-surface-variant">No houses match</div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              {filtered.map((u) => <UnitCard key={u.unitId} unit={u} collectionId={id} />)}
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {filtered.map((u) => (
+              <UnitCard key={u.unitId} unit={u} collectionId={id} />
+            ))}
+          </div>
+          {filtered.length === 0 && <div className="rounded-xl border border-dashed border-outline-variant p-8 text-center text-body-sm text-on-surface-variant">No houses found</div>}
         </>
       ) : (
-        <>
-          {myQuery.isLoading ? (
-            <div className="h-32 animate-pulse rounded-xl bg-surface-container-high" />
-          ) : units.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-10 text-center text-on-surface-variant">No house assigned to you</div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {units.map((u) => (
-                <Link key={u.unitId} to={`/collections/${id}/units/${u.unitId}`} className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline ${STATUS_UI[u.status]?.card || "border-outline-variant"}`}>
-                  <span className={`absolute inset-y-0 left-0 w-1.5 ${STATUS_UI[u.status]?.stripe || "bg-outline-variant"}`} />
-                  <p className="text-body-md font-semibold">House {u.label}</p>
-                  <p className="text-label-sm text-on-surface-variant">{formatAmount(u.amount)} · Due {formatDate(collection.dueDate)}</p>
-                  <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-label-sm font-semibold ${STATUS_UI[u.status]?.pill}`}>{STATUS_UI[u.status]?.label}</span>
-                  <span className="mt-2 block text-label-md text-primary">Pay / View →</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </>
+        <div className="space-y-3">
+          <h3 className="text-title-md font-semibold">Your Houses</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {units.map((u) => (
+              <UnitCard key={u.unitId} unit={u} collectionId={id} />
+            ))}
+          </div>
+          {units.length === 0 && <div className="rounded-xl border border-dashed border-outline-variant p-8 text-center text-body-sm text-on-surface-variant">No assigned houses found</div>}
+        </div>
       )}
+
+      <EditCollectionModal
+        collection={collection}
+        open={editingCollection}
+        hasPayments={hasPayments}
+        onClose={() => {
+          setEditingCollection(false);
+          setActionError("");
+        }}
+        onSave={(data) => updateMutation.mutate(data)}
+        isSaving={updateMutation.isPending}
+        error={actionError}
+      />
     </div>
   );
 }

@@ -19,8 +19,10 @@ router.post("/groups/:groupId/messages/:messageId/react", validate(reactionSchem
 router.post("/groups/:groupId/pin", validate(pinSchema), requirePermission("manage_amenities"), (req, res, next) => chatController.pinGroupMessage(req, res, next));
 router.get("/groups/:groupId/pinned", (req, res, next) => chatController.getPinned(req, res, next));
 
-// Create group - permission-based: manage_amenities (chat admin via Manage Permissions)
+// Create / update / delete group - permission-based: manage_amenities (chat admin via Manage Permissions)
 router.post("/groups", requirePermission("manage_amenities"), validate(createGroupSchema), (req, res, next) => chatController.createGroup(req, res, next));
+router.patch("/groups/:groupId", requirePermission("manage_amenities"), (req, res, next) => chatController.updateGroup(req, res, next));
+router.delete("/groups/:groupId", requirePermission("manage_amenities"), (req, res, next) => chatController.deleteGroup(req, res, next));
 router.post("/groups/:groupId/members", requirePermission("manage_amenities"), (req, res, next) => chatController.addMembers(req, res, next));
 router.post("/groups/:groupId/members/remove", requirePermission("manage_amenities"), (req, res, next) => chatController.removeMembers(req, res, next));
 router.get("/groups/:groupId/info", (req, res, next) => chatController.getGroupInfo(req, res, next));

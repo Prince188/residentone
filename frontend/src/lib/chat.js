@@ -2,6 +2,8 @@ import api from "./api";
 
 export const getGroups = () => api.get("/chat/groups");
 export const createGroup = (payload) => api.post("/chat/groups", payload);
+export const updateGroup = (groupId, payload) => api.patch(`/chat/groups/${groupId}`, payload);
+export const deleteGroup = (groupId) => api.delete(`/chat/groups/${groupId}`);
 export const getGroupMessages = (groupId) => api.get(`/chat/groups/${groupId}/messages`);
 export const sendGroupMessage = (groupId, text, replyTo) => api.post(`/chat/groups/${groupId}/messages`, { text, replyTo });
 export const getGroupInfo = (groupId) => api.get(`/chat/groups/${groupId}/info`);

@@ -4,6 +4,7 @@ export const getPolls = () => api.get("/polls");
 export const getPoll = (id) => api.get(`/polls/${id}`);
 export const createPoll = (payload) => api.post("/polls", payload);
 export const votePoll = (id, selectedOptionIndex) => api.post(`/polls/${id}/vote`, { selectedOptionIndex });
+export const updatePoll = (id, payload) => api.patch(`/polls/${id}`, payload);
 export const closePoll = (id) => api.post(`/polls/${id}/close`);
 export const deletePoll = (id) => api.delete(`/polls/${id}`);
 

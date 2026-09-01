@@ -304,6 +304,37 @@ class PollService {
       isExpired: poll.endDate ? new Date() > new Date(poll.endDate) : false,
     };
   }
+
+  async update(societyId, pollId, data) {
+    const poll = await Poll.findOne({ _id: pollId, societyId, isActive: true });
+    if (!poll) throw new AppError("Poll not found", 404);
+
+    const votesCount = await PollVote.countDocuments({ pollId, societyId, isActive: true });
+
+    if (data.options !== undefined || data.question !== undefined) {
+      if (votesCount > 0) {
+        throw new AppError(
+          "Cannot modify poll question or options after votes have been submitted. You can still adjust the deadline.",
+          400
+        );
+      }
+      if (data.question !== undefined) poll.question = data.question.trim();
+      if (data.options !== undefined) {
+        poll.options = data.options.map((text) => ({ text: text.trim(), votes: 0 }));
+      }
+    }
+
+    if (data.endDate !== undefined) {
+      poll.endDate = data.endDate ? new Date(data.endDate) : null;
+    }
+
+    await poll.save();
+    try {
+      const s = require("../../socket");
+      if (s.emitToSociety) s.emitToSociety(String(societyId), "poll:change", { action: "update", id: poll._id });
+    } catch (_) {}
+    return poll;
+  }
 }
 
 module.exports = new PollService();

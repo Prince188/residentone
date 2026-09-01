@@ -478,6 +478,48 @@ class UnitService {
         : `Welcome back ${user.name}! House ${unit.label} is now linked to your existing account.`,
     };
   }
+
+  async updateUnit(societyId, unitId, data) {
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true });
+    if (!unit) throw new AppError("Unit not found", 404);
+
+    if (data.label !== undefined) unit.label = data.label.trim();
+    if (data.doorNo !== undefined) unit.doorNo = data.doorNo ? data.doorNo.trim() : null;
+    if (data.block !== undefined) unit.block = data.block ? data.block.trim() : null;
+    if (data.floor !== undefined) unit.floor = data.floor;
+    if (data.propertyType !== undefined) unit.propertyType = data.propertyType;
+
+    await unit.save();
+
+    try {
+      const s = require("../../socket");
+      if (s.emitToSociety) s.emitToSociety(String(societyId), "unit:change", { action: "update", id: unit._id });
+    } catch (_) {}
+
+    return this.getUnitDetail(societyId, unit._id);
+  }
+
+  async deleteUnit(societyId, unitId) {
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true });
+    if (!unit) throw new AppError("Unit not found", 404);
+
+    await Membership.updateMany(
+      { societyId, units: unit._id },
+      { $pull: { units: unit._id } }
+    );
+
+    const { FamilyMember } = require("../family-member/family-member.model");
+    await FamilyMember.updateMany({ societyId, unitId: unit._id }, { $set: { unitId: null } });
+
+    await Unit.findByIdAndDelete(unit._id);
+
+    try {
+      const s = require("../../socket");
+      if (s.emitToSociety) s.emitToSociety(String(societyId), "unit:change", { action: "delete", id: unit._id });
+    } catch (_) {}
+
+    return { id: unit._id, deleted: true };
+  }
 }
 
 module.exports = new UnitService();

@@ -32,12 +32,21 @@ router.get(
   (req, res, next) => maintenanceController.exportExcel(req, res, next)
 );
 
-// Permission-based: manage_maintenance (granted via Manage Permissions)
 router.post(
   "/cycles",
   requirePermission("manage_maintenance"),
   validate(createCycleSchema),
   (req, res, next) => maintenanceController.createCycle(req, res, next)
+);
+router.patch(
+  "/cycles/:cycleId",
+  requirePermission("manage_maintenance"),
+  (req, res, next) => maintenanceController.updateCycle(req, res, next)
+);
+router.delete(
+  "/cycles/:cycleId",
+  requirePermission("manage_maintenance"),
+  (req, res, next) => maintenanceController.deleteCycle(req, res, next)
 );
 router.get(
   "/cycles/:cycleId/units",

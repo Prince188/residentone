@@ -499,6 +499,36 @@ class CollectionService {
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
+
+  async update(societyId, collectionId, data) {
+    const col = await Collection.findOne({ _id: collectionId, societyId, isActive: true });
+    if (!col) throw new AppError("Collection fund not found", 404);
+
+    const paymentsCount = await CollectionPayment.countDocuments({ collectionId, societyId, isActive: true, gatewayStatus: { $ne: "created" } });
+
+    if (data.amount !== undefined && Number(data.amount) !== Number(col.amount)) {
+      if (paymentsCount > 0) {
+        throw new AppError(
+          "Cannot modify collection target amount because payments have already been collected. You can still update the due date, title, and description.",
+          400
+        );
+      }
+      col.amount = Number(data.amount);
+    }
+
+    if (data.title !== undefined) col.title = data.title.trim();
+    if (data.description !== undefined) col.description = (data.description || "").trim();
+    if (data.category !== undefined) col.category = data.category;
+    if (data.dueDate !== undefined) col.dueDate = new Date(data.dueDate);
+    if (data.status !== undefined) col.status = data.status;
+
+    await col.save();
+    try {
+      const socketHelper = require("../../socket");
+      socketHelper.emitToSociety(String(societyId), "collection:change", { id: col._id, action: "update" });
+    } catch (_) {}
+    return this.mapCollection(col);
+  }
 }
 
 module.exports = new CollectionService();

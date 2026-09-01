@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import useAuthStore from "../../stores/auth.store";
-import { getGroups, createGroup, getGroupMessages, sendGroupMessage, getGroupInfo, addGroupMembers, removeGroupMembers, leaveGroup, deleteGroupMessage, reactGroupMessage, pinGroupMessage, getPinnedMessage, getAdmins, getDirectChats, getDirectMessages, sendDirectMessage, deleteDirectMessage, reactDirectMessage, extractApiError } from "../../lib/chat";
+import { getGroups, createGroup, updateGroup, deleteGroup, getGroupMessages, sendGroupMessage, getGroupInfo, addGroupMembers, removeGroupMembers, leaveGroup, deleteGroupMessage, reactGroupMessage, pinGroupMessage, getPinnedMessage, getAdmins, getDirectChats, getDirectMessages, sendDirectMessage, deleteDirectMessage, reactDirectMessage, extractApiError } from "../../lib/chat";
 import { getSocietyDirectory } from "../../lib/directory";
 import api, { getAccessToken, getSocketUrl } from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
@@ -565,6 +565,9 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
   const wrapperRef = useRef(null);
 
   const infoQuery = useQuery({
@@ -583,6 +586,13 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
   const info = infoQuery.data;
 
   useEffect(() => {
+    if (info) {
+      setEditName(info.name || "");
+      setEditDesc(info.description || "");
+    }
+  }, [info]);
+
+  useEffect(() => {
     const h = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDropdown(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
@@ -597,6 +607,23 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
     mutationFn: (ids) => removeGroupMembers(groupId, ids).then((r) => r.data.data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["chat-group-info", groupId] }); queryClient.invalidateQueries({ queryKey: ["chat-groups"] }); },
     onError: (e) => setError(extractApiError(e, "Failed to remove")),
+  });
+  const updateMut = useMutation({
+    mutationFn: (payload) => updateGroup(groupId, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["chat-group-info", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["chat-groups"] });
+    },
+    onError: (e) => setError(extractApiError(e, "Failed to update group")),
+  });
+  const deleteMut = useMutation({
+    mutationFn: () => deleteGroup(groupId).then((r) => r.data.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat-groups"] });
+      onLeft();
+    },
+    onError: (e) => setError(extractApiError(e, "Failed to delete group")),
   });
   const leaveMut = useMutation({
     mutationFn: () => leaveGroup(groupId).then((r) => r.data.data),
@@ -625,11 +652,61 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
         <div className="bg-primary px-5 py-4 text-on-primary">
           <div className="flex items-center justify-between">
             <h3 className="text-title-md font-semibold">Group Info</h3>
-            <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/10"><span className="material-symbols-outlined">close</span></button>
+            <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/10 cursor-pointer"><span className="material-symbols-outlined">close</span></button>
           </div>
-          <p className="mt-1 text-label-md text-on-primary/80">{info?.name} · {info?.members?.length || 0} members</p>
-          {info?.description && <p className="mt-1 text-body-sm text-on-primary/90">{info.description}</p>}
-          <p className="mt-2 text-label-sm text-on-primary/70">Created by {info?.createdByName} · {info?.createdAt ? new Date(info.createdAt).toLocaleDateString("en-IN") : ""}</p>
+          {!isEditing ? (
+            <>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-label-md font-bold text-on-primary">{info?.name} · {info?.members?.length || 0} members</p>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setEditName(info?.name || "");
+                      setEditDesc(info?.description || "");
+                      setIsEditing(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[12px] font-semibold text-white hover:bg-white/30 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">edit</span> Edit
+                  </button>
+                )}
+              </div>
+              {info?.description && <p className="mt-1 text-body-sm text-on-primary/90">{info.description}</p>}
+              <p className="mt-2 text-label-sm text-on-primary/70">Created by {info?.createdByName} · {info?.createdAt ? new Date(info.createdAt).toLocaleDateString("en-IN") : ""}</p>
+            </>
+          ) : (
+            <div className="mt-2 space-y-2 text-on-surface">
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Group Name"
+                className="w-full rounded-lg bg-white px-3 py-1.5 text-body-sm text-black focus:outline-none"
+              />
+              <input
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="Description"
+                className="w-full rounded-lg bg-white px-3 py-1.5 text-body-sm text-black focus:outline-none"
+              />
+              <div className="flex gap-2 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="rounded-lg bg-white/20 px-3 py-1 text-label-sm text-white hover:bg-white/30 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateMut.mutate({ name: editName, description: editDesc })}
+                  disabled={updateMut.isPending || !editName.trim()}
+                  className="rounded-lg bg-white px-3 py-1 text-label-sm font-semibold text-primary hover:bg-white/90 disabled:opacity-50 cursor-pointer"
+                >
+                  {updateMut.isPending ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -645,7 +722,7 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
               {showDropdown && search.trim().length > 0 && (
                 <div className="absolute left-0 right-0 z-10 mt-1 max-h-40 overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-lowest shadow-lg">
                   {filtered.length === 0 ? <p className="px-3 py-2 text-label-sm text-outline">No members found</p> : filtered.map((m) => (
-                    <button key={m.id} type="button" onClick={() => addMut.mutate([m.userId])} className="flex w-full items-center gap-3 px-3 py-2 hover:bg-surface-container-high text-left">
+                    <button key={m.id} type="button" onClick={() => addMut.mutate([m.userId])} className="flex w-full items-center gap-3 px-3 py-2 hover:bg-surface-container-high text-left cursor-pointer">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-fixed text-primary text-label-md">{m.name[0]?.toUpperCase()}</span>
                       <span className="text-body-sm">{m.name} {m.house ? `· ${m.house}` : ""}</span>
                       <span className="ml-auto text-primary text-label-sm">Add</span>
@@ -667,7 +744,7 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
                     <p className="text-label-sm text-on-surface-variant">{m.phoneMasked || ""}</p>
                   </div>
                   {isAdmin && (
-                    <button onClick={() => { if (window.confirm(`Remove ${m.name} from group?`)) removeMut.mutate([m.id]); }} className="rounded-full p-2 text-error hover:bg-error/10">
+                    <button onClick={() => { if (window.confirm(`Remove ${m.name} from group?`)) removeMut.mutate([m.id]); }} className="rounded-full p-2 text-error hover:bg-error/10 cursor-pointer">
                       <span className="material-symbols-outlined text-[20px]">person_remove</span>
                     </button>
                   )}
@@ -678,10 +755,16 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
         </div>
 
         <div className="border-t border-outline-variant p-4 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-outline-variant py-2.5 text-label-md">Close</button>
-          <button onClick={() => { if (window.confirm("Leave this group?")) leaveMut.mutate(); }} className="flex-1 rounded-full bg-error py-2.5 text-label-md font-semibold text-on-error">
-            {leaveMut.isPending ? "Leaving..." : "Leave group"}
-          </button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-outline-variant py-2.5 text-label-md cursor-pointer">Close</button>
+          {isAdmin ? (
+            <button onClick={() => { if (window.confirm("Delete this group channel for everyone? This cannot be undone.")) deleteMut.mutate(); }} className="flex-1 rounded-full bg-error py-2.5 text-label-md font-semibold text-on-error cursor-pointer">
+              {deleteMut.isPending ? "Deleting..." : "Delete Group"}
+            </button>
+          ) : (
+            <button onClick={() => { if (window.confirm("Leave this group?")) leaveMut.mutate(); }} className="flex-1 rounded-full bg-error py-2.5 text-label-md font-semibold text-on-error cursor-pointer">
+              {leaveMut.isPending ? "Leaving..." : "Leave group"}
+            </button>
+          )}
         </div>
       </div>
     </div>

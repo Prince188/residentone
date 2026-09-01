@@ -24,7 +24,8 @@ router.get("/:collectionId/units/:unitId", (req, res, next) => collectionControl
 // Create collection - permission based (manage_collections) or fallback manage_maintenance for treasurer
 router.post("/", requirePermission("manage_collections"), validate(createCollectionSchema), (req, res, next) => collectionController.create(req, res, next));
 
-// Close / delete
+// Update / close / delete
+router.patch("/:id", requirePermission("manage_collections"), (req, res, next) => collectionController.update(req, res, next));
 router.post("/:id/close", requirePermission("manage_collections"), (req, res, next) => collectionController.close(req, res, next));
 router.delete("/:id", requirePermission("manage_collections"), (req, res, next) => collectionController.remove(req, res, next));
 

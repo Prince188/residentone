@@ -4,6 +4,7 @@ export const getSurveys = () => api.get("/surveys");
 export const getSurvey = (id) => api.get(`/surveys/${id}`);
 export const createSurvey = (payload) => api.post("/surveys", payload);
 export const submitSurvey = (id, answers) => api.post(`/surveys/${id}/submit`, { answers });
+export const updateSurvey = (id, payload) => api.patch(`/surveys/${id}`, payload);
 export const closeSurvey = (id) => api.post(`/surveys/${id}/close`);
 export const deleteSurvey = (id) => api.delete(`/surveys/${id}`);
 

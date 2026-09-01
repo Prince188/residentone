@@ -58,6 +58,35 @@ class ChatService {
     return group;
   }
 
+  async updateGroup(societyId, groupId, adminId, data) {
+    const isAdmin = await this.isAdmin(societyId, adminId);
+    if (!isAdmin) throw new AppError("Only society admins can edit group details", 403);
+    const group = await ChatGroup.findOne({ _id: groupId, societyId, isActive: true });
+    if (!group) throw new AppError("Group not found", 404);
+    if (data.name !== undefined) group.name = data.name.trim();
+    if (data.description !== undefined) group.description = (data.description || "").trim();
+    await group.save();
+    try {
+      const socketHelper = require("../../socket");
+      socketHelper.emitToSociety(String(societyId), "chat:change", { groupId: group._id, action: "update" });
+    } catch (_) {}
+    return group;
+  }
+
+  async deleteGroup(societyId, groupId, adminId) {
+    const isAdmin = await this.isAdmin(societyId, adminId);
+    if (!isAdmin) throw new AppError("Only society admins can delete group channels", 403);
+    const group = await ChatGroup.findOne({ _id: groupId, societyId, isActive: true });
+    if (!group) throw new AppError("Group not found", 404);
+    group.isActive = false;
+    await group.save();
+    try {
+      const socketHelper = require("../../socket");
+      socketHelper.emitToSociety(String(societyId), "chat:change", { groupId: group._id, action: "delete" });
+    } catch (_) {}
+    return { id: group._id, deleted: true };
+  }
+
   async listGroups(societyId, userId) {
     const groups = await ChatGroup.find({ societyId, members: userId, isActive: true })
       .populate("createdBy", "name")

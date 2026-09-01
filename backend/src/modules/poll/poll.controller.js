@@ -54,6 +54,16 @@ class PollController {
     }
   }
 
+  async update(req, res, next) {
+    try {
+      await pollService.update(req.societyId, req.params.id, req.body);
+      const poll = await pollService.getById(req.societyId, req.params.id, req.userId);
+      res.json({ success: true, data: poll });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async remove(req, res, next) {
     try {
       await pollService.deletePoll(req.societyId, req.params.id);

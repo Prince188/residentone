@@ -270,6 +270,35 @@ class SurveyService {
     await survey.save();
     return survey;
   }
+
+  async update(societyId, surveyId, data) {
+    const survey = await Survey.findOne({ _id: surveyId, societyId, isActive: true });
+    if (!survey) throw new AppError("Survey not found", 404);
+
+    const responsesCount = await SurveyResponse.countDocuments({ surveyId, societyId, isActive: true });
+
+    if (data.questions !== undefined) {
+      if (responsesCount > 0) {
+        throw new AppError(
+          "Cannot modify survey questions after responses have already been submitted. You can still adjust the title, description, and deadline.",
+          400
+        );
+      }
+      survey.questions = data.questions.map((q) => ({
+        text: q.text.trim(),
+        type: q.type,
+        options: q.type === "text" || q.type === "rating" ? [] : (q.options || []).map((o) => ({ text: o.trim() })),
+      }));
+    }
+
+    if (data.title !== undefined) survey.title = data.title.trim();
+    if (data.description !== undefined) survey.description = (data.description || "").trim();
+    if (data.endDate !== undefined) survey.endDate = new Date(data.endDate);
+
+    await survey.save();
+    try { const s = require("../../socket"); s.emitToSociety(String(societyId), "survey:change", { id: surveyId, action: "update" }); } catch (_) {}
+    return survey;
+  }
 }
 
 module.exports = new SurveyService();

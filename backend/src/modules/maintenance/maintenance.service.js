@@ -785,6 +785,45 @@ class MaintenanceService {
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
+
+  async updateCycle(societyId, cycleId, data) {
+    const cycle = await MaintenanceCycle.findOne({ _id: cycleId, societyId, isActive: true });
+    if (!cycle) throw new AppError("Maintenance cycle not found", 404);
+
+    const paymentsCount = await MaintenancePayment.countDocuments({ cycleId, societyId, isActive: true });
+
+    if (data.amount !== undefined || data.ownerAmount !== undefined || data.renterAmount !== undefined) {
+      if (paymentsCount > 0) {
+        throw new AppError(
+          "Cannot modify billing amounts because payments have already been collected for this cycle. You can still update the due date.",
+          400
+        );
+      }
+      if (data.amount !== undefined) cycle.amount = data.amount;
+      if (data.ownerAmount !== undefined) cycle.ownerAmount = data.ownerAmount;
+      if (data.renterAmount !== undefined) cycle.renterAmount = data.renterAmount;
+    }
+
+    if (data.dueDate !== undefined) cycle.dueDate = new Date(data.dueDate);
+    if (data.notes !== undefined) cycle.notes = data.notes;
+
+    await cycle.save();
+    return cycle;
+  }
+
+  async deleteCycle(societyId, cycleId) {
+    const cycle = await MaintenanceCycle.findOne({ _id: cycleId, societyId, isActive: true });
+    if (!cycle) throw new AppError("Maintenance cycle not found", 404);
+
+    const paymentsCount = await MaintenancePayment.countDocuments({ cycleId, societyId, isActive: true });
+    if (paymentsCount > 0) {
+      throw new AppError("Cannot delete maintenance cycle because payments have already been recorded.", 400);
+    }
+
+    cycle.isActive = false;
+    await cycle.save();
+    return { id: cycleId, deleted: true };
+  }
 }
 
 module.exports = new MaintenanceService();

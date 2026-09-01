@@ -33,6 +33,13 @@ class SurveyController {
       res.json({ success: true, data: survey });
     } catch (e) { next(e); }
   }
+  async update(req, res, next) {
+    try {
+      await surveyService.update(req.societyId, req.params.id, req.body);
+      const survey = await surveyService.getById(req.societyId, req.params.id, req.userId);
+      res.json({ success: true, data: survey });
+    } catch (e) { next(e); }
+  }
   async remove(req, res, next) {
     try {
       await surveyService.deleteSurvey(req.societyId, req.params.id);

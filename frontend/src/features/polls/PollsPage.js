@@ -3,10 +3,151 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
-import { getPolls, votePoll, closePoll, deletePoll, extractApiError, formatPollEndDate } from "../../lib/polls";
+import { getPolls, votePoll, updatePoll, closePoll, deletePoll, extractApiError, formatPollEndDate } from "../../lib/polls";
 import api from "../../lib/api";
-import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
+import { hasPermissionForMembership } from "../../lib/permissions";
 import useBadgeSeen from "../../hooks/useBadgeSeen";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+
+function EditPollModal({ poll, open, onClose, onSave, isSaving, error }) {
+  const [question, setQuestion] = useState(poll?.question || "");
+  const [options, setOptions] = useState(poll?.options?.map((o) => o.text) || ["", ""]);
+  const [endDate, setEndDate] = useState(
+    poll?.endDate ? new Date(poll.endDate).toISOString().slice(0, 16) : ""
+  );
+
+  const hasVotes = (poll?.totalVotes || 0) > 0;
+
+  useEffect(() => {
+    if (poll) {
+      setQuestion(poll.question || "");
+      setOptions(poll.options?.map((o) => o.text) || ["", ""]);
+      setEndDate(poll.endDate ? new Date(poll.endDate).toISOString().slice(0, 16) : "");
+    }
+  }, [poll, open]);
+
+  if (!open || !poll) return null;
+
+  const handleOptionChange = (idx, val) => {
+    const next = [...options];
+    next[idx] = val;
+    setOptions(next);
+  };
+
+  const handleAddOption = () => {
+    if (options.length < 6) setOptions([...options, ""]);
+  };
+
+  const handleRemoveOption = (idx) => {
+    if (options.length > 2) setOptions(options.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!question.trim()) return;
+    const payload = {
+      endDate: endDate ? new Date(endDate).toISOString() : null,
+    };
+    if (!hasVotes) {
+      payload.question = question.trim();
+      payload.options = options.filter((o) => o.trim().length > 0);
+    }
+    onSave(payload);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={isSaving ? undefined : onClose} />
+      <div className="relative w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <h3 className="text-title-md font-bold text-on-surface">Edit Poll</h3>
+          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Question *</label>
+            <input
+              required
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              disabled={hasVotes}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
+            />
+          </div>
+
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Options</label>
+            <div className="space-y-2">
+              {options.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    value={opt}
+                    onChange={(e) => handleOptionChange(i, e.target.value)}
+                    disabled={hasVotes}
+                    placeholder={`Option ${i + 1}`}
+                    className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
+                  />
+                  {!hasVotes && options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOption(i)}
+                      className="rounded-full p-1 text-error hover:bg-error-container"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {!hasVotes && options.length < 6 && (
+              <button
+                type="button"
+                onClick={handleAddOption}
+                className="mt-2 text-label-sm font-semibold text-primary hover:underline cursor-pointer"
+              >
+                + Add Option
+              </button>
+            )}
+          </div>
+
+          {hasVotes && (
+            <p className="text-[12px] text-outline bg-surface-container-low p-2.5 rounded-lg">
+              ℹ️ Question and options cannot be changed because votes have already been cast. You can still extend the deadline.
+            </p>
+          )}
+
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">Closing Date & Time</label>
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !question.trim()}
+              className="rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function VotersModal({ poll, onClose }) {
   useEffect(() => {
@@ -69,7 +210,7 @@ function VotersModal({ poll, onClose }) {
   );
 }
 
-function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onViewVoters }) {
+function PollCard({ poll, onVote, votingId, onClose, closingId, onEdit, onDelete, onViewVoters }) {
   const hasVoted = poll.hasVoted;
   const isClosed = poll.isClosed || poll.status === "closed";
   const isSecret = poll.type === "secret";
@@ -99,7 +240,6 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onView
         {poll.options.map((opt) => {
           const isVoted = opt.isVoted;
           const showResult = !isSecret || isClosed;
-          const voters = opt.voters || [];
           return (
             <button
               key={opt.index}
@@ -146,12 +286,12 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onView
       {votingId === poll.id && <p className="mt-2 text-label-sm text-outline">Submitting vote...</p>}
 
       {!isSecret && poll.totalVotes > 0 && (
-        <button onClick={() => onViewVoters(poll)} className="mt-3 inline-flex items-center gap-1.5 text-label-md font-medium text-primary hover:underline">
+        <button onClick={() => onViewVoters(poll)} className="mt-3 inline-flex items-center gap-1.5 text-label-md font-medium text-primary hover:underline cursor-pointer">
           <span className="material-symbols-outlined text-[18px]">visibility</span>
           View votes ({poll.totalVotes})
         </button>
       )}
-      {isSecret && !isClosed && <p className="mt-3 text-label-sm text-outline">Votes hidden until poll closes — like MyGate secret ballot.</p>}
+      {isSecret && !isClosed && <p className="mt-3 text-label-sm text-outline">Votes hidden until poll closes.</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-variant pt-3">
         {poll.isClosed ? (
@@ -162,16 +302,14 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onView
           <span className="text-label-sm text-outline">Tap an option to vote</span>
         )}
         <div className="ml-auto flex gap-2">
-          {(poll.status === "active" && !isClosed) && (
-            <AdminActions poll={poll} onClose={onClose} closingId={closingId} onDelete={onDelete} />
-          )}
+          <AdminActions poll={poll} onClose={onClose} closingId={closingId} onEdit={onEdit} onDelete={onDelete} />
         </div>
       </div>
     </article>
   );
 }
 
-function AdminActions({ poll, onClose, closingId, onDelete }) {
+function AdminActions({ poll, onClose, closingId, onEdit, onDelete }) {
   const membership = useSocietyStore(selectActiveMembership);
   const activeSociety = useSocietyStore(selectActiveSociety);
   const permissionsQuery = useQuery({
@@ -184,17 +322,23 @@ function AdminActions({ poll, onClose, closingId, onDelete }) {
   return (
     <>
       <button
-        onClick={() => onClose(poll.id)}
-        disabled={closingId === poll.id}
-        className="rounded-full border border-outline-variant px-3 py-1.5 text-label-sm font-medium text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50"
+        onClick={() => onEdit(poll)}
+        className="rounded-full border border-outline-variant px-3 py-1.5 text-label-sm font-medium text-on-surface-variant hover:bg-surface-container-high cursor-pointer"
       >
-        {closingId === poll.id ? "Closing..." : "Close Now"}
+        Edit
       </button>
+      {poll.status === "active" && !poll.isClosed && (
+        <button
+          onClick={() => onClose(poll)}
+          disabled={closingId === poll.id}
+          className="rounded-full border border-outline-variant px-3 py-1.5 text-label-sm font-medium text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50 cursor-pointer"
+        >
+          {closingId === poll.id ? "Closing..." : "Close"}
+        </button>
+      )}
       <button
-        onClick={() => {
-          if (window.confirm("Delete this poll? This cannot be undone.")) onDelete(poll.id);
-        }}
-        className="rounded-full border border-error/30 px-3 py-1.5 text-label-sm font-medium text-error hover:bg-error/10"
+        onClick={() => onDelete(poll)}
+        className="rounded-full border border-error/30 px-3 py-1.5 text-label-sm font-medium text-error hover:bg-error/10 cursor-pointer"
       >
         Delete
       </button>
@@ -216,6 +360,10 @@ export default function PollsPage() {
   const [votingId, setVotingId] = useState(null);
   const [closingId, setClosingId] = useState(null);
   const [votersModalPoll, setVotersModalPoll] = useState(null);
+  const [editingPoll, setEditingPoll] = useState(null);
+  const [closingPoll, setClosingPoll] = useState(null);
+  const [deletingPoll, setDeletingPoll] = useState(null);
+  const [actionError, setActionError] = useState("");
 
   const pollsQuery = useQuery({
     queryKey: ["polls", activeSociety?.id],
@@ -233,10 +381,21 @@ export default function PollsPage() {
     onError: () => setVotingId(null),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ pollId, payload }) => updatePoll(pollId, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      setEditingPoll(null);
+      setActionError("");
+      queryClient.invalidateQueries({ queryKey: ["polls"] });
+    },
+    onError: (err) => setActionError(extractApiError(err, "Failed to update poll")),
+  });
+
   const closeMutation = useMutation({
     mutationFn: (pollId) => closePoll(pollId).then((r) => r.data.data),
     onMutate: (pollId) => setClosingId(pollId),
     onSuccess: () => {
+      setClosingPoll(null);
       queryClient.invalidateQueries({ queryKey: ["polls"] });
       setClosingId(null);
     },
@@ -245,19 +404,15 @@ export default function PollsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (pollId) => deletePoll(pollId).then((r) => r.data.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["polls"] }),
+    onSuccess: () => {
+      setDeletingPoll(null);
+      queryClient.invalidateQueries({ queryKey: ["polls"] });
+    },
   });
 
   const handleVote = (pollId, idx) => {
     voteMutation.mutate({ pollId, idx });
   };
-
-  const handleClose = (pollId) => {
-    if (!window.confirm("Close this poll now? No more votes will be allowed.")) return;
-    closeMutation.mutate(pollId);
-  };
-
-  const handleDelete = (pollId) => deleteMutation.mutate(pollId);
 
   const [scopeFilter, setScopeFilter] = useState("all");
   const polls = pollsQuery.data || [];
@@ -294,6 +449,8 @@ export default function PollsPage() {
         )}
       </section>
 
+      {actionError && <p className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">{actionError}</p>}
+
       {pollsQuery.isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -325,29 +482,32 @@ export default function PollsPage() {
 
       {scopeFiltered.length > 0 && (
         <div className="flex gap-2">
-          <button onClick={() => setScopeFilter("all")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border ${scopeFilter==="all" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>All ({polls.length})</button>
-          <button onClick={() => setScopeFilter("society")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border ${scopeFilter==="society" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>Society ({polls.filter((p)=>!p.wing && (p.scope==="society"||!p.scope)).length})</button>
-          <button onClick={() => setScopeFilter("wing")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border ${scopeFilter==="wing" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-on-surface-variant border-outline-variant"}`}>Wing ({polls.filter((p)=>p.scope==="wing").length})</button>
+          <button onClick={() => setScopeFilter("all")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border cursor-pointer ${scopeFilter==="all" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>All ({polls.length})</button>
+          <button onClick={() => setScopeFilter("society")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border cursor-pointer ${scopeFilter==="society" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>Society ({polls.filter((p)=>!p.wing && (p.scope==="society"||!p.scope)).length})</button>
+          <button onClick={() => setScopeFilter("wing")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border cursor-pointer ${scopeFilter==="wing" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-on-surface-variant border-outline-variant"}`}>Wing ({polls.filter((p)=>p.scope==="wing").length})</button>
         </div>
       )}
+
       {polls.length > 0 && (
         <>
-          {voteMutation.isError && (
-            <div className="rounded-lg border border-error/30 bg-error/10 p-3 text-body-sm text-error">
-              {extractApiError(voteMutation.error, "Failed to vote.")}
-            </div>
-          )}
-          {closeMutation.isError && (
-            <div className="rounded-lg border border-error/30 bg-error/10 p-3 text-body-sm text-error">
-              {extractApiError(closeMutation.error, "Failed to close poll.")}
-            </div>
-          )}
-
           {activePolls.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-title-sm font-semibold text-on-surface">Active ({activePolls.length})</h2>
               {activePolls.map((poll) => (
-                <PollCard key={poll.id} poll={poll} onVote={handleVote} votingId={votingId} onClose={handleClose} closingId={closingId} onDelete={handleDelete} onViewVoters={setVotersModalPoll} />
+                <PollCard
+                  key={poll.id}
+                  poll={poll}
+                  onVote={handleVote}
+                  votingId={votingId}
+                  onClose={(p) => setClosingPoll(p)}
+                  closingId={closingId}
+                  onEdit={(p) => {
+                    setActionError("");
+                    setEditingPoll(p);
+                  }}
+                  onDelete={(p) => setDeletingPoll(p)}
+                  onViewVoters={setVotersModalPoll}
+                />
               ))}
             </section>
           )}
@@ -356,13 +516,59 @@ export default function PollsPage() {
             <section className="space-y-3">
               <h2 className="text-title-sm font-semibold text-on-surface">Closed ({closedPolls.length})</h2>
               {closedPolls.map((poll) => (
-                <PollCard key={poll.id} poll={poll} onVote={handleVote} votingId={votingId} onClose={handleClose} closingId={closingId} onDelete={handleDelete} onViewVoters={setVotersModalPoll} />
+                <PollCard
+                  key={poll.id}
+                  poll={poll}
+                  onVote={handleVote}
+                  votingId={votingId}
+                  onClose={(p) => setClosingPoll(p)}
+                  closingId={closingId}
+                  onEdit={(p) => {
+                    setActionError("");
+                    setEditingPoll(p);
+                  }}
+                  onDelete={(p) => setDeletingPoll(p)}
+                  onViewVoters={setVotersModalPoll}
+                />
               ))}
             </section>
           )}
           {votersModalPoll && <VotersModal poll={votersModalPoll} onClose={() => setVotersModalPoll(null)} />}
         </>
       )}
+
+      <EditPollModal
+        poll={editingPoll}
+        open={Boolean(editingPoll)}
+        onClose={() => {
+          setEditingPoll(null);
+          setActionError("");
+        }}
+        onSave={(payload) => updateMutation.mutate({ pollId: editingPoll.id, payload })}
+        isSaving={updateMutation.isPending}
+        error={actionError}
+      />
+
+      <ConfirmDialog
+        open={Boolean(closingPoll)}
+        title="Close this poll now?"
+        message="No more votes will be accepted once the poll is closed."
+        confirmLabel="Close Poll"
+        busy={closeMutation.isPending}
+        onConfirm={() => closeMutation.mutate(closingPoll.id)}
+        onClose={() => setClosingPoll(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletingPoll)}
+        title="Delete this poll?"
+        message="Are you sure you want to delete this poll? This action cannot be undone."
+        confirmLabel="Delete Poll"
+        danger
+        busy={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deletingPoll.id)}
+        onClose={() => setDeletingPoll(null)}
+      />
     </div>
   );
 }
