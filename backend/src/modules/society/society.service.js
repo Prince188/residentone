@@ -334,15 +334,18 @@ class SocietyService {
   }
 
   async permanentDelete(id, adminId) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError("Invalid society ID", 400);
+    }
     const current = await this.findRawById(id);
     if (!current) throw new AppError("Society not found", 404);
 
     const { Unit } = require("../unit/unit.model");
-    const { MaintenanceCycle } = require("../maintenance/maintenance.model");
-    const { CollectionFund, CollectionPayment } = require("../collections/collection.model");
+    const { MaintenanceCycle, MaintenancePayment } = require("../maintenance/maintenance.model");
+    const { Collection, CollectionPayment } = require("../collections/collection.model");
     const { Document } = require("../document/document.model");
     const { Complaint } = require("../complaint/complaint.model");
-    const { Amenity, AmenityBooking } = require("../amenity/amenity.model");
+    const { Amenity, Booking } = require("../amenity/amenity.model");
     const { Poll, PollVote } = require("../poll/poll.model");
     const { Survey, SurveyResponse } = require("../survey/survey.model");
     const { Notice } = require("../notice/notice.model");
@@ -354,12 +357,13 @@ class SocietyService {
       Unit.deleteMany({ societyId: id }),
       Membership.deleteMany({ societyId: id }),
       MaintenanceCycle.deleteMany({ societyId: id }),
-      CollectionFund.deleteMany({ societyId: id }),
+      MaintenancePayment.deleteMany({ societyId: id }),
+      Collection.deleteMany({ societyId: id }),
       CollectionPayment.deleteMany({ societyId: id }),
       Document.deleteMany({ societyId: id }),
       Complaint.deleteMany({ societyId: id }),
       Amenity.deleteMany({ societyId: id }),
-      AmenityBooking.deleteMany({ societyId: id }),
+      Booking.deleteMany({ societyId: id }),
       Poll.deleteMany({ societyId: id }),
       PollVote.deleteMany({ societyId: id }),
       Survey.deleteMany({ societyId: id }),

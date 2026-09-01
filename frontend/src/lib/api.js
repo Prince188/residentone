@@ -23,6 +23,18 @@ export function getActiveSocietyId() {
   return activeSocietyId;
 }
 
+export function getSocketUrl() {
+  if (process.env.REACT_APP_SOCKET_URL) {
+    return process.env.REACT_APP_SOCKET_URL;
+  }
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL.replace(/\/api\/v1\/?$/, "");
+  }
+  return window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://residentone.onrender.com";
+}
+
 api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
