@@ -1,6 +1,6 @@
 # ResidentOne - Website System Specification & Logic Blueprint
 
-This document provides an exhaustive, field-by-field, flow-by-flow, and screen-by-screen specification of the **ResidentOne** website (frontend and backend). It functions as the single source of truth for developing any new client application (such as a mobile app) that integrates with the existing ResidentOne backend.
+This document provides an exhaustive, field-by-field, flow-by-flow, and screen-by-screen specification of the **ResidentOne** website (frontend and backend). It functions as the single source of truth for developing any client application (such as a mobile app, desktop client, or API integration) that integrates with the ResidentOne platform.
 
 ---
 
@@ -9,9 +9,9 @@ This document provides an exhaustive, field-by-field, flow-by-flow, and screen-b
 2. [Global Systems & Middlewares](#2-global-systems--middlewares)
     - [2.1 Multi-Tenant Schema Plugin](#21-multi-tenant-schema-plugin)
     - [2.2 Automatic Socket.IO Model Change Hooks](#22-automatic-socketio-model-change-hooks)
-    - [2.3 API HTTP Conventions](#23-api-http-conventions)
+    - [2.3 API HTTP Conventions & Response Envelopes](#23-api-http-conventions--response-envelopes)
 3. [Authentication & Session Management](#3-authentication--session-management)
-    - [3.1 Data Schemas](#31-data-schemas)
+    - [3.1 User Data Model](#31-user-data-model)
     - [3.2 Token Lifecycle & Refresh Interceptors](#32-token-lifecycle--refresh-interceptors)
     - [3.3 Auth & User API Endpoints](#33-auth--user-api-endpoints)
 4. [Multi-Tenancy & Society Context](#4-multi-tenancy--society-context)
@@ -28,31 +28,35 @@ This document provides an exhaustive, field-by-field, flow-by-flow, and screen-b
     - [6.1 Layout Configuration](#61-layout-configuration)
     - [6.2 The Badging Algorithm](#62-the-badging-algorithm)
     - [6.3 Seen-All Badges API](#63-seen-all-badges-api)
-7. [Detailed Screen-by-Screen Navigation Flows](#7-detailed-screen-by-screen-navigation-flows)
-    - [7.1 Authentication & Onboarding](#71-authentication--onboarding)
-    - [7.2 Societies Management (Super-Admin Flow)](#72-societies-management-super-admin-flow)
-    - [7.3 Society & Wing Operations](#73-society--wing-operations)
-    - [7.4 Memberships & Directory](#74-memberships--directory)
-    - [7.5 Units & House Invitations](#75-units--house-invitations)
-    - [7.6 Maintenance Dues & Billing (Razorpay & Cash Flow)](#76-maintenance-dues--billing-razorpay--cash-flow)
-    - [7.7 Collections (Festivals & Occasion Funds Flow)](#77-collections-festivals--occasion-funds-flow)
-    - [7.8 Document Vault](#78-document-vault)
-    - [7.9 Helpdesk & Complaints Ticket Flow](#79-helpdesk--complaints-ticket-flow)
-    - [7.10 Amenities Booking Slots Flow](#710-amenities-booking-slots-flow)
-    - [7.11 Polls Voting & Results Flow](#711-polls-voting-and-results-flow)
-    - [7.12 Surveys Taking & Analytics Flow](#712-surveys-taking-and-analytics-flow)
-    - [7.13 Real-time Chat System (Groups & Direct Admin)](#713-real-time-chat-system-groups--direct-admin)
-    - [7.14 Family Members & Vehicles Management](#714-family-members--vehicles-management)
-    - [7.15 My Unit Dashboard](#715-my-unit-dashboard)
+7. [Exhaustive Screen-by-Screen Navigation & Logic Flows](#7-exhaustive-screen-by-screen-navigation--logic-flows)
+    - [7.1 Public & Marketing Pages](#71-public--marketing-pages)
+    - [7.2 Authentication & Onboarding](#72-authentication--onboarding)
+    - [7.3 Platform Management (Super-Admin Flows)](#73-platform-management-super-admin-flows)
+    - [7.4 Society & Wing Operations](#74-society--wing-operations)
+    - [7.5 Committee & RBAC Governance](#75-committee--rbac-governance)
+    - [7.6 Member Directory & User Profile](#76-member-directory--user-profile)
+    - [7.7 Units, Houses & Tenancy Management](#77-units-houses--tenancy-management)
+    - [7.8 Maintenance Billing & Financial Dues](#78-maintenance-billing--financial-dues)
+    - [7.9 Collections (Festivals & Special Occasion Funds)](#79-collections-festivals--special-occasion-funds)
+    - [7.10 Document Vault](#710-document-vault)
+    - [7.11 Helpdesk & Complaints Ticket Flow](#711-helpdesk--complaints-ticket-flow)
+    - [7.12 Amenities & Facility Booking Flow](#712-amenities--facility-booking-flow)
+    - [7.13 Community Polls](#713-community-polls)
+    - [7.14 Community Surveys](#714-community-surveys)
+    - [7.15 Notice Board & Announcements](#715-notice-board--announcements)
+    - [7.16 Real-time Chat System (Groups & Direct Admin)](#716-real-time-chat-system-groups--direct-admin)
+    - [7.17 Family Members & Vehicles Management](#717-family-members--vehicles-management)
+    - [7.18 My Unit Dashboard](#718-my-unit-dashboard)
+    - [7.19 Safety, Gate & Support Placeholders](#719-safety-gate--support-placeholders)
 8. [Real-time Events Matrix (Socket.IO)](#8-real-time-events-matrix-socketio)
-9. [Static & Placeholder Pages](#9-static--placeholder-pages)
+9. [Database Schema Matrix](#9-database-schema-matrix)
 
 ---
 
 ## 1. Core Architecture & Tech Stack
 
-ResidentOne is built as a modular split client-server architecture:
-*   **Backend:** Express (v5) server connected to MongoDB using Mongoose (v9). It features real-time communication via Socket.IO (v4) with JWT handshake authentication, document file uploads via Multer, Excel spreadsheet exports via ExcelJS, and card/UPI/net-banking payment workflows through Razorpay (v2).
+ResidentOne is built as a split client-server architecture:
+*   **Backend:** Express (v5) server connected to MongoDB using Mongoose (v9). Real-time event broadcasting is powered by Socket.IO (v4) with JWT handshake authentication, document file uploads via Multer, Excel spreadsheet exports via ExcelJS, and card/UPI/net-banking payment workflows through Razorpay (v2).
 *   **Frontend Website:** Single Page Application (SPA) built using React (v19) via Create React App, styled with Tailwind CSS (v3) and Google Material Symbols for iconography.
 *   **State & Cache:** Zustand (v5) is used for in-memory and persistent global client state (Auth tokens, active society context). `@tanstack/react-query` (v5) manages API caching, background synchronization, socket invalidations, and optimistic UI rendering.
 
@@ -73,7 +77,7 @@ residentone/
     └── src/
         ├── App.js               // Route definitions + QueryClientProvider + AuthProvider
         ├── lib/                 // Axios client, domain API helpers, permission checkers, query client
-        ├── stores/              // Zustand stores: auth.store.js, society.store.js
+        ├── stores/              // Zustand stores: auth.store.js, society.store.js, societyModal.store.js
         ├── providers/           // AuthProvider (bootstraps session & active society)
         ├── components/          // Layouts (AppLayout, PublicLayout), ProtectedRoute, SuperAdminRoute, UI badges & modals
         ├── hooks/               // Custom hooks: useBadgeSeen
@@ -100,7 +104,7 @@ socketHelper.emitToSociety(String(doc.societyId), `${modelName.toLowerCase()}:ch
 });
 ```
 
-### 2.3 API HTTP Conventions
+### 2.3 API HTTP Conventions & Response Envelopes
 *   **Base URL:** `/api/v1`
 *   **Headers:**
     *   `Authorization: Bearer <accessToken>` (Used for authenticating requests)
@@ -128,8 +132,7 @@ socketHelper.emitToSociety(String(doc.societyId), `${modelName.toLowerCase()}:ch
 
 ## 3. Authentication & Session Management
 
-### 3.1 Data Schemas
-#### User Model (`User`)
+### 3.1 User Data Model
 *   `name`: String (Required, trimmed)
 *   `email`: String (Required, unique, lowercase, trimmed)
 *   `phone`: String (Required, unique, trimmed)
@@ -150,11 +153,11 @@ socketHelper.emitToSociety(String(doc.societyId), `${modelName.toLowerCase()}:ch
     *   **Result:** Reissues both access and refresh tokens. If refresh fails or expires, it wipes credentials and redirects the user to `/login`.
 
 ### 3.3 Auth & User API Endpoints
-*   `POST /auth/register` — Payload: `{ name, email, phone, password }` (Password: 6–100 chars). Returns `{ user, accessToken, refreshToken }`.
-*   `POST /auth/login` — Payload: `{ identifier, password }` (where identifier is email or phone). Returns `{ user, accessToken, refreshToken }`.
-*   `POST /auth/refresh` — Payload: `{ refreshToken }`. Returns `{ accessToken, refreshToken }`.
-*   `GET /users/profile` — Returns current logged-in user profile with vehicles and platform role.
-*   `PATCH /users/profile` — Payload: `{ name, email, phone, occupation, familyMembers, vehicles }`. Returns updated user document.
+*   `POST /api/v1/auth/register` — Payload: `{ name, email, phone, password }` (Password: 6–100 chars). Returns `{ user, accessToken, refreshToken }`.
+*   `POST /api/v1/auth/login` — Payload: `{ identifier, password }` (where identifier is email or phone). Returns `{ user, accessToken, refreshToken }`.
+*   `POST /api/v1/auth/refresh` — Payload: `{ refreshToken }`. Returns `{ accessToken, refreshToken }`.
+*   `GET /api/v1/users/profile` — Returns current logged-in user profile with vehicles and platform role.
+*   `PATCH /api/v1/users/profile` — Payload: `{ name, email, phone, occupation, familyMembers, vehicles }`. Returns updated user document.
 
 ---
 
@@ -293,117 +296,188 @@ User visits page (e.g., /polls)
 
 ---
 
-## 7. Detailed Screen-by-Screen Navigation Flows
+## 7. Exhaustive Screen-by-Screen Navigation & Logic Flows
 
-### 7.1 Authentication & Onboarding
+### 7.1 Public & Marketing Pages
+*   **LandingPage (`/`):**
+    *   **Hero Section:** CTA buttons **Get Started** (`/register`) and **Watch Demo** (`/about`).
+    *   **Core Value Pillars:** Maintenance Tracking, Smart Security, Community App, Facility Booking.
+    *   **Onboarding 3-Step Process:** Onboard $\rightarrow$ Automate $\rightarrow$ Connect.
+    *   **Social Proof / Testimonials:** Testimonials carousel with resident names and society badges.
+*   **AboutPage (`/about`):** Company vision, mission, and leadership overview.
+*   **FeaturesPage (`/features`):** Detailed breakdown of all modules (Security, Billing, Amenities, Communication, Helpdesk).
+*   **PricingPage (`/pricing`):** Tiered subscription plans (Standard vs Enterprise) for housing societies.
+*   **ContactPage (`/contact`):** Sales inquiry form and support contact details.
+
+---
+
+### 7.2 Authentication & Onboarding
 *   **LoginPage (`/login`):**
     1.  User enters `email` (or phone) and `password`.
     2.  Clicks **Sign In**.
-    3.  On API success, stores JWT tokens in Zustand & localStorage, queries memberships, sets active society, and navigates to `/dashboard`.
+    3.  On success, JWT tokens are stored in `localStorage` and `useAuthStore`.
+    4.  Fetches user's society memberships via `GET /api/v1/memberships/my-societies`.
+    5.  Sets initial `activeSocietyId` in `useSocietyStore` and navigates to `/dashboard`.
 *   **RegisterPage (`/register`):**
-    1.  User enters `Full Name`, `Email`, `Phone Number`, and `Password`.
+    1.  User enters `Full Name`, `Email`, `Phone Number`, and `Password` (6–100 chars).
     2.  Clicks **Create Account**.
-    3.  Upon success, user is redirected to `/create-society` setup wizard.
-*   **CreateSocietyPage (`/create-society`):**
-    1.  User completes form fields: `Society Name`, `Building Type` (Apartment, Row House, Mixed), `Address`, `City`, `State`, `Pincode`, `Total Units`, `Contact Person Name`, `Contact Phone`, `Contact Email`.
-    2.  Clicks **Submit Registration**.
-    3.  A "Pending Approval" status modal is displayed explaining that the platform super-administrator must verify the society profile.
+    3.  Upon success, token is persisted and user is redirected to `/create-society` wizard.
+*   **CreateSocietyPage (`/create-society`) & CreateSocietyModal:**
+    *   **Step 1: Society Details:**
+        *   Fields: `Society Name`, `Society Type` (`apartment`, `row_house`, `mixed`), `Address`, `City`, `State`, `Pincode`, `Total Units`, `Contact Person Name`, `Contact Phone`, `Contact Email`.
+        *   Validation ensures valid pincode (6 digits) and 10-digit Indian phone numbers.
+    *   **Step 2: StructureBuilder (Wings, Floors & Flats Config):**
+        *   Wings builder: add/remove wings (A, B, C...).
+        *   Floors per wing (1 to 50).
+        *   Ground floor toggle (`hasGround`, `groundFlats`, e.g., G1, G2).
+        *   Per-floor flat overrides (`perFloorMap`: e.g., Floor 1 has 4 flats, Floor 2 has 3 flats).
+        *   Numbering mode selector: `floor_based` (e.g., A-101, A-102) vs `sequential` (e.g., A-1, A-2).
+        *   Live preview of generated flat labels.
+    *   **Step 3: Submission & Pending Approval:**
+        *   POSTs payload to `/api/v1/societies/register`.
+        *   Renders a Success Modal showing Registration ID and `"Pending Approval"` status badge.
 
 ---
 
-### 7.2 Societies Management (Super-Admin Flow)
+### 7.3 Platform Management (Super-Admin Flows)
 *   **PendingApprovalsPage (`/admin/societies/pending`):**
-    1.  Super-Admin views a list of all societies with status `"pending"`.
+    1.  Super-Admin views list of all pending society registrations.
     2.  Clicks **Review** on a specific row.
-    3.  Opens review drawer showing full address details and contact numbers.
-    4.  Clicks **Approve** (marks status `"active"`, makes the registering user primary `"society_admin"`) or **Reject** (enters `rejectionReason`, updates status to `"rejected"`).
+    3.  Opens review drawer displaying address, contact person, and wing structure.
+    4.  **Approve Action:** Calls `PATCH /api/v1/societies/:id/approve`.
+        *   Marks society status as `"active"`.
+        *   Provisions primary `society_admin` account.
+        *   Displays an **Admin Credentials Modal** showing generated email, temporary password, and contact phone for the new society admin.
+    5.  **Reject Action:** Calls `PATCH /api/v1/societies/:id/reject` with required `rejectionReason` text.
 *   **AdminSocietiesPage (`/admin/societies`):**
-    1.  Lists all platform societies with status filtering pills (**All**, **Active**, **Pending**, **Rejected**, **Suspended**) and search.
-    2.  Clicking a row navigates to `/admin/societies/:id` detail page.
-    3.  Actions: Edit details, **Suspend** (blocks society operations), or **Activate**.
+    1.  Lists all societies across the entire platform.
+    2.  Filter pills: **All**, **Active**, **Pending**, **Rejected**, **Suspended**.
+    3.  Search bar: query by name, city, state, or contact person.
+    4.  Clicking a row navigates to `/admin/societies/:id`.
+*   **AdminSocietyDetailPage (`/admin/societies/:id`):**
+    1.  Displays complete society metadata, status badge, total units, creation date, and approved date.
+    2.  Actions:
+        *   **Approve / Reject** (if pending).
+        *   **Suspend** (`PATCH /api/v1/societies/:id/suspend`): Blocks society members from performing operations.
+        *   **Activate** (`PATCH /api/v1/societies/:id/activate`): Restores a suspended society.
+        *   **Edit Society Details** (`PATCH /api/v1/societies/:id`).
 *   **AdminCreateSocietyPage (`/admin/societies/new`):**
-    1.  Super-Admin directly provisions an active society with an assigned society admin user ID.
+    *   Super-Admin manual provision form to directly create an active society and bind an existing user as `society_admin`.
 
 ---
 
-### 7.3 Society & Wing Operations
+### 7.4 Society & Wing Operations
 *   **ManageSocietyPage (`/society/manage`):**
     1.  *Privileged Society Admin View.*
-    2.  Displays editable society profile form: Name, Address, City, State, Pincode, Contact info.
-    3.  **Wings Overview Section:** Lists all detected wings/blocks in the society with unit count, occupied flats count, and assigned wing admins.
+    2.  Editable fields: `Name`, `Address`, `City`, `State`, `Pincode`, `Contact Person`, `Contact Phone`, `Contact Email`.
+    3.  **Wings Overview Section:**
+        *   Lists all distinct wings detected in the society.
+        *   Displays total units per wing, occupied units count, and assigned wing admins.
+        *   Quick link to Manage Wing.
 *   **ManageWingPage (`/wing/manage`):**
     1.  *Privileged View for Wing Admins & Society Admins.*
-    2.  Displays house cards grouped by the user's assigned wing.
-    3.  Cards display occupancy status (**Owned**, **Rented**, **Vacant**), registered vehicle count, family member count, and pending invite status.
-    4.  Clicking a house card opens the `AssignHouseModal` to assign owners/tenants or generate invite links.
+    2.  Displays house cards filtered by the active user's assigned wing(s).
+    3.  Filter chips: **All**, **Owned**, **Rented**, **Vacant**.
+    4.  House card indicates resident name, vehicle count, family count, and pending invite status.
+    5.  Clicking a house card opens `AssignHouseModal` to assign residents or create invite links.
 *   **Bulk Unit Generator (`POST /api/v1/units/bulk-generate`):**
-    *   Generates a series of units across wings and floors (e.g., Wing A, Floors 1–5, 4 units per floor $\rightarrow$ A-101 to A-504).
+    *   Creates a batch of unit records based on wing prefix, floor range, and flats per floor.
 
 ---
 
-### 7.4 Memberships & Directory
-*   **DirectoryPage (`/directory`):**
-    1.  User clicks **Directory** card on dashboard.
-    2.  Renders search bar ("Search by name or house label...") and responsive grid of member cards.
-    3.  Each card displays member's initials, full name, house label (e.g., `B-402`), society role badges, and phone number.
+### 7.5 Committee & RBAC Governance
 *   **ManageCommitteePage (`/committee`):**
-    1.  *Privileged Admin View.* Displays all committee members and roles.
-    2.  Admin clicks **Add Member** -> selects user, assigns role (`manager`, `treasurer`, `wing_admin`, etc.), and optionally assigns wings.
-    3.  Admin can tap the **Role Dropdown** on any row to change a member's role or remove them.
-    4.  **Permissions Matrix Sub-view:** Lists all 14 permission keys with role checkboxes. Admins check/uncheck these boxes to override privileges for particular roles. Clicking **Save Permissions** commits updates via `PUT /api/v1/societies/permissions`.
+    1.  *Privileged View (`manage_committee`).*
+    2.  Lists all current committee members with their role tags and assigned wings.
+    3.  **Add Committee Member Flow:**
+        *   Admin searches member directory.
+        *   Selects user and chooses committee role (`wing_admin`, `committee_member`, `manager`, `treasurer`, `accountant`, `helpdesk_manager`, `auditor`).
+        *   If `wing_admin` is selected: renders wing checkboxes to assign specific wings.
+        *   Commits via `POST /api/v1/memberships`.
+    4.  **Edit Member Role:** Inline dropdown to modify role or change assigned wings.
+    5.  **Remove Member:** Reverts user back to standard resident membership.
+    6.  **Custom Permissions Matrix Sub-View:**
+        *   Table listing all 14 permission keys across all roles.
+        *   Checkboxes allow granting/revoking specific privileges per role.
+        *   **Save Permissions** calls `PUT /api/v1/societies/permissions`. Real-time socket event `permissions:change` is emitted to notify active clients.
+        *   **Reset to Defaults** button restores platform default matrix.
 
 ---
 
-### 7.5 Units & House Invitations
+### 7.6 Member Directory & User Profile
+*   **DirectoryPage (`/directory`):**
+    1.  Search bar: real-time filter by member name or house number.
+    2.  Member Card displays: Initial avatar, Full name, Admin badge (if `society_admin`), House label pill (e.g., `House A-302`), and masked phone number (`+91 98*** **123`).
+*   **ProfilePage (`/profile`):**
+    1.  Displays user details: Name, Email, Phone, Occupation, Family Members count, and Registered Vehicles.
+    2.  **Edit Profile:**
+        *   Form to update name, email, phone, occupation, family count, and comma-separated vehicle license plates (automatically converted to uppercase).
+        *   Commits via `PATCH /api/v1/users/profile`.
+    3.  **My Societies List:** Displays all societies the user belongs to with their role in each and quick switch button.
+
+---
+
+### 7.7 Units, Houses & Tenancy Management
 *   **ManageHousesPage (`/houses`):**
-    1.  Renders a grid representing all flats/units of the society, filterable by occupancy status (**All**, **Owned**, **Rented**, **Vacant**) and search keywords.
-    2.  Clicking a unit block navigates to `/houses/:unitId`.
+    1.  Interactive grid of all society units.
+    2.  Filter pills: **All**, **Owned**, **Rented**, **Vacant**.
+    3.  Search by house door label or resident name.
+    4.  Unit Card shows: House label (e.g., `B-201`), Resident name, Occupancy badge, Registered vehicles, Family count, and Pending invite indicator.
+    5.  Clicking a card navigates to `/houses/:unitId`.
 *   **HouseDetailPage (`/houses/:unitId`):**
-    1.  Displays the flat owner's and tenant's profile cards.
-    2.  If vacant, shows **Assign Owner** button opening a modal to search platform users.
-    3.  **Generate Invite Link:** Admin clicks **Generate Invite Link**, selects role (`Owner` or `Tenant/Renter`), and clicks **Generate**. An invite URL (`/house-invite/:token`) is created with a **Copy Link** button.
+    1.  Displays Unit Information: Label, Wing/Block, Floor, Door Number.
+    2.  **Owner Profile Card:** Name, Phone, Email.
+        *   If vacant: **Assign Owner** form with debounced user search (by phone/name) or **Generate Invite Link** button.
+        *   If assigned: **Unassign Owner** button (with confirmation modal).
+    3.  **Tenant / Renter Profile Card:**
+        *   **Assign Renter** / **Generate Renter Invite Link** (`inviteResidentType: "renter"`).
+        *   **Unassign Tenant** button.
+    4.  **Registered Vehicles:** Displays license plates associated with this unit's residents.
+    5.  **Family Members:** Lists registered family members for this house.
+    6.  **Payment History:** Lists historical maintenance bills and payment receipts for this unit.
 *   **HouseInvitePage (`/house-invite/:token`):**
-    1.  Public link opened by resident. Displays welcome card with Society Name, Address, and Unit Label.
-    2.  User clicks **Claim Unit**.
-    3.  If unauthenticated, redirects to Login/Register first. Once logged in, the token is consumed, the unit assignment is linked to their membership, and they navigate to `/dashboard`.
+    1.  Public onboarding page accessed via invite link.
+    2.  Displays welcome banner with Society Name, Address, and Unit Door Label.
+    3.  User clicks **Claim Unit**.
+    4.  If unauthenticated: prompts user to Sign In or Register.
+    5.  Once authenticated: validates token via `POST /api/v1/units/invite/:token`, links unit to user's membership, and navigates to `/dashboard`.
 
 ---
 
-### 7.6 Maintenance Dues & Billing (Razorpay & Cash Flow)
-
-```
-[Dashboard: Pay Maintenance]
-          │
-          ▼
- [MaintenancePage: Lists assigned units & status]
-          │
-          ▼ (User clicks unit card)
- [MaintenanceDetailPage: Itemized bill breakdown]
-          │
-          ▼ (User clicks "Pay Now")
- [PayMaintenancePage: Select payment method]
-       ┌──────────────────┴──────────────────┐
-       ▼                                     ▼
- [Pay Online (Razorpay)]             [Pay Cash at Office]
-       │                                     │
-       ├── Creates Razorpay Order            └── Instructs manual payment to Treasurer
-       ├── Opens UPI/Cards/Netbanking Modal
-       ├── Verifies payment signature
-       └── Updates status to "Paid" + Generates Receipt
-```
-
+### 7.8 Maintenance Billing & Financial Dues
 *   **MaintenancePage (`/maintenance`):**
-    *   Lists all assigned units with monthly billing status (**Paid**, **Unpaid**, **Overdue**).
+    *   Lists all units assigned to the logged-in user with their current month's payment status (**Paid**, **Unpaid**, **Overdue**).
+    *   Clicking a unit card navigates to `/maintenance/:unitId?cycle=:cycleId`.
 *   **MaintenanceDetailPage (`/maintenance/:unitId?cycle=:cycleId`):**
-    *   Shows billing period, dual rate applicability (Owner rate vs Renter rate), late fee charges, and due date.
-    *   If paid: displays green status badge and **Download Receipt** button.
+    1.  Shows itemized invoice breakdown: Billing Period, Base Rate, Occupancy Dual Rate (Owner vs Renter rate), Late Fee surcharge, and Due Date.
+    2.  If Unpaid / Overdue: displays primary **Pay Now** button linking to `/maintenance/:unitId/pay?cycle=:cycleId`.
+    3.  If Paid: displays payment method (`UPI`, `Cash`, `Razorpay`, `Bank Transfer`), transaction ID, paid timestamp, and **Download Receipt** button (opens formatted printable receipt).
+    4.  **Payment History Toggle:** Expands table of past billing cycles for this house.
 *   **PayMaintenancePage (`/maintenance/:unitId/pay?cycle=:cycleId`):**
-    *   **Pay Online:** Calculates total amount including convenience fee breakdown (Base charge + 2% processing fee + 18% GST on fee). Initializes Razorpay SDK modal. On success, POSTs to `/verify` and redirects to receipt.
-    *   **Pay Cash:** Shows instructions for paying at the management office.
+    1.  **Pay Online (Razorpay Flow):**
+        *   Shows convenience fee calculation (Base charge + 2% processing fee + 18% GST on fee).
+        *   User clicks **Pay Online** $\rightarrow$ calls `POST /api/v1/maintenance/cycles/:cycleId/units/:unitId/create-order`.
+        *   Opens Razorpay SDK Checkout Modal (supporting UPI, QR code, Netbanking, Debit/Credit Cards).
+        *   On completion, Razorpay signature is sent to `POST /api/v1/maintenance/cycles/:cycleId/units/:unitId/verify`.
+        *   On verification, sets `status = "paid"`, issues receipt number, and redirects to confirmation.
+    2.  **Pay Cash at Office:** Displays treasurer contact details and instructions for manual payment.
 *   **SocietyDuesPage (`/dues`):**
-    *   *Privileged Admin / Treasurer View.*
-    *   Lists all units in the active cycle with paid/unpaid status pills.
-    *   Features **Record Cash Payment** modal, **Cancel Payment** button, and **Export Excel** button.
+    *   *Privileged View (`manage_maintenance`).*
+    *   **Cycle Selector Dropdown:** Select active or past billing cycles.
+    *   **Summary Metrics Bar:** Total Units, Paid Flats count & amount, Pending count & amount, Overdue count & amount, Collection rate (%).
+    *   **Filter Tabs:** **All**, **Pending**, **Paid**, **Overdue**.
+    *   **Create Billing Cycle Modal:**
+        *   Start Month & Year (auto-suggests next month based on last cycle duration).
+        *   Duration (1, 3, 6, or 12 months).
+        *   Base Amount (₹).
+        *   Owner Amount override & Renter Amount override.
+        *   Late payment fee per day / flat fee.
+        *   Due Date.
+    *   **Export Excel Button:** Calls `GET /api/v1/maintenance/cycles/:cycleId/export` downloading `.xlsx` sheet.
+*   **SocietyDueDetailPage (`/dues/:unitId?cycle=:cycleId`):**
+    *   Admin unit dues management screen.
+    *   **Mark as Paid (Cash/Manual):** Opens modal to record manual payment (`Cash`, `UPI`, `Bank Transfer`), sets paid date, and issues receipt number.
+    *   **Remove Payment (Unpay):** Reverts paid record back to pending status.
 *   **MaintenanceCycleDetailPage (`/dues/cycles/:cycleId`):**
     *   Detailed view of a specific historical billing cycle with collection metrics and unit-by-unit payment table.
 *   **MaintenanceHistoryPage (`/dues/history`):**
@@ -411,142 +485,156 @@ User visits page (e.g., /polls)
 
 ---
 
-### 7.7 Collections (Festivals & Occasion Funds Flow)
-
-Dedicated module for event, festival, and special occasion fundraising (e.g., Navratri, Diwali, Ganesh Chaturthi, Building Painting, Welfare).
-
-```
-[Admin: /collections/new] ──> Creates Collection Fund (e.g., "Navratri 2026", ₹2,500/flat)
-                                       │
-      ┌────────────────────────────────┴────────────────────────────────┐
-      ▼                                                                 ▼
-[Resident: /collections/pay]                                  [Admin: /collections/manage]
-  ├── Views active funds                                        ├── Views unit contribution matrix
-  ├── Clicks "Pay Online" (Razorpay)                            ├── Records manual cash payments
-  └── Receives collection receipt                               └── Exports collection spreadsheet to Excel
-```
+### 7.9 Collections (Festivals & Special Occasion Funds)
+Dedicated fundraising module for festivals (Navratri, Diwali, Ganesh Chaturthi), events, celebrations, building repairs, and welfare.
 
 *   **CollectionsPage (`/collections`):**
-    *   Overview of all active and past special collection funds with progress bars, collected amount vs target, and due dates.
+    *   Overview of active and closed collection funds.
+    *   Displays fund title, category pill, target amount per unit, total collected vs target progress bar, and due date.
 *   **CreateCollectionPage (`/collections/new`):**
     *   *Privileged View (`manage_collections`).*
-    *   Form fields: `Title`, `Category` (Festival, Event, Celebration, Repair, Welfare, Other), `Amount per Unit (₹)`, `Due Date`, `Description`.
+    *   Form fields: `Title`, `Category` (`festival`, `event`, `celebration`, `repair`, `welfare`, `other`), `Amount per Unit (₹)`, `Due Date`, `Description`.
 *   **ManageCollectionsPage (`/collections/manage`):**
-    *   Admin table listing all units and their payment status for each collection.
-    *   Actions: Record Cash Payment, Remove/Unpay, Close Collection, Export to Excel.
-*   **CollectionDetailPage (`/collections/:id`):**
-    *   Itemized fund statistics: Total Target, Total Collected, Total Remaining, Contributing Units count.
+    *   *Privileged View (`manage_collections`).*
+    *   Fund switcher tabs to toggle between collections.
+    *   Metrics Bar: Target Amount, Total Collected, Pending Amount, Paid flats count, Pending flats count.
+    *   Unit grid showing payment status pills (`Paid`, `Pending`, `Overdue`).
+    *   **Export to Excel:** Calls `GET /api/v1/collections/:id/export` to download contribution ledger.
+    *   Actions: Close Collection, Delete Collection.
+*   **PayCollectionsPage (`/collections/pay`):**
+    *   Resident view listing active collection funds with payment cards for their assigned flats.
 *   **CollectionUnitPayPage (`/collections/:id/units/:unitId`):**
-    *   Resident checkout screen with Razorpay integration and receipt generation.
+    *   Checkout screen for resident online payment via Razorpay or admin manual cash recording.
+*   **CollectionDetailPage (`/collections/:id`):**
+    *   Itemized fund statistics and unit contributions list.
+*   **CollectionsHistoryPage (`/collections/history`):**
+    *   Archive of all closed collection drives and audit records.
 
 ---
 
-### 7.8 Document Vault
-
-Secure repository for society financial statements, monthly utility bills, maintenance ledgers, event expense sheets, and bylaws.
+### 7.10 Document Vault
+Secure repository for society financial statements, utility bills, maintenance ledgers, event expense sheets, and bylaws.
 
 *   **DocumentsPage (`/documents`):**
-    1.  Displays document cards categorized by filter tabs: **All**, **Bills**, **Collections**, **Expenses**, **Navratri / Events**, **Other**.
-    2.  Each card displays document title, category pill, file size, upload author name, upload date, and format badge (**PDF** or **Image**).
-    3.  **Download Flow:** Clicking **Download** queries `GET /api/v1/documents/:id/download` and streams the file to disk.
-    4.  **Upload Modal (`manage_documents`):**
-        *   Form fields: `Title`, `Category`, `Description`, File Drag-and-Drop.
+    1.  Category Filter Tabs: **All**, **Bills**, **Collections**, **Expenses**, **Navratri / Events**, **Other**.
+    2.  Document Card displays: Title, Category pill, File size, Uploader name, Upload date, and Format badge (**PDF** or **Image**).
+    3.  **Download Flow:** Clicking **Download** queries `GET /api/v1/documents/:id/download` and streams file with proper `Content-Disposition`.
+    4.  **Upload Document Modal (`manage_documents`):**
+        *   Form fields: `Title`, `Category` dropdown, `Description`, File Drag-and-Drop.
         *   Accepts PDF and images (`jpg`, `jpeg`, `png`, `webp`) up to 10MB.
-        *   Files are securely stored under `backend/uploads/documents/`.
-    5.  **Delete:** Permission holders can remove outdated documents via `DELETE /api/v1/documents/:id`.
+        *   Saved to disk storage under `backend/uploads/documents/`.
+    5.  **Delete Document:** Permission holders can soft-delete files via `DELETE /api/v1/documents/:id`.
 
 ---
 
-### 7.9 Helpdesk & Complaints Ticket Flow
+### 7.11 Helpdesk & Complaints Ticket Flow
 *   **ComplaintsPage (`/complaints`):**
-    1.  User clicks **Complaints** dashboard card.
-    2.  Displays aggregate metrics (Open, In Progress, Resolved) and filter chips.
-    3.  Lists tickets with priority badges (**Low**, **Medium**, **High**, **Urgent**) and category tags (**Plumbing**, **Electrical**, **Housekeeping**, **Security**, **Common Area**, **Parking**, **Other**).
+    1.  Displays ticket metrics: Open, In Progress, Resolved.
+    2.  Filter chips by status: **All**, **Open**, **In Progress**, **Resolved**, **Closed**.
+    3.  Ticket Card displays: Title, Description preview, Category badge (`plumbing`, `electrical`, `housekeeping`, `security`, `common_area`, `parking`, `other`), Priority pill (`low`, `medium`, `high`, `urgent`), Raised by name, and Time ago.
 *   **CreateComplaintPage (`/complaints/new`):**
-    1.  User enters `Title`, `Description`, selects `Category`, `Priority`.
+    1.  Fields: `Title`, `Description`, `Category` dropdown, `Priority` dropdown.
     2.  **Make Public Toggle:** If enabled, other society residents can view the issue on their boards.
-    3.  Clicks **Submit Complaint**.
+    3.  Submit creates ticket and broadcasts update via Socket.IO.
 *   **ComplaintDetailPage (`/complaints/:id`):**
-    1.  Displays ticket details, timeline history, and resident/admin comments.
-    2.  **Resident Action:** If resolved/closed, user can click **Reopen Ticket**.
+    1.  Displays ticket description, category, priority, reporter, assigned staff, and timeline history.
+    2.  **Resident Reopen:** If ticket is resolved/closed, resident can click **Reopen Ticket** to transition status to `"reopened"`.
     3.  **Admin Actions (`manage_complaints`):**
         *   **Status Selector:** Open, In Progress, On Hold, Resolved, Closed.
-        *   **Assign to Staff:** Assigns ticket to specific committee/staff member.
+        *   **Assign to Staff:** Selects committee/staff member to assign ticket.
 
 ---
 
-### 7.10 Amenities Booking Slots Flow
+### 7.12 Amenities & Facility Booking Flow
 *   **AmenitiesPage (`/amenities`):**
-    *   Displays society amenities (Clubhouse, Swimming Pool, Tennis Court, Banquet Hall, Gym) with images and pricing tags.
-*   **Amenity Booking Flow:**
-    1.  User selects an amenity and chooses a date on the calendar picker.
-    2.  API fetches `GET /api/v1/amenities/:id/slots?date=...`, displaying available time slots and remaining capacity.
-    3.  User selects slot(s) and clicks **Book Slot**.
-    4.  Backend verifies that the resident has no overdue maintenance blocks before confirming.
+    1.  Grid of amenities (Clubhouse, Swimming Pool, Tennis Court, Banquet Hall, Gym) with photos and pricing tags.
+    2.  User clicks an amenity $\rightarrow$ opens booking drawer with Calendar date picker.
+    3.  Selects date $\rightarrow$ queries `GET /api/v1/amenities/:id/slots?date=...`.
+    4.  Displays slot buttons with live capacity tags (e.g., `2/4 left`, `Full`).
+    5.  User clicks **Book Slot** $\rightarrow$ backend checks defaulter list (unpaid maintenance bills block booking) $\rightarrow$ confirms booking.
 *   **ManageAmenitiesPage (`/amenities/manage`):**
     *   *Privileged View (`manage_amenities`).*
-    *   Create, edit, or delete amenities; configure slot durations, max capacity, hourly fees, and operating hours.
+    *   Create / Edit / Delete amenities.
+    *   Configurable fields: `Name`, `Description`, `Type` (`free` vs `paid`), `Price`, `Booking Mode` (`slot` vs `full_day`), and comma-separated slot timings (e.g., `06:00-07:00, 07:00-08:00`).
 *   **AmenityHistoryPage (`/amenities/history`):**
-    *   Residents see their past/upcoming bookings. Admins see all society bookings with **Cancel Booking** buttons.
+    *   Residents see their past/upcoming bookings.
+    *   Admins see all society bookings.
+    *   **Cancel Booking:** Cancelling frees the slot immediately.
 
 ---
 
-### 7.11 Polls Voting & Results Flow
+### 7.13 Community Polls
 *   **PollsPage (`/polls`):**
-    1.  Renders **Active Polls** and **Closed Polls** tabs.
-    2.  **Scope Indicator:** Displays whether poll is Society-wide or Wing-specific.
-    3.  **Voting Interaction:** User selects an option (2–4 options). 
-    4.  **One Vote Per Unit:** Votes are recorded per flat unit (`unitId`). If a user owns multiple flats, they can vote on behalf of each assigned unit.
-    5.  **Results View:** Displays percentage breakdown and vote tallies.
-        *   **Open Polls:** Clicking **Voters** expands a dropdown showing names and house numbers of residents who selected each option.
-        *   **Secret Polls:** Voter identities are hidden.
+    1.  Tabs: **Active Polls**, **Closed Polls**.
+    2.  Scope Badge: Displays whether poll is **Society-wide** or targeted to a specific **Wing**.
+    3.  **Voting Interaction:**
+        *   Radio buttons for 2 to 4 options.
+        *   **One Vote Per Unit:** Votes are keyed by `unitId`. Residents with multiple units can vote once per unit.
+        *   On vote, option bars transition into percentage results and vote tallies.
+    4.  **Voters Modal:**
+        *   **Open Polls:** Clicking "Voters" displays modal listing voter names and flat labels under each option.
+        *   **Secret Polls:** Voter identities are hidden; only anonymous count is shown.
 *   **CreatePollPage (`/polls/new`):**
     *   *Privileged View (`create_poll`).*
-    *   Fields: `Question`, `Options` (2 to 4), `Poll Type` (Open vs Secret), `Scope` (Society vs Specific Wing), `End Date`.
+    *   Fields: `Question`, `Options` (2 to 4), `Poll Type` (`open` vs `secret`), `Scope` (`society` vs specific wing), `End Date`.
 
 ---
 
-### 7.12 Surveys Taking & Analytics Flow
+### 7.14 Community Surveys
 *   **SurveysPage (`/surveys`):**
-    *   Lists surveys with status (**Active**, **Closed**) and response state (**Pending** or **Responded**).
-*   **SurveyDetailPage (`/surveys/:id`):**
-    1.  **Survey Taking:** Renders dynamic questionnaire supporting 4 question types:
-        *   `single`: Radio button single choice.
-        *   `multiple`: Checkbox multi-select.
-        *   `rating`: 1 to 5 star rating.
-        *   `text`: Open-ended feedback textarea.
-    2.  User submits response (stored uniquely per unit).
-    3.  **Survey Analytics:** Once submitted or closed, visual graphs show percentage distribution for choices, average star rating cards, and a list of text answers.
+    *   Lists surveys with status pills (**Active**, **Closed**) and response state (**Pending** vs **Responded**).
 *   **CreateSurveyPage (`/surveys/new`):**
     *   *Privileged View (`create_survey`).*
-    *   Interactive question builder supporting 1 to 10 questions with variable question types, wing scoping, and end date configuration.
+    *   Dynamic survey builder supporting 1 to 10 questions.
+    *   4 Question Types:
+        *   `single`: Single-choice radio (2–4 options).
+        *   `multiple`: Multi-select checkboxes (2–4 options).
+        *   `rating`: 1–5 star rating.
+        *   `text`: Open-ended feedback textarea.
+    *   Configurable wing scope and end date.
+*   **SurveyDetailPage (`/surveys/:id`):**
+    1.  **Questionnaire View:** If active and unsubmitted, renders interactive form for resident submission (1 response per unit).
+    2.  **Analytics View:** If submitted or closed, visual graphs show percentage distribution for choices, star rating cards, and list of text answers.
 
 ---
 
-### 7.13 Real-time Chat System (Groups & Direct Admin)
+### 7.15 Notice Board & Announcements
+*   **NoticesPage (`/notices`):**
+    1.  Chronological list of announcements.
+    2.  Latest notices highlighted with distinct primary borders and `"Latest"` badge.
+    3.  Clicking a card opens the **Notice Detail Modal** showing full title, author name, timestamp, and body text.
+*   **CreateNoticePage (`/notices/new`):**
+    *   *Privileged View (`create_notice`).*
+    *   Form fields: `Title` (min 3 chars), `Body` (min 5 chars).
+    *   Publish broadcasts update across active sockets.
+
+---
+
+### 7.16 Real-time Chat System (Groups & Direct Admin)
 *   **ChatPage (`/chat`):**
     1.  **Split Screen Layout:**
         *   **Left Pane:** Shows **Groups** channels and **Direct (Admins)** DM threads with real-time last-message previews and unread indicators.
         *   **Right Pane:** Active conversation window.
     2.  **Group Chat Features:**
         *   Real-time message broadcast via Socket.IO.
-        *   **Reply:** Quotes referenced message.
-        *   **Emoji Reactions:** Add/remove emoji reactions to message bubbles.
-        *   **Pin Message:** Pins important announcements to the top of the chat window.
+        *   **Reply:** Quotes referenced message with preview banner.
+        *   **Emoji Reactions:** Popover emoji picker (`👍`, `❤️`, `🔥`, `🎉`, etc.) to attach/remove reactions.
+        *   **Pin Message:** Pins important announcements to the header banner of the chat window.
         *   **Delete Message:** Soft-deletes message for all participants.
         *   **Typing Indicator:** Displays `"Someone is typing..."` above composer.
-        *   **Group Info Modal:** Lists participants and masked contact info.
+        *   **Group Info Modal:** Lists participants and masked contact numbers.
+        *   **Create Group Modal (`manage_amenities`):** Title, Description, member multi-select from directory.
     3.  **Direct DM Flow:**
-        *   Residents can start private conversations directly with Society Admins / Committee.
+        *   Residents can start private 1-on-1 conversations directly with Society Admins / Committee.
         *   Double checkmark read receipts (`isRead`).
 
 ---
 
-### 7.14 Family Members & Vehicles Management
+### 7.17 Family Members & Vehicles Management
 *   **FamilyMembersPage (`/family-members`):**
     1.  Lists registered family members linked to the user's unit.
-    2.  **Add Member:** Enters `Name`, `Relation` (Spouse, Child, Parent, Sibling, Other), and `Phone Number`.
-    3.  **Remove:** Deletes family member entry.
+    2.  **Add Member Form:** `Name`, `Relation` (`spouse`, `child`, `parent`, `sibling`, `relative`, `other`), and `Phone Number`.
+    3.  **Delete Member:** Removes family member.
 *   **VehiclesPage (`/vehicles`):**
     1.  Society-wide registered vehicle search engine.
     2.  Search by license plate number, house label, resident name, or phone number.
@@ -554,11 +642,20 @@ Secure repository for society financial statements, monthly utility bills, maint
 
 ---
 
-### 7.15 My Unit Dashboard
+### 7.18 My Unit Dashboard
 *   **MyUnitPage (`/my-unit`):**
     1.  Displays cards for all units owned or rented by the logged-in resident.
     2.  Cards highlight tenancy state (**Owned** vs **Resident/Renter**).
     3.  Owners see a **Manage Renters** button opening a modal to assign, change, or unassign tenants for their flats.
+
+---
+
+### 7.19 Safety, Gate & Support Placeholders
+The following pages are lightweight client layouts reserved for upcoming roadmap integrations:
+1.  **Visitors Gatekeeper (`/visitors` - `VisitorsPage.js`):** Client interface placeholder for future MyGate-style guard tablet and visitor entry QR workflows.
+2.  **Emergency Contacts (`/emergency-contacts` - `EmergencyContactsPage.js`):** Support contact view for local police, fire, ambulance, and society security desk.
+3.  **Settings (`/settings` - `SettingsPage.js`):** User notification and security preferences.
+4.  **Help Desk (`/help` - `HelpPage.js`):** Static user guide and FAQ documentation.
 
 ---
 
@@ -583,10 +680,28 @@ Clients connect to the Socket.IO server via JWT authentication handshake and aut
 
 ---
 
-## 9. Static & Placeholder Pages
+## 9. Database Schema Matrix
 
-The following pages are currently lightweight client layouts reserved for upcoming roadmap integrations:
-1.  **Visitors Gatekeeper (`/visitors` - `VisitorsPage.js`):** Client interface placeholder for future MyGate-style guard tablet and visitor entry QR workflows.
-2.  **Emergency Contacts (`/emergency-contacts` - `EmergencyContactsPage.js`):** Support contact view for local police, fire, ambulance, and society security desk.
-3.  **Settings (`/settings` - `SettingsPage.js`):** User notification and security preferences.
-4.  **Help Desk (`/help` - `HelpPage.js`):** Static user guide and FAQ documentation.
+| Model Name | Key Fields | Indexes |
+| :--- | :--- | :--- |
+| `User` | `name`, `email`, `phone`, `passwordHash`, `occupation`, `vehicles`, `role`, `isActive` | `{ email: 1 }`, `{ phone: 1 }` |
+| `Society` | `name`, `societyType`, `address`, `city`, `state`, `pincode`, `totalUnits`, `status`, `rolePermissions`, `societyAdmin` | `{ name: 1 }`, `{ city: 1 }`, `{ status: 1 }` |
+| `Membership` | `userId`, `societyId`, `role`, `additionalRoles`, `assignedWings`, `units`, `isActive`, `joinedAt` | `{ userId: 1, societyId: 1 }` (unique) |
+| `Unit` | `societyId`, `propertyType`, `label`, `block`, `floor`, `doorNo`, `ownerId`, `tenantId`, `inviteToken`, `inviteResidentType` | `{ societyId: 1, label: 1 }` (unique), `{ inviteToken: 1 }` |
+| `MaintenanceCycle` | `societyId`, `month`, `year`, `amount`, `ownerAmount`, `renterAmount`, `dueDate`, `durationMonths`, `lateCharge` | `{ societyId: 1, month: 1, year: 1 }` (unique) |
+| `MaintenancePayment` | `societyId`, `cycleId`, `unitId`, `paidOn`, `method`, `receiptNo`, `amount`, `fee`, `totalAmount`, `razorpayOrderId`, `razorpayPaymentId`, `gatewayStatus` | `{ cycleId: 1, unitId: 1 }` (unique) |
+| `Collection` | `societyId`, `title`, `description`, `category`, `amount`, `dueDate`, `status`, `createdBy` | `{ societyId: 1, status: 1 }`, `{ societyId: 1, dueDate: 1 }` |
+| `CollectionPayment` | `societyId`, `collectionId`, `unitId`, `amount`, `fee`, `totalAmount`, `paidOn`, `method`, `receiptNo`, `razorpayOrderId`, `gatewayStatus` | `{ societyId: 1, collectionId: 1, unitId: 1 }` (unique) |
+| `Document` | `societyId`, `title`, `category`, `description`, `fileUrl`, `fileName`, `fileType`, `fileSize`, `filePath`, `uploadedBy` | `{ societyId: 1, category: 1 }`, `{ societyId: 1, createdAt: -1 }` |
+| `Complaint` | `societyId`, `title`, `description`, `category`, `priority`, `status`, `isPublic`, `raisedBy`, `assignedTo`, `unitId` | `{ societyId: 1, status: 1 }`, `{ societyId: 1, isPublic: 1 }` |
+| `Amenity` | `societyId`, `name`, `description`, `type`, `price`, `bookingMode`, `slots`, `capacity` | `{ societyId: 1, isActive: 1 }` |
+| `AmenityBooking` | `societyId`, `amenityId`, `userId`, `unitId`, `date`, `slot`, `amount`, `status` | `{ societyId: 1, amenityId: 1, date: 1 }` |
+| `Poll` | `societyId`, `question`, `options`, `type`, `status`, `scope`, `wing`, `endDate`, `createdBy` | `{ societyId: 1, status: 1 }`, `{ societyId: 1, endDate: 1 }` |
+| `PollVote` | `societyId`, `pollId`, `userId`, `unitId`, `selectedOptionIndex` | `{ societyId: 1, pollId: 1, unitId: 1 }` (unique) |
+| `Survey` | `societyId`, `title`, `description`, `questions`, `scope`, `wing`, `endDate`, `status`, `createdBy` | `{ societyId: 1, status: 1 }`, `{ societyId: 1, endDate: 1 }` |
+| `SurveyResponse` | `societyId`, `surveyId`, `userId`, `unitId`, `answers` | `{ societyId: 1, surveyId: 1, unitId: 1 }` (unique) |
+| `ChatGroup` | `societyId`, `name`, `description`, `members`, `pinnedMessageId`, `createdBy` | `{ societyId: 1, members: 1 }` |
+| `ChatMessage` | `societyId`, `groupId`, `senderId`, `text`, `replyTo`, `reactions`, `isDeleted` | `{ societyId: 1, groupId: 1, createdAt: -1 }` |
+| `DirectMessage` | `societyId`, `senderId`, `receiverId`, `text`, `replyTo`, `reactions`, `isRead`, `isDeleted` | `{ societyId: 1, senderId: 1, receiverId: 1 }` |
+| `FamilyMember` | `societyId`, `addedBy`, `name`, `relation`, `phone` | `{ societyId: 1, addedBy: 1 }` |
+| `BadgeSeen` | `userId`, `societyId`, `feature`, `lastSeenAt` | `{ userId: 1, societyId: 1, feature: 1 }` |
