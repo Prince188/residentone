@@ -96,7 +96,7 @@ export default function PayMaintenancePage() {
           }
         },
         prefill: { name: "Resident", email: "", contact: "" },
-        theme: { color: "#0e4a5a" },
+        theme: { color: "#134a36" },
         modal: { ondismiss: () => setError("Payment cancelled.") },
       };
       const rzp = new window.Razorpay(options);

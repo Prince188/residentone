@@ -330,7 +330,7 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-primary hover:bg-primary-container active:bg-[#051f26] disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl shadow-[0_10px_24px_-10px_rgba(14,74,90,0.45)] hover:shadow-[0_12px_28px_-10px_rgba(14,74,90,0.5)] hover:-translate-y-[1px] active:translate-y-0 transition-all flex items-center justify-center gap-2 text-[15px]"
+                      className="w-full bg-primary hover:bg-primary-container active:bg-[#0e3828] disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl shadow-[0_10px_24px_-10px_rgba(19,74,54,0.5)] hover:shadow-[0_12px_28px_-10px_rgba(19,74,54,0.55)] hover:-translate-y-[1px] active:translate-y-0 transition-all flex items-center justify-center gap-2 text-[15px]"
                     >
                       {loading ? (
                         <>

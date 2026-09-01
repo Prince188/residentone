@@ -67,7 +67,7 @@ export default function CollectionUnitPayPage() {
               setErr(extractApiError(e, "Verification failed"));
             }
           },
-          theme: { color: "#0e4a5a" },
+          theme: { color: "#134a36" },
         };
         if (window.Razorpay) {
           const rz = new window.Razorpay(options);
