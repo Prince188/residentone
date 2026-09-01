@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import useSocietyStore from "../../stores/society.store";
 import {
   listSocieties,
   getSocietyStats,
@@ -49,6 +50,14 @@ export default function AdminSocietiesPage() {
 
   const stats = statsQuery.data;
   const societies = societiesQuery.data || [];
+
+  const enterSocietyAsSuperAdmin = useSocietyStore((state) => state.enterSocietyAsSuperAdmin);
+  const navigate = useNavigate();
+
+  const handleEnterSociety = (society) => {
+    enterSocietyAsSuperAdmin(society);
+    navigate("/dashboard");
+  };
 
   const applySearch = (e) => {
     e.preventDefault();
@@ -224,12 +233,25 @@ export default function AdminSocietiesPage() {
                       {formatDate(society.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
-                        to={`/admin/societies/${society._id}`}
-                        className="text-label-md text-primary hover:underline no-underline"
-                      >
-                        View
-                      </Link>
+                      <div className="flex items-center justify-end gap-2.5">
+                        {society.status === "active" && (
+                          <button
+                            type="button"
+                            onClick={() => handleEnterSociety(society)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-label-sm font-semibold text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
+                            title="Enter and manage this society as Super Admin"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
+                            Manage
+                          </button>
+                        )}
+                        <Link
+                          to={`/admin/societies/${society._id}`}
+                          className="text-label-md text-on-surface-variant hover:text-primary no-underline font-medium"
+                        >
+                          Details
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

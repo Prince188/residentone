@@ -1,5 +1,6 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import useAuthStore from "../../stores/auth.store";
+import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
 import {
   RESIDENT_NAV_SECTIONS,
   ADMIN_NAV_SECTIONS,
@@ -28,10 +29,26 @@ function NavItem({ item, isCollapsed, onNavigate }) {
 }
 
 export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, onDrawerClose }) {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isPlatformAdmin = user?.role?.includes("super_admin");
-  const navSections = isPlatformAdmin ? ADMIN_NAV_SECTIONS : RESIDENT_NAV_SECTIONS;
-  const homePath = isPlatformAdmin ? "/admin/societies" : "/dashboard";
+  const isSuperAdminManaging = useSocietyStore((state) => state.isSuperAdminManaging);
+  const activeSociety = useSocietyStore(selectActiveSociety);
+  const exitSuperAdminSocietyMode = useSocietyStore((state) => state.exitSuperAdminSocietyMode);
+
+  // If Super Admin has entered a specific society, show full society resident/admin nav
+  const isManagingSpecificSociety = isPlatformAdmin && isSuperAdminManaging && Boolean(activeSociety);
+  const navSections = isManagingSpecificSociety
+    ? RESIDENT_NAV_SECTIONS
+    : isPlatformAdmin
+      ? ADMIN_NAV_SECTIONS
+      : RESIDENT_NAV_SECTIONS;
+
+  const handleExitToPlatform = () => {
+    exitSuperAdminSocietyMode();
+    onDrawerClose?.();
+    navigate("/dashboard");
+  };
 
   return (
     <>
@@ -49,7 +66,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
         } md:translate-x-0 ${isCollapsed ? "md:w-20" : "md:w-64"}`}
       >
         <div className="flex h-16 shrink-0 items-center gap-2 border-b border-outline-variant px-4">
-          <Link to={homePath} className="flex items-center gap-2 no-underline">
+          <Link to="/dashboard" className="flex items-center gap-2 no-underline">
             <span className="material-symbols-outlined text-primary text-[28px]">apartment</span>
             <span
               className={`text-[20px] font-bold tracking-tight text-on-surface ${
@@ -71,7 +88,32 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-8 overflow-y-auto px-4 py-6">
+        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-5">
+          {isManagingSpecificSociety && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <div className={`flex items-center gap-2 ${isCollapsed ? "md:justify-center" : ""}`}>
+                <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+                <span className={`text-[11px] font-bold uppercase tracking-wider text-primary truncate ${isCollapsed ? "md:hidden" : ""}`}>
+                  Managing Society
+                </span>
+              </div>
+              <p className={`text-body-sm font-bold text-on-surface truncate ${isCollapsed ? "md:hidden" : ""}`}>
+                {activeSociety.name}
+              </p>
+              <button
+                type="button"
+                onClick={handleExitToPlatform}
+                title={isCollapsed ? "Exit to Platform Admin" : undefined}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-1.5 px-2 text-[12px] font-semibold text-on-primary shadow-sm hover:bg-primary/90 cursor-pointer ${
+                  isCollapsed ? "md:px-0" : ""
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                <span className={`${isCollapsed ? "md:hidden" : ""}`}>Exit to Platform</span>
+              </button>
+            </div>
+          )}
+
           <Link
             to="/"
             onClick={onDrawerClose}
@@ -83,6 +125,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
             <span className="material-symbols-outlined shrink-0 text-[20px]">home</span>
             <span className={`truncate ${isCollapsed ? "md:hidden" : ""}`}>Go to Home</span>
           </Link>
+
           {navSections.map((section) => (
             <div key={section.id}>
               <p

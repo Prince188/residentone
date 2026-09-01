@@ -261,8 +261,8 @@ A membership can have `additionalRoles: ["wing_admin"]` and `assignedWings: ["A"
 The Dashboard (`/dashboard`) acts as the central router for all client operations.
 
 ### 6.1 Layout Configuration
-*   **Super Admin View (`isSuperAdmin: true`):**
-    *   Since Super Admins operate at the platform level and are not assigned to individual societies, `/dashboard` displays the dedicated **Platform State & Operations Center**.
+*   **Super Admin Platform Center (`isSuperAdmin: true` & `!isSuperAdminManaging`):**
+    *   Since Super Admins operate at the platform level and are not tied to any single society, `/dashboard` displays the dedicated **Platform State & Operations Center**.
     *   **Platform Statistics Grid:** Displays the live state of the entire platform:
         *   `Total Societies` (All registered societies)
         *   `Active Societies` (Live, operational societies)
@@ -272,8 +272,12 @@ The Dashboard (`/dashboard`) acts as the central router for all client operation
         *   `Total Platform Users` (All registered user accounts)
     *   **Platform Administration Shortcuts:** Quick cards for *Societies* (`/admin/societies`), *Pending Approvals* (`/admin/societies/pending`), and *New Society* (`/admin/societies/new`).
     *   **Pending Registrations Queue:** Quick review cards with one-click *Review & Approve* navigation.
-    *   **Recent Societies Table:** Live feed of recently onboarded societies.
-    *   *Note:* Super Admin dashboard strictly hides regular resident cards (Pay Maintenance, Collections, My Unit, Complaints, Amenities, Chat, Notices, etc.).
+    *   **Recent Societies Table:** Live feed of recently onboarded societies with one-click *Manage* shortcuts.
+    *   *Note:* Super Admin platform view strictly hides regular resident cards (Pay Maintenance, Collections, My Unit, Complaints, Amenities, Chat, Notices, etc.).
+*   **Super Admin Global Society Access Mode (`isSuperAdmin: true` & `isSuperAdminManaging: true`):**
+    *   Super Admin can click **"Enter / Manage Society"** on any active society on the platform.
+    *   The platform dynamically binds the Super Admin context into that society with full `super_admin` permissions across all 14 feature modules.
+    *   The top header and sidebar display a persistent indicator: `Super Admin Management Mode: [Society Name]` with a one-click **"Exit to Platform"** button.
 *   **Resident & Society Admin View (`isSuperAdmin: false`):**
     *   **Greeting Banner:** Greets user dynamically based on local device time (`Good morning` if <12 PM, `Good afternoon` if <5 PM, else `Good evening`).
     *   **Active Society & Unit Banner:** Displays linked society name, assigned flat number, and role badge.

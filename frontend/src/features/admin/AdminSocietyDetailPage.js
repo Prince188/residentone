@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import useSocietyStore from "../../stores/society.store";
 import {
   getSociety,
   approveSociety,
@@ -35,6 +36,8 @@ function DetailRow({ label, children }) {
 
 export default function AdminSocietyDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const enterSocietyAsSuperAdmin = useSocietyStore((state) => state.enterSocietyAsSuperAdmin);
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState(null);
   const [actionError, setActionError] = useState("");
@@ -129,9 +132,24 @@ export default function AdminSocietyDetailPage() {
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Back to Societies
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="page-title">{society.name}</h1>
-          <StatusBadge status={society.status} />
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="page-title">{society.name}</h1>
+            <StatusBadge status={society.status} />
+          </div>
+          {society.status === "active" && (
+            <button
+              type="button"
+              onClick={() => {
+                enterSocietyAsSuperAdmin(society);
+                navigate("/dashboard");
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-label-md font-bold text-on-primary shadow-sm hover:bg-primary/90 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+              Enter / Manage Society
+            </button>
+          )}
         </div>
       </div>
 

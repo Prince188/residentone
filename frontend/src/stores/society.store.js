@@ -8,6 +8,7 @@ const useSocietyStore = create(
     (set, get) => ({
       societies: [],
       activeSocietyId: null,
+      isSuperAdminManaging: false,
       status: "idle",
 
       loadMySocieties: async () => {
@@ -15,7 +16,15 @@ const useSocietyStore = create(
         try {
           const response = await api.get("/memberships/my-societies");
           const societies = response.data.data || [];
-          const { activeSocietyId } = get();
+          const { activeSocietyId, isSuperAdminManaging } = get();
+
+          // If super admin is currently managing a society, preserve it
+          if (isSuperAdminManaging && activeSocietyId) {
+            setActiveSocietyId(activeSocietyId);
+            set({ status: "ready" });
+            return;
+          }
+
           const stillAuthorized =
             activeSocietyId && societies.some((s) => s.society.id === activeSocietyId);
 
@@ -47,15 +56,55 @@ const useSocietyStore = create(
         queryClient.invalidateQueries();
       },
 
+      enterSocietyAsSuperAdmin: (society) => {
+        const socId = society.id || society._id;
+        const virtualEntry = {
+          society: {
+            id: socId,
+            name: society.name,
+            city: society.city,
+            state: society.state,
+            address: society.address,
+            societyType: society.societyType,
+            isActive: society.isActive,
+            totalUnits: society.totalUnits,
+          },
+          role: "super_admin",
+          additionalRoles: ["society_admin"],
+          units: [],
+        };
+        const existing = get().societies.filter((s) => s.society.id !== socId);
+        setActiveSocietyId(socId);
+        set({
+          societies: [virtualEntry, ...existing],
+          activeSocietyId: socId,
+          isSuperAdminManaging: true,
+        });
+        queryClient.invalidateQueries();
+      },
+
+      exitSuperAdminSocietyMode: () => {
+        setActiveSocietyId(null);
+        set({
+          activeSocietyId: null,
+          isSuperAdminManaging: false,
+        });
+        queryClient.invalidateQueries();
+      },
+
       reset: () => {
         setActiveSocietyId(null);
-        set({ societies: [], activeSocietyId: null, status: "idle" });
+        set({ societies: [], activeSocietyId: null, isSuperAdminManaging: false, status: "idle" });
         queryClient.clear();
       },
     }),
     {
       name: "residentone.active-society",
-      partialize: (state) => ({ activeSocietyId: state.activeSocietyId }),
+      partialize: (state) => ({
+        activeSocietyId: state.activeSocietyId,
+        isSuperAdminManaging: state.isSuperAdminManaging,
+        societies: state.isSuperAdminManaging ? state.societies : [],
+      }),
     }
   )
 );

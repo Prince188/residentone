@@ -213,6 +213,7 @@ function NoticeItem({ title, body, createdAt, featured }) {
  */
 function SuperAdminDashboardView({ user }) {
   const firstName = user?.name?.split(" ")[0] || "Super Admin";
+  const enterSocietyAsSuperAdmin = useSocietyStore((state) => state.enterSocietyAsSuperAdmin);
 
   const statsQuery = useQuery({
     queryKey: ["superadmin-society-stats"],
@@ -452,16 +453,18 @@ function SuperAdminDashboardView({ user }) {
                   </div>
                 ) : (
                   recentSocieties.map((soc) => (
-                    <Link
+                    <div
                       key={soc.id || soc._id}
-                      to={`/admin/societies/${soc.id || soc._id}`}
-                      className="group flex items-center justify-between p-3.5 sm:p-4 text-on-surface no-underline transition-colors hover:bg-surface-container-low"
+                      className="group flex items-center justify-between p-3.5 sm:p-4 text-on-surface transition-colors hover:bg-surface-container-low"
                     >
                       <div className="min-w-0 pr-3 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-body-sm sm:text-body-md font-bold text-on-surface group-hover:text-primary">
+                          <Link
+                            to={`/admin/societies/${soc.id || soc._id}`}
+                            className="truncate text-body-sm sm:text-body-md font-bold text-on-surface group-hover:text-primary no-underline"
+                          >
                             {soc.name}
-                          </span>
+                          </Link>
                           <StatusBadge status={soc.status} />
                         </div>
                         <p className="text-label-sm text-on-surface-variant truncate">
@@ -469,11 +472,25 @@ function SuperAdminDashboardView({ user }) {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="material-symbols-outlined text-outline text-[20px] transition-transform group-hover:translate-x-0.5 group-hover:text-primary">
-                          chevron_right
-                        </span>
+                        {soc.status === "active" && (
+                          <button
+                            type="button"
+                            onClick={() => enterSocietyAsSuperAdmin(soc)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-label-sm font-semibold text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
+                            title="Manage this society as Super Admin"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
+                            Manage
+                          </button>
+                        )}
+                        <Link
+                          to={`/admin/societies/${soc.id || soc._id}`}
+                          className="text-label-md text-on-surface-variant hover:text-primary no-underline font-medium"
+                        >
+                          Details
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   ))
                 )}
               </div>
@@ -597,10 +614,12 @@ export default function DashboardPage() {
   const isCommitteeRole = activeRoles.some((r) => committeeRoles.includes(r));
   const roleTitle = ROLE_TITLES[activeRole];
 
+  const isSuperAdminManaging = useSocietyStore((state) => state.isSuperAdminManaging);
+
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
-    enabled: Boolean(activeSociety) && !isSuperAdmin,
+    enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
   });
   const customPermissions = permissionsQuery.data || {};
 
@@ -660,9 +679,9 @@ export default function DashboardPage() {
   })();
 
   const badgesQuery = useQuery({
-    queryKey: ["dashboard-badges", activeSociety?.id, isSuperAdmin ? "super" : "member"],
+    queryKey: ["dashboard-badges", activeSociety?.id, isSuperAdmin && !isSuperAdminManaging ? "super" : "member"],
     queryFn: async () => (await getBadges()).data.data,
-    enabled: Boolean(activeSociety) && !isSuperAdmin,
+    enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -671,18 +690,18 @@ export default function DashboardPage() {
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id, "recent"],
     queryFn: async () => (await getNotices(2)).data.data,
-    enabled: Boolean(activeSociety) && !isSuperAdmin,
+    enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
   });
   const recentNotices = noticesQuery.data || [];
 
   const maintenanceQuery = useQuery({
     queryKey: ["maintenance", "latest"],
     queryFn: async () => (await getLatestCycle()).data.data,
-    enabled: Boolean(activeSociety) && !isSuperAdmin,
+    enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
   });
 
-  // If user is platform Super Admin, render exclusively the Structured Super Admin Platform Dashboard View
-  if (isSuperAdmin) {
+  // If user is platform Super Admin and NOT currently managing a specific society, render the Super Admin Platform Dashboard View
+  if (isSuperAdmin && !isSuperAdminManaging) {
     return <SuperAdminDashboardView user={user} />;
   }
 
