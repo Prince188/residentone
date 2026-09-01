@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { createSurvey, extractApiError } from "../../lib/surveys";
+import { getHouseCards } from "../../lib/houses";
 import api from "../../lib/api";
-import { hasPermission } from "../../lib/permissions";
+import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 
 export default function CreateSurveyPage() {
   const navigate = useNavigate();
@@ -16,12 +17,38 @@ export default function CreateSurveyPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canCreateSurvey = hasPermission(membership?.role, "create_survey", permissionsQuery.data);
+  const canCreateSurvey = hasPermissionForMembership(membership, "create_survey", permissionsQuery.data);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setDate(d.getDate()+7); d.setHours(23,59,0,0); return d.toISOString().slice(0,16); });
   const [questions, setQuestions] = useState([{ text: "", type: "single", options: ["", ""] }]);
+  const [scope, setScope] = useState("society");
+  const [wing, setWing] = useState("");
   const [error, setError] = useState("");
+
+  const housesQuery = useQuery({
+    queryKey: ["house-cards", activeSociety?.id],
+    queryFn: async () => (await getHouseCards()).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const roles = getMembershipRoles(membership);
+  const isPureWingAdmin = roles.includes("wing_admin") && !roles.includes("society_admin") && !roles.includes("super_admin");
+  const availableWings = useMemo(() => {
+    const houses = housesQuery.data || [];
+    const set = new Set();
+    houses.forEach((h) => { if (h.block) set.add(String(h.block).toUpperCase()); });
+    const all = Array.from(set).sort();
+    const isSocietyAdmin = roles.includes("society_admin") || roles.includes("super_admin");
+    if (!isSocietyAdmin && roles.includes("wing_admin")) {
+      const assigned = (membership.assignedWings || []).map((w) => String(w).toUpperCase());
+      return all.filter((w) => assigned.includes(w));
+    }
+    return all;
+  }, [housesQuery.data, membership, roles]);
+  useEffect(() => {
+    if (isPureWingAdmin && scope !== "wing") setScope("wing");
+    if (isPureWingAdmin && availableWings.length === 1 && !wing) setWing(availableWings[0]);
+  }, [isPureWingAdmin, availableWings, scope, wing]);
 
   const mutation = useMutation({
     mutationFn: (payload) => createSurvey(payload).then((r) => r.data.data),
@@ -43,6 +70,7 @@ export default function CreateSurveyPage() {
     setError("");
     if (!title.trim() || title.trim().length < 5) return setError("Title must be at least 5 characters");
     if (new Date(endDate) <= new Date()) return setError("End date must be in future");
+    if (scope === "wing" && !wing) return setError("Select a wing for wing survey");
     for (let i=0;i<questions.length;i++) {
       const q = questions[i];
       if (!q.text.trim() || q.text.trim().length < 5) return setError(`Question ${i+1} must be at least 5 characters`);
@@ -57,6 +85,8 @@ export default function CreateSurveyPage() {
         type: q.type,
         options: q.type === "text" || q.type === "rating" ? [] : q.options.map((o)=>o.trim()).filter(Boolean),
       })),
+      scope,
+      wing: scope === "wing" ? wing : null,
     };
     mutation.mutate(payload);
   };
@@ -83,6 +113,32 @@ export default function CreateSurveyPage() {
         <div>
           <label className="text-label-md font-medium">Close Date *</label>
           <input type="datetime-local" value={endDate} min={minDate} onChange={(e)=>setEndDate(e.target.value)} className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2.5 text-body-md focus:border-primary focus:outline-none" />
+        </div>
+        <div>
+          <label className="text-label-md font-medium">Scope *</label>
+          <div className="mt-2 flex gap-2">
+            <button type="button" disabled={isPureWingAdmin} onClick={() => setScope("society")} className={`flex-1 rounded-xl border px-4 py-3 text-left ${scope==="society" ? "border-primary bg-primary/10" : "border-outline-variant bg-white"} ${isPureWingAdmin ? "opacity-50 cursor-not-allowed bg-surface-container" : ""}`}>
+              <div className="text-body-sm font-semibold">Society-wide {isPureWingAdmin && "(not allowed)"}</div>
+              <div className="text-label-sm text-on-surface-variant">All residents</div>
+            </button>
+            <button type="button" onClick={() => setScope("wing")} className={`flex-1 rounded-xl border px-4 py-3 text-left ${scope==="wing" ? "border-primary bg-primary/10" : "border-outline-variant bg-white"}`}>
+              <div className="text-body-sm font-semibold">Wing only {isPureWingAdmin ? "• Locked" : ""}</div>
+              <div className="text-label-sm text-on-surface-variant">Only wing members</div>
+            </button>
+          </div>
+          {scope==="wing" && (
+            <div className="mt-3">
+              <label className="text-label-md font-medium">Select Wing *</label>
+              {availableWings.length===0 ? (
+                <p className="mt-1 text-body-sm text-outline border rounded-lg p-3 bg-surface-container-low">No wings found.</p>
+              ) : (
+                <select value={wing} onChange={(e)=>setWing(e.target.value)} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-body-md">
+                  <option value="">Select wing</option>
+                  {availableWings.map((w)=><option key={w} value={w}>Wing {w}</option>)}
+                </select>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

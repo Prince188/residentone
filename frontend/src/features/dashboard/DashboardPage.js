@@ -256,8 +256,8 @@ export default function DashboardPage() {
       });
     }
     if (isWingOnly) {
-      // pure wing_admin: only Manage Wing
-      return adminCards.filter((card) => card.label === "Manage Wing");
+      // pure wing_admin: Manage Wing + Create Poll/Survey (wing-locked) + Create Notice
+      return adminCards.filter((card) => ["Manage Wing", "Create Poll", "Create Survey", "Create Notice"].includes(card.label) && hasPermissionForMembership(activeMembership, cardPermissionMap[card.label] || "create_poll", customPermissions));
     }
     if (isCommitteeRole) {
       return adminCards.filter((card) => {
@@ -270,7 +270,11 @@ export default function DashboardPage() {
     return [];
   })();
 
-  const filteredWingCards = isAdminWithWing ? [{ icon: "meeting_room", label: "Manage Wing", to: "/wing/manage" }] : [];
+  const filteredWingCards = (() => {
+    if (isAdminWithWing) return adminCards.filter((card) => ["Manage Wing", "Create Poll", "Create Survey"].includes(card.label));
+    if (isWingOnly) return [];
+    return [];
+  })();
 
   const badgesQuery = useQuery({
     queryKey: ["dashboard-badges", activeSociety?.id, isSuperAdmin ? "super" : "member"],

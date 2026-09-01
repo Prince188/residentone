@@ -24,6 +24,8 @@ const createPollSchema = z.object({
     .string()
     .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" })
     .refine((val) => new Date(val) > new Date(), { message: "End date must be in future" }),
+  scope: z.enum(["society", "wing"]).default("society").optional(),
+  wing: z.string().trim().max(10).optional().nullable(),
 });
 
 const votePollSchema = z.object({

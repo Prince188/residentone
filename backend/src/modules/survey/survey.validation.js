@@ -24,6 +24,8 @@ const createSurveySchema = z.object({
   description: z.string().trim().max(500).optional().default(""),
   endDate: z.string().refine((v) => !isNaN(Date.parse(v)), { message: "Invalid end date" }).refine((v) => new Date(v) > new Date(), { message: "End date must be in future" }),
   questions: z.array(questionSchema).min(1, "At least 1 question").max(10, "Max 10 questions"),
+  scope: z.enum(["society", "wing"]).default("society").optional(),
+  wing: z.string().trim().max(10).optional().nullable(),
 });
 
 const submitSurveySchema = z.object({

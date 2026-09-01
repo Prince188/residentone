@@ -13,7 +13,46 @@ class PollService {
     return unit ? { unitId: unit._id, unitLabel: unit.label } : { unitId, unitLabel: null };
   }
 
+  async getVisibleWings(societyId, userId) {
+    const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
+    if (!membership) return [];
+    const roles = [membership.role, ...(membership.additionalRoles || [])].filter(Boolean);
+    if (roles.includes("society_admin") || roles.includes("super_admin")) return null; // null means all wings
+    if (roles.includes("wing_admin")) {
+      return (membership.assignedWings || []).map((w) => String(w).toUpperCase());
+    }
+    // resident: wings of their units
+    if (membership.units && membership.units.length) {
+      const units = await Unit.find({ _id: { $in: membership.units }, societyId }).select("block").lean();
+      const wings = [...new Set(units.map((u) => String(u.block || "").toUpperCase()).filter(Boolean))];
+      return wings;
+    }
+    return [];
+  }
+
+  async isWingVisible(societyId, userId, wing) {
+    const visible = await this.getVisibleWings(societyId, userId);
+    if (visible === null) return true;
+    return visible.includes(String(wing).toUpperCase());
+  }
+
   async create(societyId, userId, data) {
+    const scope = data.scope === "wing" ? "wing" : "society";
+    let wing = null;
+    if (scope === "wing") {
+      wing = String(data.wing || "").trim().toUpperCase();
+      if (!wing) throw new AppError("Wing is required for wing poll", 400);
+      if (!/^[A-Z0-9]{1,10}$/.test(wing)) throw new AppError("Invalid wing name", 400);
+      // Authorize creator for wing
+      const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
+      const roles = [membership?.role, ...(membership?.additionalRoles || [])].filter(Boolean);
+      const isSocietyAdmin = roles.includes("society_admin") || roles.includes("super_admin");
+      const isWingAdminForWing = roles.includes("wing_admin") && (membership.assignedWings || []).map((w)=>String(w).toUpperCase()).includes(wing);
+      if (!isSocietyAdmin && !isWingAdminForWing) {
+        // Check generic create_poll permission is already checked via middleware, but wing_admin scope extra
+        throw new AppError(`Not authorized to create poll for Wing ${wing}`, 403);
+      }
+    }
     const poll = await Poll.create({
       societyId,
       createdBy: userId,
@@ -22,6 +61,8 @@ class PollService {
       type: data.type || "open",
       endDate: new Date(data.endDate),
       status: "active",
+      scope,
+      wing,
     });
     return poll;
   }
@@ -35,7 +76,20 @@ class PollService {
   }
 
   async listForSociety(societyId, userId) {
-    const polls = await Poll.find({ societyId, isActive: true })
+    const visibleWings = userId ? await this.getVisibleWings(societyId, userId) : null;
+    const baseQuery = { societyId, isActive: true };
+    let wingFilter = {};
+    if (visibleWings !== null && Array.isArray(visibleWings)) {
+      wingFilter = {
+        $or: [{ scope: "society" }, { scope: "wing", wing: { $in: visibleWings } }],
+      };
+      // Also include polls with missing scope (legacy)
+      if (visibleWings.length === 0) {
+        wingFilter = { $or: [{ scope: "society" }, { scope: { $exists: false } }, { scope: null }] };
+      }
+    }
+    const query = visibleWings === null ? baseQuery : { ...baseQuery, ...wingFilter };
+    const polls = await Poll.find(query)
       .populate("createdBy", "name")
       .sort({ createdAt: -1 })
       .lean();
@@ -91,6 +145,10 @@ class PollService {
       .populate("createdBy", "name")
       .lean();
     if (!poll) throw new AppError("Poll not found", 404);
+    if (poll.scope === "wing" && poll.wing && userId) {
+      const visible = await this.isWingVisible(societyId, userId, poll.wing);
+      if (!visible) throw new AppError("Not authorized to view this wing poll", 403);
+    }
 
     // Auto-close if expired
     if (poll.status === "active" && poll.endDate && new Date() > new Date(poll.endDate)) {
@@ -130,6 +188,10 @@ class PollService {
   async vote(societyId, pollId, userId, selectedOptionIndex) {
     const poll = await Poll.findOne({ _id: pollId, societyId, isActive: true });
     if (!poll) throw new AppError("Poll not found", 404);
+    if (poll.scope === "wing" && poll.wing) {
+      const visible = await this.isWingVisible(societyId, userId, poll.wing);
+      if (!visible) throw new AppError("Not authorized to vote on this wing poll", 403);
+    }
 
     // Check expired -> auto close
     if (poll.status === "closed" || (poll.endDate && new Date() > new Date(poll.endDate))) {
@@ -232,6 +294,8 @@ class PollService {
       updatedAt: poll.updatedAt,
       createdByName: poll.createdBy?.name || "Admin",
       createdBy: poll.createdBy?._id || poll.createdBy,
+      scope: poll.scope || "society",
+      wing: poll.wing || null,
       totalVotes: isSecret && !isClosed ? 0 : totalVotes,
       totalVotesHidden: isSecret && !isClosed,
       userVote: userVoteIndex !== undefined && userVoteIndex !== null ? userVoteIndex : null,

@@ -102,12 +102,27 @@ async function computeCounts({ societyId, userId, membership, rolePermissions })
       })()
     );
 
-    // Polls
+    // Polls - wing-aware
     tasks.push(
       (async () => {
         try {
           const last = lastSeenMap.polls;
-          const polls = await Poll.find({ societyId: societyObjId, isActive: true, createdAt: { $gt: last } }).select("_id").lean();
+          let wingFilter = {};
+          if (membership) {
+            const roles = [membership.role, ...(membership.additionalRoles||[])].filter(Boolean);
+            if (!roles.includes("society_admin") && !roles.includes("super_admin")) {
+              let visibleWings = [];
+              if (roles.includes("wing_admin")) visibleWings = (membership.assignedWings||[]).map((w)=>String(w).toUpperCase());
+              else if (membership.units && membership.units.length) {
+                const units = await Unit.find({ _id: { $in: membership.units }, societyId: societyObjId }).select("block").lean();
+                visibleWings = [...new Set(units.map((u)=>String(u.block||"").toUpperCase()).filter(Boolean))];
+              }
+              if (visibleWings.length === 0) wingFilter = { $or: [{ scope: "society" }, { scope: { $exists: false } }, { scope: null }] };
+              else wingFilter = { $or: [{ scope: "society" }, { scope: "wing", wing: { $in: visibleWings } }, { scope: { $exists: false } }] };
+            }
+          }
+          const query = { societyId: societyObjId, isActive: true, createdAt: { $gt: last }, ...wingFilter };
+          const polls = await Poll.find(query).select("_id").lean();
           counts.polls = polls.length;
         } catch {
           counts.polls = 0;
@@ -115,12 +130,26 @@ async function computeCounts({ societyId, userId, membership, rolePermissions })
       })()
     );
 
-    // Surveys
+    // Surveys - wing-aware
     tasks.push(
       (async () => {
         try {
           const last = lastSeenMap.surveys;
-          const s = await Survey.countDocuments({ societyId: societyObjId, isActive: true, createdAt: { $gt: last } });
+          let wingFilter = {};
+          if (membership) {
+            const roles = [membership.role, ...(membership.additionalRoles||[])].filter(Boolean);
+            if (!roles.includes("society_admin") && !roles.includes("super_admin")) {
+              let visibleWings = [];
+              if (roles.includes("wing_admin")) visibleWings = (membership.assignedWings||[]).map((w)=>String(w).toUpperCase());
+              else if (membership.units && membership.units.length) {
+                const units = await Unit.find({ _id: { $in: membership.units }, societyId: societyObjId }).select("block").lean();
+                visibleWings = [...new Set(units.map((u)=>String(u.block||"").toUpperCase()).filter(Boolean))];
+              }
+              if (visibleWings.length === 0) wingFilter = { $or: [{ scope: "society" }, { scope: { $exists: false } }, { scope: null }] };
+              else wingFilter = { $or: [{ scope: "society" }, { scope: "wing", wing: { $in: visibleWings } }, { scope: { $exists: false } }] };
+            }
+          }
+          const s = await Survey.countDocuments({ societyId: societyObjId, isActive: true, createdAt: { $gt: last }, ...wingFilter });
           counts.surveys = s;
         } catch {
           counts.surveys = 0;

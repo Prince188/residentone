@@ -12,7 +12,39 @@ class SurveyService {
     return unit ? { unitId: unit._id, unitLabel: unit.label } : { unitId, unitLabel: null };
   }
 
+  async getVisibleWings(societyId, userId) {
+    const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
+    if (!membership) return [];
+    const roles = [membership.role, ...(membership.additionalRoles || [])].filter(Boolean);
+    if (roles.includes("society_admin") || roles.includes("super_admin")) return null;
+    if (roles.includes("wing_admin")) return (membership.assignedWings || []).map((w) => String(w).toUpperCase());
+    if (membership.units && membership.units.length) {
+      const units = await Unit.find({ _id: { $in: membership.units }, societyId }).select("block").lean();
+      const wings = [...new Set(units.map((u) => String(u.block || "").toUpperCase()).filter(Boolean))];
+      return wings;
+    }
+    return [];
+  }
+
+  async isWingVisible(societyId, userId, wing) {
+    const visible = await this.getVisibleWings(societyId, userId);
+    if (visible === null) return true;
+    return visible.includes(String(wing).toUpperCase());
+  }
+
   async create(societyId, userId, data) {
+    const scope = data.scope === "wing" ? "wing" : "society";
+    let wing = null;
+    if (scope === "wing") {
+      wing = String(data.wing || "").trim().toUpperCase();
+      if (!wing) throw new AppError("Wing is required for wing survey", 400);
+      if (!/^[A-Z0-9]{1,10}$/.test(wing)) throw new AppError("Invalid wing name", 400);
+      const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
+      const roles = [membership?.role, ...(membership?.additionalRoles || [])].filter(Boolean);
+      const isSocietyAdmin = roles.includes("society_admin") || roles.includes("super_admin");
+      const isWingAdminForWing = roles.includes("wing_admin") && (membership.assignedWings || []).map((w)=>String(w).toUpperCase()).includes(wing);
+      if (!isSocietyAdmin && !isWingAdminForWing) throw new AppError(`Not authorized to create survey for Wing ${wing}`, 403);
+    }
     const survey = await Survey.create({
       societyId,
       createdBy: userId,
@@ -25,6 +57,8 @@ class SurveyService {
         options: q.type === "text" || q.type === "rating" ? [] : q.options.map((o) => ({ text: o.trim() })),
       })),
       status: "active",
+      scope,
+      wing,
     });
     try { const s = require("../../socket"); s.emitToSociety(String(societyId), "survey:change", { id: survey._id, action: "create" }); } catch (_) {}
     return survey;
@@ -39,7 +73,15 @@ class SurveyService {
   }
 
   async listForSociety(societyId, userId) {
-    const surveys = await Survey.find({ societyId, isActive: true }).populate("createdBy", "name").sort({ createdAt: -1 }).lean();
+    const visibleWings = userId ? await this.getVisibleWings(societyId, userId) : null;
+    const baseQuery = { societyId, isActive: true };
+    let wingFilter = {};
+    if (visibleWings !== null && Array.isArray(visibleWings)) {
+      if (visibleWings.length === 0) wingFilter = { $or: [{ scope: "society" }, { scope: { $exists: false } }, { scope: null }] };
+      else wingFilter = { $or: [{ scope: "society" }, { scope: "wing", wing: { $in: visibleWings } }] };
+    }
+    const query = visibleWings === null ? baseQuery : { ...baseQuery, ...wingFilter };
+    const surveys = await Survey.find(query).populate("createdBy", "name").sort({ createdAt: -1 }).lean();
     const now = new Date();
     const expired = surveys.filter((s) => s.status === "active" && new Date(s.endDate) <= now).map((s) => s._id);
     if (expired.length) {
@@ -71,6 +113,8 @@ class SurveyService {
       questionCount: s.questions.length,
       endDate: s.endDate,
       status: s.status,
+      scope: s.scope || "society",
+      wing: s.wing || null,
       isClosed: s.status === "closed" || new Date(s.endDate) <= now,
       createdByName: s.createdBy?.name || "Admin",
       createdAt: s.createdAt,
@@ -82,6 +126,10 @@ class SurveyService {
   async getById(societyId, surveyId, userId) {
     let survey = await Survey.findOne({ _id: surveyId, societyId, isActive: true }).populate("createdBy", "name").lean();
     if (!survey) throw new AppError("Survey not found", 404);
+    if (survey.scope === "wing" && survey.wing && userId) {
+      const visible = await this.isWingVisible(societyId, userId, survey.wing);
+      if (!visible) throw new AppError("Not authorized to view this wing survey", 403);
+    }
     if (survey.status === "active" && survey.endDate && new Date() > new Date(survey.endDate)) {
       await Survey.updateOne({ _id: survey._id }, { status: "closed" });
       survey.status = "closed";
@@ -109,6 +157,8 @@ class SurveyService {
       questions: survey.questions.map((q) => ({ id: q._id, text: q.text, type: q.type, options: (q.options || []).map((o) => o.text) })),
       endDate: survey.endDate,
       status: survey.status,
+      scope: survey.scope || "society",
+      wing: survey.wing || null,
       isClosed,
       createdByName: survey.createdBy?.name || "Admin",
       hasResponded,
@@ -156,6 +206,10 @@ class SurveyService {
   async submit(societyId, surveyId, userId, answers) {
     let survey = await Survey.findOne({ _id: surveyId, societyId, isActive: true });
     if (!survey) throw new AppError("Survey not found", 404);
+    if (survey.scope === "wing" && survey.wing) {
+      const visible = await this.isWingVisible(societyId, userId, survey.wing);
+      if (!visible) throw new AppError("Not authorized to submit this wing survey", 403);
+    }
     if (survey.status === "closed" || new Date(survey.endDate) <= new Date()) {
       if (survey.status !== "closed") { survey.status = "closed"; await survey.save(); }
       throw new AppError("Survey is closed", 400);

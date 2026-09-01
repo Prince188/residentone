@@ -54,6 +54,19 @@ const pollSchema = new mongoose.Schema(
       required: [true, "End date is required"],
       index: true,
     },
+    scope: {
+      type: String,
+      enum: ["society", "wing"],
+      default: "society",
+      index: true,
+    },
+    wing: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: null,
+      index: true,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { getPolls, votePoll, closePoll, deletePoll, extractApiError, formatPollEndDate } from "../../lib/polls";
 import api from "../../lib/api";
-import { hasPermission } from "../../lib/permissions";
+import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 import useBadgeSeen from "../../hooks/useBadgeSeen";
 
 function VotersModal({ poll, onClose }) {
@@ -73,12 +73,15 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onView
   const hasVoted = poll.hasVoted;
   const isClosed = poll.isClosed || poll.status === "closed";
   const isSecret = poll.type === "secret";
+  const isWing = poll.scope === "wing" && poll.wing;
 
   return (
     <article className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="flex-1 text-body-lg font-semibold text-on-surface">{poll.question}</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isWing && <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-2.5 py-1 text-label-sm font-bold">Wing {poll.wing}</span>}
+          {!isWing && <span className="shrink-0 rounded-full bg-sky-100 text-sky-800 px-2.5 py-1 text-label-sm font-bold">Society</span>}
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-label-sm font-semibold ${isClosed ? "bg-outline-variant text-on-surface-variant" : "bg-primary-fixed text-on-primary-fixed"}`}>
             {isClosed ? "Closed" : "Active"}
           </span>
@@ -89,7 +92,7 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onDelete, onView
       </div>
 
       <p className="mt-1 text-label-sm text-outline">
-        {formatPollEndDate(poll.endDate)} · {poll.totalVotesHidden ? "Results hidden till close" : `${poll.totalVotes} vote${poll.totalVotes === 1 ? "" : "s"}`} · by {poll.createdByName}
+        {isWing ? `Wing ${poll.wing} • ` : ""}{formatPollEndDate(poll.endDate)} · {poll.totalVotesHidden ? "Results hidden till close" : `${poll.totalVotes} vote${poll.totalVotes === 1 ? "" : "s"}`} · by {poll.createdByName}
       </p>
 
       <div className="mt-4 space-y-2.5">
@@ -176,7 +179,7 @@ function AdminActions({ poll, onClose, closingId, onDelete }) {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canCreatePoll = hasPermission(membership?.role, "create_poll", permissionsQuery.data);
+  const canCreatePoll = hasPermissionForMembership(membership, "create_poll", permissionsQuery.data);
   if (!canCreatePoll) return null;
   return (
     <>
@@ -208,7 +211,7 @@ export default function PollsPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canCreatePoll = hasPermission(activeMembership?.role, "create_poll", permissionsQuery.data);
+  const canCreatePoll = hasPermissionForMembership(activeMembership, "create_poll", permissionsQuery.data);
   const queryClient = useQueryClient();
   const [votingId, setVotingId] = useState(null);
   const [closingId, setClosingId] = useState(null);
@@ -256,9 +259,15 @@ export default function PollsPage() {
 
   const handleDelete = (pollId) => deleteMutation.mutate(pollId);
 
+  const [scopeFilter, setScopeFilter] = useState("all");
   const polls = pollsQuery.data || [];
-  const activePolls = polls.filter((p) => !p.isClosed);
-  const closedPolls = polls.filter((p) => p.isClosed);
+  const scopeFiltered = polls.filter((p) => {
+    if (scopeFilter === "society") return !p.wing && (p.scope === "society" || !p.scope);
+    if (scopeFilter === "wing") return p.scope === "wing" && !!p.wing;
+    return true;
+  });
+  const activePolls = scopeFiltered.filter((p) => !p.isClosed);
+  const closedPolls = scopeFiltered.filter((p) => p.isClosed);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -314,6 +323,13 @@ export default function PollsPage() {
         </div>
       )}
 
+      {scopeFiltered.length > 0 && (
+        <div className="flex gap-2">
+          <button onClick={() => setScopeFilter("all")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border ${scopeFilter==="all" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>All ({polls.length})</button>
+          <button onClick={() => setScopeFilter("society")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border ${scopeFilter==="society" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>Society ({polls.filter((p)=>!p.wing && (p.scope==="society"||!p.scope)).length})</button>
+          <button onClick={() => setScopeFilter("wing")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border ${scopeFilter==="wing" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-on-surface-variant border-outline-variant"}`}>Wing ({polls.filter((p)=>p.scope==="wing").length})</button>
+        </div>
+      )}
       {polls.length > 0 && (
         <>
           {voteMutation.isError && (

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { createPoll, extractApiError } from "../../lib/polls";
+import { getHouseCards } from "../../lib/houses";
 import api from "../../lib/api";
-import { hasPermission } from "../../lib/permissions";
+import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 
 export default function CreatePollPage() {
   const navigate = useNavigate();
@@ -16,11 +17,13 @@ export default function CreatePollPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canCreatePoll = hasPermission(membership?.role, "create_poll", permissionsQuery.data);
+  const canCreatePoll = hasPermissionForMembership(membership, "create_poll", permissionsQuery.data);
 
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [type, setType] = useState("open");
+  const [scope, setScope] = useState("society");
+  const [wing, setWing] = useState("");
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
@@ -28,6 +31,32 @@ export default function CreatePollPage() {
     return d.toISOString().slice(0, 16);
   });
   const [error, setError] = useState("");
+
+  const housesQuery = useQuery({
+    queryKey: ["house-cards", activeSociety?.id],
+    queryFn: async () => (await getHouseCards()).data.data,
+    enabled: Boolean(activeSociety),
+  });
+  const roles = getMembershipRoles(membership);
+  const isPureWingAdmin = roles.includes("wing_admin") && !roles.includes("society_admin") && !roles.includes("super_admin");
+  const availableWings = useMemo(() => {
+    const houses = housesQuery.data || [];
+    const set = new Set();
+    houses.forEach((h) => { if (h.block) set.add(String(h.block).toUpperCase()); });
+    const all = Array.from(set).sort();
+    // wing_admin sees only assigned wings
+    const isSocietyAdmin = roles.includes("society_admin") || roles.includes("super_admin");
+    if (!isSocietyAdmin && roles.includes("wing_admin")) {
+      const assigned = (membership.assignedWings || []).map((w) => String(w).toUpperCase());
+      return all.filter((w) => assigned.includes(w));
+    }
+    return all;
+  }, [housesQuery.data, membership, roles]);
+
+  useEffect(() => {
+    if (isPureWingAdmin && scope !== "wing") setScope("wing");
+    if (isPureWingAdmin && availableWings.length === 1 && !wing) setWing(availableWings[0]);
+  }, [isPureWingAdmin, availableWings, scope, wing]);
 
   const mutation = useMutation({
     mutationFn: (payload) => createPoll(payload).then((r) => r.data.data),
@@ -69,8 +98,9 @@ export default function CreatePollPage() {
     if (new Set(cleaned.map((o) => o.toLowerCase())).size !== cleaned.length) return setError("Options must be unique");
     if (!endDate) return setError("End date is required");
     if (new Date(endDate) <= new Date()) return setError("End date must be in future");
+    if (scope === "wing" && !wing) return setError("Select a wing for wing poll");
 
-    mutation.mutate({ question: question.trim(), options: cleaned, type, endDate: new Date(endDate).toISOString() });
+    mutation.mutate({ question: question.trim(), options: cleaned, type, endDate: new Date(endDate).toISOString(), scope, wing: scope === "wing" ? wing : null });
   };
 
   // Default min for datetime-local
@@ -132,6 +162,34 @@ export default function CreatePollPage() {
             <button type="button" onClick={addOption} className="mt-2 inline-flex items-center gap-1 text-label-md text-primary hover:underline">
               <span className="material-symbols-outlined text-[18px]">add</span> Add Option
             </button>
+          )}
+        </div>
+
+        <div>
+          <label className="text-label-md font-medium text-on-surface">Poll Scope *</label>
+          <div className="mt-2 flex gap-2">
+            <button type="button" disabled={isPureWingAdmin} onClick={() => setScope("society")} className={`flex-1 rounded-xl border px-4 py-3 text-left ${scope==="society" ? "border-primary bg-primary/10" : "border-outline-variant bg-white"} ${isPureWingAdmin ? "opacity-50 cursor-not-allowed bg-surface-container" : ""}`}>
+              <div className="text-body-sm font-semibold">Society-wide {isPureWingAdmin && "(not allowed)"}</div>
+              <div className="text-label-sm text-on-surface-variant">All residents can vote</div>
+            </button>
+            <button type="button" onClick={() => setScope("wing")} className={`flex-1 rounded-xl border px-4 py-3 text-left ${scope==="wing" ? "border-primary bg-primary/10" : "border-outline-variant bg-white"}`}>
+              <div className="text-body-sm font-semibold">Wing only</div>
+              <div className="text-label-sm text-on-surface-variant">Only wing members {isPureWingAdmin ? "• Locked" : ""}</div>
+            </button>
+          </div>
+          {scope==="wing" && (
+            <div className="mt-3">
+              <label className="text-label-md font-medium text-on-surface">Select Wing *</label>
+              {availableWings.length===0 ? (
+                <p className="mt-1 text-body-sm text-outline border rounded-lg p-3 bg-surface-container-low">No wings found — this society has no wing structure. Create apartment wings first.</p>
+              ) : (
+                <select value={wing} onChange={(e)=>setWing(e.target.value)} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-body-md focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                  <option value="">Select wing</option>
+                  {availableWings.map((w)=><option key={w} value={w}>Wing {w}</option>)}
+                </select>
+              )}
+              <p className="mt-1 text-label-sm text-outline">Only residents of Wing {wing || "—"} can see and vote. {getMembershipRoles(membership).includes("wing_admin") && !getMembershipRoles(membership).includes("society_admin") ? "You can only create for your assigned wing." : ""}</p>
+            </div>
           )}
         </div>
 
