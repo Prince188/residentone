@@ -9,7 +9,7 @@ import useSocietyStore, {
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 import api from "../../lib/api";
-import { hasPermission } from "../../lib/permissions";
+import { hasPermission, hasPermissionForMembership, getMembershipRoles, isWingAdmin } from "../../lib/permissions";
 import { getBadges } from "../../lib/dashboard";
 
 const superAdminCards = [
@@ -20,6 +20,7 @@ const superAdminCards = [
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
   { icon: "domain", label: "Manage Society", to: "/society/manage", perm: "manage_society" },
+  { icon: "meeting_room", label: "Manage Wing", to: "/wing/manage" },
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
   { icon: "volunteer_activism", label: "Manage Collections", to: "/collections/manage" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
@@ -202,18 +203,12 @@ export default function DashboardPage() {
   const activeUnit = useSocietyStore(selectPrimaryUnit);
 
   const isSuperAdmin = user?.role?.includes("super_admin");
-  const isAdmin =
-    activeMembership?.role === "society_admin" ||
-    activeMembership?.role === "super_admin";
+  const activeRoles = getMembershipRoles(activeMembership);
+  const isAdmin = activeRoles.includes("society_admin") || activeRoles.includes("super_admin");
+  const isWingOnly = activeRoles.includes("wing_admin") && !isAdmin;
   const activeRole = activeMembership?.role;
-  const isCommitteeRole = [
-    "manager",
-    "treasurer",
-    "accountant",
-    "helpdesk_manager",
-    "auditor",
-    "committee_member",
-  ].includes(activeRole);
+  const committeeRoles = ["manager","treasurer","accountant","helpdesk_manager","auditor","committee_member"];
+  const isCommitteeRole = activeRoles.some((r) => committeeRoles.includes(r));
   const roleTitle = ROLE_TITLES[activeRole];
 
   const permissionsQuery = useQuery({
@@ -236,14 +231,46 @@ export default function DashboardPage() {
     "Manage Committee": "manage_committee",
   };
 
-  const filteredAdminCards = (isCommitteeRole || isAdmin
-    ? adminCards.filter((card) => {
-        if (card.label === "Manage Society") return isAdmin || activeRole === "wing_admin" || hasPermission(activeRole, "manage_committee", customPermissions);
+  const isPureAdmin = isAdmin && !activeRoles.includes("wing_admin");
+  const isAdminWithWing = isAdmin && activeRoles.includes("wing_admin");
+
+  const filteredAdminCards = (() => {
+    if (isAdminWithWing) {
+      // society_admin + wing_admin: Society Admin section without Manage Wing (Wing Admin shown separately)
+      return adminCards.filter((card) => {
+        if (card.label === "Manage Wing") return false;
+        if (card.label === "Manage Society") return true;
         const perm = cardPermissionMap[card.label];
         if (!perm) return true;
-        return hasPermission(activeRole, perm, customPermissions);
-      })
-    : []);
+        return hasPermissionForMembership(activeMembership, perm, customPermissions);
+      });
+    }
+    if (isPureAdmin) {
+      // pure society_admin: all admin cards except Manage Wing
+      return adminCards.filter((card) => {
+        if (card.label === "Manage Wing") return false;
+        if (card.label === "Manage Society") return true;
+        const perm = cardPermissionMap[card.label];
+        if (!perm) return true;
+        return hasPermissionForMembership(activeMembership, perm, customPermissions);
+      });
+    }
+    if (isWingOnly) {
+      // pure wing_admin: only Manage Wing
+      return adminCards.filter((card) => card.label === "Manage Wing");
+    }
+    if (isCommitteeRole) {
+      return adminCards.filter((card) => {
+        if (card.label === "Manage Society" || card.label === "Manage Wing") return false;
+        const perm = cardPermissionMap[card.label];
+        if (!perm) return true;
+        return hasPermissionForMembership(activeMembership, perm, customPermissions);
+      });
+    }
+    return [];
+  })();
+
+  const filteredWingCards = isAdminWithWing ? [{ icon: "meeting_room", label: "Manage Wing", to: "/wing/manage" }] : [];
 
   const badgesQuery = useQuery({
     queryKey: ["dashboard-badges", activeSociety?.id, isSuperAdmin ? "super" : "member"],
@@ -324,7 +351,14 @@ export default function DashboardPage() {
             </h1>
           </div>
           {(activeMembership || isSuperAdmin) && (
-            <RolePill role={activeMembership?.role} isSuper={isSuperAdmin} />
+            <div className="flex flex-wrap gap-2">
+              <RolePill role={activeMembership?.role} isSuper={isSuperAdmin} />
+              {getMembershipRoles(activeMembership).filter((r)=> r !== activeMembership?.role).map((r)=>(
+                <span key={r} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-bold ${r==="wing_admin" ? "bg-amber-100 text-amber-800" : "bg-white/20 text-white border border-white/20"}`}>
+                  {ROLE_TITLES[r] || r} {r==="wing_admin" && (activeMembership.assignedWings||[]).length ? `• ${activeMembership.assignedWings.join(", ")}` : ""}
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
@@ -389,12 +423,20 @@ export default function DashboardPage() {
         <CardSection title="Super Admin" cards={superAdminCards} variant="admin" badges={badges} />
       )}
 
+      {isWingOnly && filteredAdminCards.length > 0 && (
+        <CardSection title="Wing Admin" cards={filteredAdminCards} variant="admin" badges={badges} />
+      )}
+
       {isCommitteeRole && roleTitle && filteredAdminCards.length > 0 && (
         <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" badges={badges} />
       )}
 
       {isAdmin && !isCommitteeRole && filteredAdminCards.length > 0 && (
         <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" badges={badges} />
+      )}
+
+      {isAdminWithWing && filteredWingCards.length > 0 && (
+        <CardSection title="Wing Admin" cards={filteredWingCards} variant="admin" badges={badges} />
       )}
 
       <CardSection title="General" cards={generalCards} badges={badges} />

@@ -229,12 +229,17 @@ export default function ManageSocietyPage() {
       </section>
 
       <section className="rounded-2xl border border-outline-variant/30 bg-white p-5 shadow-sm">
-        <h2 className="text-title-sm font-bold flex items-center gap-2">
-          <span className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700"><span className="material-symbols-outlined text-[18px]">shield_person</span></span>
-          Wings &amp; Wing Admins
-          <span className="ml-auto text-label-sm font-normal text-on-surface-variant">Separate wing admin per wing supported</span>
-        </h2>
-        <p className="text-body-sm text-on-surface-variant mt-1">Assign a wing admin to each wing. A person can manage multiple wings; each wing can have multiple admins.</p>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-title-sm font-bold flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700"><span className="material-symbols-outlined text-[18px]">shield_person</span></span>
+            Wings &amp; Wing Admins
+          </h2>
+          <Link to="/wing/manage" className="inline-flex items-center gap-1.5 rounded-full bg-primary text-on-primary px-4 py-2 text-label-sm font-semibold hover:bg-inverse-surface transition-colors no-underline">
+            <span className="material-symbols-outlined text-[18px]">meeting_room</span>
+            Manage Wing
+          </Link>
+        </div>
+        <p className="text-body-sm text-on-surface-variant mt-2">Assign a wing admin to each wing. A person can manage multiple wings; each wing can have multiple admins. Use <b>Manage Wing</b> to manage houses for a wing (wing-admin view is wing-scoped).</p>
 
         {assignMsg && <div className="mt-3 rounded-lg bg-primary/10 px-3 py-2 text-label-sm text-primary">{assignMsg}</div>}
 

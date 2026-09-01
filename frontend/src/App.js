@@ -62,6 +62,7 @@ import ManageCollectionsPage from "./features/collections/ManageCollectionsPage"
 import CollectionsHistoryPage from "./features/collections/CollectionsHistoryPage";
 import PayCollectionsPage from "./features/collections/PayCollectionsPage";
 import ManageSocietyPage from "./features/society/ManageSocietyPage";
+import ManageWingPage from "./features/wing/ManageWingPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
 
 function App() {
@@ -129,6 +130,7 @@ function App() {
               <Route path="/collections/history" element={<CollectionsHistoryPage />} />
               <Route path="/collections/pay" element={<PayCollectionsPage />} />
               <Route path="/society/manage" element={<ManageSocietyPage />} />
+              <Route path="/wing/manage" element={<ManageWingPage />} />
               <Route path="/collections/new" element={<CreateCollectionPage />} />
               <Route path="/collections/:id" element={<CollectionDetailPage />} />
               <Route path="/collections/:id/units/:unitId" element={<CollectionUnitPayPage />} />
