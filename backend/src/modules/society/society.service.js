@@ -339,32 +339,35 @@ class SocietyService {
 
     const { Unit } = require("../unit/unit.model");
     const { MaintenanceCycle } = require("../maintenance/maintenance.model");
-    const { CollectionFund } = require("../collections/collection.model");
+    const { CollectionFund, CollectionPayment } = require("../collections/collection.model");
     const { Document } = require("../document/document.model");
     const { Complaint } = require("../complaint/complaint.model");
     const { Amenity, AmenityBooking } = require("../amenity/amenity.model");
-    const { Poll } = require("../poll/poll.model");
+    const { Poll, PollVote } = require("../poll/poll.model");
     const { Survey, SurveyResponse } = require("../survey/survey.model");
     const { Notice } = require("../notice/notice.model");
-    const { ChatGroup, ChatMessage } = require("../chat/chat.model");
-    const { BadgeSeen } = require("../dashboard/badge.model");
-    const { FamilyMember } = require("../familymember/familymember.model");
+    const { ChatGroup, ChatMessage, DirectMessage } = require("../chat/chat.model");
+    const { BadgeSeen } = require("../dashboard/dashboard.model");
+    const { FamilyMember } = require("../family-member/family-member.model");
 
     await Promise.all([
       Unit.deleteMany({ societyId: id }),
       Membership.deleteMany({ societyId: id }),
       MaintenanceCycle.deleteMany({ societyId: id }),
       CollectionFund.deleteMany({ societyId: id }),
+      CollectionPayment.deleteMany({ societyId: id }),
       Document.deleteMany({ societyId: id }),
       Complaint.deleteMany({ societyId: id }),
       Amenity.deleteMany({ societyId: id }),
       AmenityBooking.deleteMany({ societyId: id }),
       Poll.deleteMany({ societyId: id }),
+      PollVote.deleteMany({ societyId: id }),
       Survey.deleteMany({ societyId: id }),
       SurveyResponse.deleteMany({ societyId: id }),
       Notice.deleteMany({ societyId: id }),
       ChatGroup.deleteMany({ societyId: id }),
       ChatMessage.deleteMany({ societyId: id }),
+      DirectMessage.deleteMany({ societyId: id }),
       BadgeSeen.deleteMany({ societyId: id }),
       FamilyMember.deleteMany({ societyId: id }),
       Society.findByIdAndDelete(id),
