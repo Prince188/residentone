@@ -8,6 +8,9 @@ import {
   rejectSociety,
   suspendSociety,
   activateSociety,
+  archiveSociety,
+  unarchiveSociety,
+  deleteSocietyPermanently,
   SOCIETY_TYPE_LABELS,
   extractApiError,
 } from "../../lib/societies";
@@ -38,6 +41,9 @@ export default function AdminSocietyDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const enterSocietyAsSuperAdmin = useSocietyStore((state) => state.enterSocietyAsSuperAdmin);
+  const exitSuperAdminSocietyMode = useSocietyStore((state) => state.exitSuperAdminSocietyMode);
+  const activeSocietyId = useSocietyStore((state) => state.activeSocietyId);
+
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState(null);
   const [actionError, setActionError] = useState("");
@@ -52,6 +58,8 @@ export default function AdminSocietyDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["society", id] });
     queryClient.invalidateQueries({ queryKey: ["societies"] });
     queryClient.invalidateQueries({ queryKey: ["society-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["superadmin-society-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["superadmin-recent-societies"] });
     closeDialog();
   };
 
@@ -81,6 +89,35 @@ export default function AdminSocietyDetailPage() {
     mutationFn: (sid) => activateSociety(sid),
     onSuccess: invalidate,
     onError: (error) => setActionError(extractApiError(error, "Failed to activate society.")),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (sid) => archiveSociety(sid),
+    onSuccess: (res) => {
+      if (activeSocietyId === id) {
+        exitSuperAdminSocietyMode();
+      }
+      invalidate();
+    },
+    onError: (error) => setActionError(extractApiError(error, "Failed to archive society.")),
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: (sid) => unarchiveSociety(sid),
+    onSuccess: invalidate,
+    onError: (error) => setActionError(extractApiError(error, "Failed to restore society.")),
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (sid) => deleteSocietyPermanently(sid),
+    onSuccess: () => {
+      if (activeSocietyId === id) {
+        exitSuperAdminSocietyMode();
+      }
+      invalidate();
+      navigate("/admin/societies");
+    },
+    onError: (error) => setActionError(extractApiError(error, "Failed to delete society permanently.")),
   });
 
   const closeDialog = () => {
@@ -120,7 +157,10 @@ export default function AdminSocietyDetailPage() {
     approveMutation.isPending ||
     rejectMutation.isPending ||
     suspendMutation.isPending ||
-    activateMutation.isPending;
+    activateMutation.isPending ||
+    archiveMutation.isPending ||
+    unarchiveMutation.isPending ||
+    permanentDeleteMutation.isPending;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
@@ -192,70 +232,103 @@ export default function AdminSocietyDetailPage() {
         <section className="flex flex-wrap items-center gap-3 rounded-xl border border-secondary-fixed bg-secondary-fixed/40 px-4 py-3">
           <span className="material-symbols-outlined text-primary">pending_actions</span>
           <span className="text-body-sm font-semibold text-on-surface">
-            This society is not active yet.
+            This society registration is {society.status === "pending" ? "awaiting approval" : "currently rejected"}.
           </span>
           <div className="ml-auto flex gap-2">
             <button
               type="button"
               onClick={() => approveMutation.mutate(society._id)}
               disabled={busy}
-              className="rounded-lg bg-primary px-3 py-2 text-label-md text-on-primary transition-colors hover:bg-inverse-surface cursor-pointer disabled:opacity-60"
+              className="rounded-lg bg-primary px-3.5 py-2 text-label-md text-on-primary font-semibold transition-colors hover:bg-inverse-surface cursor-pointer disabled:opacity-60"
             >
-              Approve
+              Approve Society
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActionError("");
-                setDialog("reject");
-              }}
-              disabled={busy}
-              className="rounded-lg border border-error px-3 py-2 text-label-md text-error transition-colors hover:bg-error-container cursor-pointer disabled:opacity-60"
-            >
-              Reject
-            </button>
+            {society.status === "pending" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError("");
+                  setDialog("reject");
+                }}
+                disabled={busy}
+                className="rounded-lg border border-error px-3 py-2 text-label-md text-error transition-colors hover:bg-error-container cursor-pointer disabled:opacity-60"
+              >
+                Reject
+              </button>
+            )}
           </div>
         </section>
       )}
 
       {society.status === "active" && (
-        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3">
-          <span className="material-symbols-outlined text-error">block</span>
-          <span className="text-body-sm font-semibold text-on-surface">
-            Suspend this society to temporarily block platform access.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setActionError("");
-              setDialog("suspend");
-            }}
-            disabled={busy}
-            className="ml-auto rounded-lg border border-error px-3 py-2 text-label-md text-error transition-colors hover:bg-error-container cursor-pointer disabled:opacity-60"
-          >
-            Suspend
-          </button>
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3.5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-tertiary">verified</span>
+            <div>
+              <p className="text-body-sm font-semibold text-on-surface">Society is Live & Active</p>
+              <p className="text-label-sm text-on-surface-variant">Residents and admins have active platform access.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActionError("");
+                setDialog("suspend");
+              }}
+              disabled={busy}
+              className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-md font-semibold text-on-surface transition-colors hover:bg-surface-container-low cursor-pointer disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px] mr-1 align-middle text-error">lock</span>
+              Freeze / Suspend
+            </button>
+          </div>
         </section>
       )}
 
       {society.status === "suspended" && (
-        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3">
-          <span className="material-symbols-outlined text-primary">check_circle</span>
-          <span className="text-body-sm font-semibold text-on-surface">
-            This society is suspended. Reactivate to restore access.
-          </span>
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-error/30 bg-error-container/20 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-error">block</span>
+            <div>
+              <p className="text-body-sm font-semibold text-on-surface">Society is Suspended / Frozen</p>
+              <p className="text-label-sm text-on-surface-variant">All resident action cards are locked with a warning to contact the admin.</p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => activateMutation.mutate(society._id)}
             disabled={busy}
-            className="ml-auto rounded-lg bg-primary px-3 py-2 text-label-md text-on-primary transition-colors hover:bg-inverse-surface cursor-pointer disabled:opacity-60"
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-label-md font-semibold text-on-primary transition-colors hover:bg-inverse-surface cursor-pointer disabled:opacity-60"
           >
-            Activate
+            <span className="material-symbols-outlined text-[16px] mr-1 align-middle">lock_open</span>
+            Reactivate / Unfreeze
           </button>
         </section>
       )}
 
-      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6">
+      {society.status === "archived" && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-high/40 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-outline">inventory_2</span>
+            <div>
+              <p className="text-body-sm font-semibold text-on-surface">Society is Archived / Soft Deleted</p>
+              <p className="text-label-sm text-on-surface-variant">Society is decommissioned. Historical audit ledgers and receipts are preserved in DB.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => unarchiveMutation.mutate(society._id)}
+            disabled={busy}
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-label-md font-semibold text-on-primary transition-colors hover:bg-inverse-surface cursor-pointer disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px] mr-1 align-middle">unarchive</span>
+            Restore Society
+          </button>
+        </section>
+      )}
+
+      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm">
         <h2 className="mb-2 text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
           Details
         </h2>
@@ -286,6 +359,83 @@ export default function AdminSocietyDetailPage() {
         <DetailRow label="Last Updated">{formatDate(society.updatedAt)}</DetailRow>
       </section>
 
+      {/* Danger Zone / Lifecycle Controls */}
+      <section className="rounded-xl border border-error/30 bg-surface-container-lowest p-6 shadow-sm space-y-4">
+        <div className="border-b border-outline-variant pb-3">
+          <h2 className="text-title-sm font-bold text-error flex items-center gap-2">
+            <span className="material-symbols-outlined text-[22px]">warning</span>
+            Danger Zone & Society Lifecycle
+          </h2>
+          <p className="text-body-sm text-on-surface-variant mt-1">
+            Perform administrative lifecycle operations for this society.
+          </p>
+        </div>
+
+        <div className="divide-y divide-outline-variant">
+          {/* Soft Delete / Archive Option */}
+          {society.status !== "archived" ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-0">
+              <div>
+                <p className="text-body-sm font-semibold text-on-surface">Archive / Soft Delete Society</p>
+                <p className="text-label-sm text-on-surface-variant">
+                  Decommissions this society and blocks all logins while safely preserving historical accounting and receipts for compliance.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError("");
+                  setDialog("archive");
+                }}
+                disabled={busy}
+                className="shrink-0 rounded-lg border border-outline-variant px-3.5 py-2 text-label-md font-semibold text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer"
+              >
+                Archive Society
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-0">
+              <div>
+                <p className="text-body-sm font-semibold text-on-surface">Restore Society</p>
+                <p className="text-label-sm text-on-surface-variant">
+                  Restores this archived society back to active platform status.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => unarchiveMutation.mutate(society._id)}
+                disabled={busy}
+                className="shrink-0 rounded-lg bg-primary px-3.5 py-2 text-label-md font-semibold text-on-primary hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                Restore Society
+              </button>
+            </div>
+          )}
+
+          {/* Permanent Hard Delete Option */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 last:pb-0">
+            <div>
+              <p className="text-body-sm font-semibold text-error">Permanently Delete Society</p>
+              <p className="text-label-sm text-on-surface-variant">
+                Irreversibly removes this society along with all its units, tickets, documents, and records from MongoDB.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActionError("");
+                setDialog("permanentDelete");
+              }}
+              disabled={busy}
+              className="shrink-0 rounded-lg bg-error px-3.5 py-2 text-label-md font-semibold text-on-error hover:bg-error/90 transition-colors cursor-pointer"
+            >
+              Permanent Delete
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Confirmation Dialogs */}
       <ConfirmDialog
         open={dialog === "reject"}
         title={`Reject ${society.name}?`}
@@ -303,13 +453,39 @@ export default function AdminSocietyDetailPage() {
 
       <ConfirmDialog
         open={dialog === "suspend"}
-        title={`Suspend ${society.name}?`}
-        message="Residents and admins of this society will lose access until it is reactivated."
-        confirmLabel="Suspend Society"
+        title={`Suspend & Freeze ${society.name}?`}
+        message="This society will be frozen. Residents and admins can still log in, but all dashboard cards and actions will be locked with a warning notice instructing them to contact the admin to unfreeze."
+        confirmLabel="Freeze / Suspend"
         danger
         busy={suspendMutation.isPending}
         error={actionError}
         onConfirm={() => suspendMutation.mutate(society._id)}
+        onClose={closeDialog}
+      />
+
+      <ConfirmDialog
+        open={dialog === "archive"}
+        title={`Archive ${society.name}?`}
+        message={`Are you sure you want to archive this society?\n\n• All resident and admin logins will be revoked immediately.\n• Historical receipts, maintenance invoices, and audit ledgers will remain safely preserved in the database.\n• You can restore this society at any time.`}
+        confirmLabel="Archive Society"
+        danger
+        busy={archiveMutation.isPending}
+        error={actionError}
+        onConfirm={() => archiveMutation.mutate(society._id)}
+        onClose={closeDialog}
+      />
+
+      <ConfirmDialog
+        open={dialog === "permanentDelete"}
+        title={`Permanently Delete ${society.name}?`}
+        message={`⚠️ CRITICAL WARNING: This action cannot be undone!\n\nAll units, memberships, documents, chat messages, tickets, and records belonging to "${society.name}" will be completely destroyed.`}
+        confirmLabel="I understand, permanently delete"
+        danger
+        matchText={society.name}
+        matchLabel="To confirm, type the society name below:"
+        busy={permanentDeleteMutation.isPending}
+        error={actionError}
+        onConfirm={() => permanentDeleteMutation.mutate(society._id)}
         onClose={closeDialog}
       />
     </div>

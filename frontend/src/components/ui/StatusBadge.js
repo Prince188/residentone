@@ -5,6 +5,7 @@ const STATUS_STYLES = {
   active: "bg-tertiary-fixed text-on-tertiary-fixed",
   rejected: "bg-error-container text-on-error-container",
   suspended: "bg-surface-container-high text-on-surface-variant",
+  archived: "bg-surface-container-high text-outline border border-outline-variant",
 };
 
 export default function StatusBadge({ status }) {

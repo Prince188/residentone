@@ -10,6 +10,8 @@ export default function ConfirmDialog({
   requireReason = false,
   reasonLabel = "Reason",
   reasonPlaceholder = "Enter reason",
+  matchText = "",
+  matchLabel = "",
   busy = false,
   error = "",
   onConfirm,
@@ -17,12 +19,14 @@ export default function ConfirmDialog({
 }) {
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
+  const [inputMatch, setInputMatch] = useState("");
   const dialogRef = useRef(null);
 
   useEffect(() => {
     if (!open) {
       setReason("");
       setReasonError("");
+      setInputMatch("");
       return;
     }
     const handleEscape = (event) => {
@@ -34,7 +38,12 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
+  const isMatchValid = !matchText || inputMatch.trim().toLowerCase() === matchText.trim().toLowerCase();
+
   const handleConfirm = () => {
+    if (matchText && !isMatchValid) {
+      return;
+    }
     if (requireReason && reason.trim().length < 3) {
       setReasonError("Please provide a reason (min 3 characters)");
       return;
@@ -62,6 +71,30 @@ export default function ConfirmDialog({
           <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface-variant">
             {message}
           </p>
+        )}
+
+        {matchText && (
+          <div className="mt-4 space-y-1.5">
+            <label
+              htmlFor="confirm-dialog-match"
+              className="block text-label-sm font-semibold text-on-surface"
+            >
+              {matchLabel || (
+                <>
+                  Please type <strong className="text-error font-mono">{matchText}</strong> to confirm:
+                </>
+              )}
+            </label>
+            <input
+              id="confirm-dialog-match"
+              type="text"
+              value={inputMatch}
+              onChange={(e) => setInputMatch(e.target.value)}
+              placeholder={matchText}
+              disabled={busy}
+              className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-sm font-mono text-on-surface focus:outline-none focus:border-error focus:ring-1 focus:ring-error transition-shadow disabled:opacity-60"
+            />
+          </div>
         )}
 
         {requireReason && (
@@ -101,8 +134,8 @@ export default function ConfirmDialog({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={busy}
-            className={`rounded-lg px-4 py-2 text-label-md transition-opacity cursor-pointer disabled:opacity-60 ${confirmClasses}`}
+            disabled={busy || (matchText && !isMatchValid)}
+            className={`rounded-lg px-4 py-2 text-label-md transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${confirmClasses}`}
           >
             {busy ? "Working..." : confirmLabel}
           </button>

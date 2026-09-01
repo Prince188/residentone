@@ -91,6 +91,18 @@ router.patch(
   requirePlatformAdmin,
   (req, res, next) => societyController.activate(req, res, next)
 );
+router.patch(
+  "/:id/archive",
+  authenticate,
+  requirePlatformAdmin,
+  (req, res, next) => societyController.archive(req, res, next)
+);
+router.patch(
+  "/:id/unarchive",
+  authenticate,
+  requirePlatformAdmin,
+  (req, res, next) => societyController.unarchive(req, res, next)
+);
 
 router.get("/:id", authenticate, (req, res, next) =>
   societyController.getById(req, res, next)
@@ -102,8 +114,11 @@ router.patch(
   validate(updateSocietySchema),
   (req, res, next) => societyController.update(req, res, next)
 );
+router.delete("/:id/permanent", authenticate, requirePlatformAdmin, (req, res, next) =>
+  societyController.permanentDelete(req, res, next)
+);
 router.delete("/:id", authenticate, requirePlatformAdmin, (req, res, next) =>
-  societyController.deactivate(req, res, next)
+  societyController.archive(req, res, next)
 );
 
 module.exports = router;

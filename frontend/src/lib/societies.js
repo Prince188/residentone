@@ -10,12 +10,16 @@ export const rejectSociety = (id, reason) =>
   api.patch(`/societies/${id}/reject`, { reason });
 export const suspendSociety = (id) => api.patch(`/societies/${id}/suspend`);
 export const activateSociety = (id) => api.patch(`/societies/${id}/activate`);
+export const archiveSociety = (id) => api.patch(`/societies/${id}/archive`);
+export const unarchiveSociety = (id) => api.patch(`/societies/${id}/unarchive`);
+export const deleteSocietyPermanently = (id) => api.delete(`/societies/${id}/permanent`);
 
 export const SOCIETY_STATUS_LABELS = {
   pending: "Pending",
   active: "Active",
   rejected: "Rejected",
   suspended: "Suspended",
+  archived: "Archived",
 };
 
 export const SOCIETY_TYPE_LABELS = {

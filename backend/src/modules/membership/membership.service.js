@@ -82,13 +82,13 @@ class MembershipService {
 
   async findUserSocieties(userId) {
     const memberships = await Membership.find({ userId, isActive: true })
-      .populate("societyId", "name city state pincode address isActive societyType")
+      .populate("societyId", "name city state pincode address isActive status societyType")
       .populate("units")
       .sort({ createdAt: 1 })
       .lean();
 
     return memberships
-      .filter((membership) => membership.societyId && membership.societyId.isActive !== false)
+      .filter((membership) => membership.societyId && membership.societyId.status !== "archived" && membership.societyId.status !== "rejected")
       .map((membership) => ({
         membershipId: membership._id,
         role: membership.role,
@@ -101,6 +101,8 @@ class MembershipService {
           name: membership.societyId.name,
           city: membership.societyId.city,
           address: membership.societyId.address,
+          status: membership.societyId.status,
+          isActive: membership.societyId.isActive,
           societyType: membership.societyId.societyType || "apartment",
         },
         units: (membership.units || [])

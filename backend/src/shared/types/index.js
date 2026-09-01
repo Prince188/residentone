@@ -18,7 +18,7 @@ const ACCOUNT_ROLES = ["resident", "society_admin", "super_admin"];
 
 const DEFAULT_ACCOUNT_ROLE = "resident";
 
-const SOCIETY_STATUSES = ["pending", "active", "rejected", "suspended"];
+const SOCIETY_STATUSES = ["pending", "active", "rejected", "suspended", "archived"];
 
 const SOCIETY_TYPES = ["apartment", "row_house", "mixed"];
 

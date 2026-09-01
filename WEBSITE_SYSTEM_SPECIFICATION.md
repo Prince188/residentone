@@ -278,6 +278,11 @@ The Dashboard (`/dashboard`) acts as the central router for all client operation
     *   Super Admin can click **"Enter / Manage Society"** on any active society on the platform.
     *   The platform dynamically binds the Super Admin context into that society with full `super_admin` permissions across all 14 feature modules.
     *   The top header and sidebar display a persistent indicator: `Super Admin Management Mode: [Society Name]` with a one-click **"Exit to Platform"** button.
+*   **Society Lifecycle Management (Super Admin Controls):**
+    *   **Approve / Reject:** Onboards or turns down pending society public applications.
+    *   **Freeze / Suspend:** Temporarily freezes the society. Members and admins can still log in to their accounts, but their `/dashboard` displays a prominent **"Society Access Frozen: Please contact the admin to unfreeze your society"** warning banner, and all resident/admin action cards are visually locked with a lock badge and disabled interaction. Backend middleware restricts all mutation operations (POST/PUT/PATCH/DELETE) with a 403 freeze message.
+    *   **Archive / Soft Delete:** Decommissions society and deactivates memberships while preserving historical financial receipts and tax ledgers for audit compliance; can be restored at any time.
+    *   **Permanent Hard Delete:** Permanently wipes the society and all cascaded collections (units, memberships, bills, amenities, documents, chat messages, tickets) from the database; protected by a modal requiring the Super Admin to type the exact society name to confirm.
 *   **Resident & Society Admin View (`isSuperAdmin: false`):**
     *   **Greeting Banner:** Greets user dynamically based on local device time (`Good morning` if <12 PM, `Good afternoon` if <5 PM, else `Good evening`).
     *   **Active Society & Unit Banner:** Displays linked society name, assigned flat number, and role badge.

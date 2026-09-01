@@ -116,9 +116,29 @@ function SectionTitle({ children, subtitle }) {
   );
 }
 
-function SquareCard({ icon, label, to, tint, badge }) {
-  const showBadge = badge != null && Number(badge) > 0;
+function SquareCard({ icon, label, to, tint, badge, isLocked }) {
+  const showBadge = !isLocked && badge != null && Number(badge) > 0;
   const display = showBadge ? (Number(badge) > 99 ? "99+" : String(badge)) : null;
+
+  if (isLocked) {
+    return (
+      <div
+        title="Locked: Society is frozen. Please contact the admin."
+        className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low p-3 opacity-60 cursor-not-allowed select-none transition-all shadow-none"
+      >
+        <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-error text-on-error shadow-sm ring-2 ring-surface-container-lowest">
+          <span className="material-symbols-outlined text-[12px]">lock</span>
+        </span>
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-high text-outline shadow-none sm:h-12 sm:w-12">
+          <span className="material-symbols-outlined text-[22px] sm:text-[26px]">{icon}</span>
+        </span>
+        <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[11px] font-semibold leading-tight text-on-surface-variant line-clamp-2 sm:text-[13px]">
+          {label}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <Link
       to={to}
@@ -141,7 +161,7 @@ function SquareCard({ icon, label, to, tint, badge }) {
   );
 }
 
-function CardSection({ title, cards, variant = "general", badges }) {
+function CardSection({ title, cards, variant = "general", badges, isLocked = false }) {
   const cols =
     cards.length <= 4
       ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-6"
@@ -154,6 +174,7 @@ function CardSection({ title, cards, variant = "general", badges }) {
           <SquareCard
             key={card.label}
             {...card}
+            isLocked={isLocked}
             badge={card.badgeKey ? badges?.[card.badgeKey] : 0}
             tint={
               variant === "admin"
@@ -219,7 +240,7 @@ function SuperAdminDashboardView({ user }) {
     queryKey: ["superadmin-society-stats"],
     queryFn: async () => (await getSocietyStats()).data.data,
   });
-  const stats = statsQuery.data || { total: 0, pending: 0, active: 0, rejected: 0, suspended: 0, totalUnits: 0, totalUsers: 0 };
+  const stats = statsQuery.data || { total: 0, pending: 0, active: 0, rejected: 0, suspended: 0, archived: 0, totalUnits: 0, totalUsers: 0 };
 
   const pendingSocietiesQuery = useQuery({
     queryKey: ["superadmin-pending-societies"],
@@ -236,6 +257,7 @@ function SuperAdminDashboardView({ user }) {
   const activePercent = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
   const pendingPercent = stats.total > 0 ? Math.round((stats.pending / stats.total) * 100) : 0;
   const suspendedPercent = stats.total > 0 ? Math.round((stats.suspended / stats.total) * 100) : 0;
+  const archivedPercent = stats.total > 0 ? Math.round(((stats.archived || 0) / stats.total) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 sm:space-y-7">
@@ -548,6 +570,7 @@ function SuperAdminDashboardView({ user }) {
                 <div style={{ width: `${activePercent}%` }} className="bg-primary h-full transition-all duration-500" title={`Active: ${activePercent}%`} />
                 <div style={{ width: `${pendingPercent}%` }} className="bg-outline h-full transition-all duration-500" title={`Pending: ${pendingPercent}%`} />
                 <div style={{ width: `${suspendedPercent}%` }} className="bg-error h-full transition-all duration-500" title={`Suspended: ${suspendedPercent}%`} />
+                <div style={{ width: `${archivedPercent}%` }} className="bg-surface-container-highest h-full transition-all duration-500" title={`Archived: ${archivedPercent}%`} />
               </div>
 
               <div className="space-y-2.5 divide-y divide-outline-variant/60 text-label-sm">
@@ -568,10 +591,19 @@ function SuperAdminDashboardView({ user }) {
                 <div className="flex items-center justify-between pt-2">
                   <span className="flex items-center gap-2 text-on-surface-variant">
                     <span className="h-2.5 w-2.5 rounded-full bg-error" />
-                    Suspended / Inactive
+                    Suspended / Frozen
                   </span>
                   <span className="font-bold text-on-surface">{stats.suspended} ({suspendedPercent}%)</span>
                 </div>
+                {Boolean(stats.archived > 0) && (
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="flex items-center gap-2 text-on-surface-variant">
+                      <span className="h-2.5 w-2.5 rounded-full bg-surface-container-highest border border-outline-variant" />
+                      Archived / Soft-Deleted
+                    </span>
+                    <span className="font-bold text-on-surface">{stats.archived} ({archivedPercent}%)</span>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -726,6 +758,10 @@ export default function DashboardPage() {
 
   const firstName = user?.name?.split(" ")[0] || "there";
 
+  const isSocietySuspended =
+    Boolean(activeSociety) &&
+    (activeSociety.status === "suspended" || activeSociety.isActive === false);
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 sm:space-y-7">
       {/* Demo / Under Development Banner */}
@@ -741,6 +777,31 @@ export default function DashboardPage() {
           <span className="font-semibold">Under Development:</span> You are viewing the demo mode. Some of the features are still under development — stay tuned.
         </p>
       </div>
+
+      {/* Frozen / Suspended Society Warning Banner */}
+      {isSocietySuspended && (
+        <div className="rounded-2xl border border-error/30 bg-error-container/20 p-5 sm:p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-error text-on-error shadow-sm">
+              <span className="material-symbols-outlined text-[26px]">lock</span>
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-body-lg font-bold text-on-surface">Society Access Frozen</h3>
+                <span className="inline-flex items-center rounded-full bg-error px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-on-error">
+                  Suspended
+                </span>
+              </div>
+              <p className="text-body-sm text-on-surface-variant leading-relaxed">
+                Your society (<strong className="text-on-surface">{activeSociety?.name}</strong>) has been temporarily frozen. All platform actions, billing payments, amenity bookings, and voting features are locked.
+              </p>
+              <p className="text-label-sm font-semibold text-error pt-1">
+                Please contact the admin to unfreeze your society.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-5 shadow-lg sm:p-7">
         <div
@@ -797,7 +858,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {maintenanceAlert && (
+      {!isSocietySuspended && maintenanceAlert && (
         <Link
           to="/maintenance"
           className={`group flex items-center gap-3 rounded-xl border px-4 py-3.5 no-underline shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
@@ -831,22 +892,22 @@ export default function DashboardPage() {
       )}
 
       {isWingOnly && filteredAdminCards.length > 0 && (
-        <CardSection title="Wing Admin" cards={filteredAdminCards} variant="admin" badges={badges} />
+        <CardSection title="Wing Admin" cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
       )}
 
       {isCommitteeRole && roleTitle && filteredAdminCards.length > 0 && (
-        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" badges={badges} />
+        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
       )}
 
       {isAdmin && !isCommitteeRole && filteredAdminCards.length > 0 && (
-        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" badges={badges} />
+        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
       )}
 
       {isAdminWithWing && filteredWingCards.length > 0 && (
-        <CardSection title="Wing Admin" cards={filteredWingCards} variant="admin" badges={badges} />
+        <CardSection title="Wing Admin" cards={filteredWingCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
       )}
 
-      <CardSection title="General" cards={generalCards} badges={badges} />
+      <CardSection title="General" cards={generalCards} badges={badges} isLocked={isSocietySuspended} />
 
       <section>
         <div className="flex items-center justify-between">

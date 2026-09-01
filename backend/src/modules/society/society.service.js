@@ -37,16 +37,17 @@ class SocietyService {
   async stats() {
     const { Unit } = require("../unit/unit.model");
     const { User } = require("../user/user.model");
-    const [total, pending, active, rejected, suspended, totalUnits, totalUsers] = await Promise.all([
+    const [total, pending, active, rejected, suspended, archived, totalUnits, totalUsers] = await Promise.all([
       Society.countDocuments({}),
       Society.countDocuments({ status: "pending" }),
       Society.countDocuments({ status: "active" }),
       Society.countDocuments({ status: "rejected" }),
       Society.countDocuments({ status: "suspended" }),
+      Society.countDocuments({ status: "archived" }),
       Unit.countDocuments({ isActive: true }),
       User.countDocuments({ isActive: true }),
     ]);
-    return { total, pending, active, rejected, suspended, totalUnits, totalUsers };
+    return { total, pending, active, rejected, suspended, archived, totalUnits, totalUsers };
   }
 
   mapRegistrationPayload(data) {
@@ -289,30 +290,35 @@ class SocietyService {
     const allowedTransitions = {
       suspend: ["active"],
       activate: ["suspended"],
+      archive: ["active", "suspended", "rejected"],
+      unarchive: ["archived"],
     };
     const current = await this.findRawById(id);
     if (!current) throw new AppError("Society not found", 404);
-    if (status === "suspend" && !allowedTransitions.suspend.includes(current.status)) {
-      throw new AppError("Only active societies can be suspended", 409);
+    if (!allowedTransitions[status] || !allowedTransitions[status].includes(current.status)) {
+      throw new AppError(`Cannot ${status} society with status '${current.status}'`, 409);
     }
-    if (status === "activate" && !allowedTransitions.activate.includes(current.status)) {
-      throw new AppError("Only suspended societies can be activated", 409);
+    const updatePayload = {
+      suspend: { status: "suspended", isActive: false, updatedBy: adminId },
+      activate: { status: "active", isActive: true, updatedBy: adminId },
+      archive: { status: "archived", isActive: false, updatedBy: adminId },
+      unarchive: { status: "active", isActive: true, updatedBy: adminId },
+    }[status];
+
+    const society = await Society.findByIdAndUpdate(id, { $set: updatePayload }, { new: true });
+
+    // When archiving, deactivate memberships; when unarchiving, reactivate them
+    if (status === "archive") {
+      await Membership.updateMany({ societyId: society._id }, { $set: { isActive: false } });
+    } else if (status === "unarchive") {
+      await Membership.updateMany({ societyId: society._id }, { $set: { isActive: true } });
     }
-    const society = await Society.findByIdAndUpdate(
-      id,
-      {
-        $set:
-          status === "suspend"
-            ? { status: "suspended", isActive: false, updatedBy: adminId }
-            : { status: "active", isActive: true, updatedBy: adminId },
-      },
-      { new: true }
-    );
+
     try {
       const s = require("../../socket");
       if (s.emitSocietyChange) s.emitSocietyChange(status, society);
       else if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: status, society, id: society._id });
-      // Also push to all members' user rooms so suspended/activated reflects even if they left the society room
+      // Also push to all members' user rooms
       if (s.emitToUser) {
         const memberships = await Membership.find({ societyId: society._id }).select("userId").lean();
         memberships.forEach((m) => {
@@ -325,6 +331,52 @@ class SocietyService {
       }
     } catch (_) {}
     return society;
+  }
+
+  async permanentDelete(id, adminId) {
+    const current = await this.findRawById(id);
+    if (!current) throw new AppError("Society not found", 404);
+
+    const { Unit } = require("../unit/unit.model");
+    const { MaintenanceCycle } = require("../maintenance/maintenance.model");
+    const { CollectionFund } = require("../collections/collection.model");
+    const { Document } = require("../document/document.model");
+    const { Complaint } = require("../complaint/complaint.model");
+    const { Amenity, AmenityBooking } = require("../amenity/amenity.model");
+    const { Poll } = require("../poll/poll.model");
+    const { Survey, SurveyResponse } = require("../survey/survey.model");
+    const { Notice } = require("../notice/notice.model");
+    const { ChatGroup, ChatMessage } = require("../chat/chat.model");
+    const { BadgeSeen } = require("../dashboard/badge.model");
+    const { FamilyMember } = require("../familymember/familymember.model");
+
+    await Promise.all([
+      Unit.deleteMany({ societyId: id }),
+      Membership.deleteMany({ societyId: id }),
+      MaintenanceCycle.deleteMany({ societyId: id }),
+      CollectionFund.deleteMany({ societyId: id }),
+      Document.deleteMany({ societyId: id }),
+      Complaint.deleteMany({ societyId: id }),
+      Amenity.deleteMany({ societyId: id }),
+      AmenityBooking.deleteMany({ societyId: id }),
+      Poll.deleteMany({ societyId: id }),
+      Survey.deleteMany({ societyId: id }),
+      SurveyResponse.deleteMany({ societyId: id }),
+      Notice.deleteMany({ societyId: id }),
+      ChatGroup.deleteMany({ societyId: id }),
+      ChatMessage.deleteMany({ societyId: id }),
+      BadgeSeen.deleteMany({ societyId: id }),
+      FamilyMember.deleteMany({ societyId: id }),
+      Society.findByIdAndDelete(id),
+    ]);
+
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("delete", { _id: id, id, name: current.name });
+      if (s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "delete", id, name: current.name });
+    } catch (_) {}
+
+    return { id, name: current.name, deleted: true };
   }
 
   async getRolePermissions(societyId) {

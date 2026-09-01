@@ -133,6 +133,44 @@ class SocietyController {
     }
   }
 
+  async archive(req, res, next) {
+    try {
+      const society = await societyService.updateStatus(
+        req.params.id,
+        req.userId,
+        "archive"
+      );
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async unarchive(req, res, next) {
+    try {
+      const society = await societyService.updateStatus(
+        req.params.id,
+        req.userId,
+        "unarchive"
+      );
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async permanentDelete(req, res, next) {
+    try {
+      const result = await societyService.permanentDelete(
+        req.params.id,
+        req.userId
+      );
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async update(req, res, next) {
     try {
       const society = await societyService.update(req.params.id, {

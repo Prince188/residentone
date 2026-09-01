@@ -15,6 +15,7 @@ const STATUS_FILTERS = [
   { value: "pending", label: "Pending" },
   { value: "rejected", label: "Rejected" },
   { value: "suspended", label: "Suspended" },
+  { value: "archived", label: "Archived" },
 ];
 
 function formatDate(value) {

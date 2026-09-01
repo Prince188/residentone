@@ -44,6 +44,23 @@ async function resolveSocietyContext(req, _res, next) {
     req.membership = membership;
     req.role = membership.role;
 
+    // Check if society is suspended
+    const targetSociety =
+      typeof membership.societyId === "object" && membership.societyId?.status
+        ? membership.societyId
+        : await Society.findById(requestedSocietyId).select("status isActive name");
+
+    if (targetSociety?.status === "suspended" && !isSuperAdmin) {
+      if (req.method !== "GET") {
+        return next(
+          new AppError(
+            "This society is currently frozen. Please contact the administrator to restore services.",
+            403
+          )
+        );
+      }
+    }
+
     if (req.asyncContext) {
       req.asyncContext.societyId = req.societyId;
       req.asyncContext.role = req.role;
