@@ -48,12 +48,11 @@ export default function ManageWingPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedHouse, setSelectedHouse] = useState(null);
 
-  const isSocietyAdmin = getMembershipRoles(activeMembership).includes("society_admin") || getMembershipRoles(activeMembership).includes("super_admin");
-  const isPureWingAdmin = (() => {
-    const roles = getMembershipRoles(activeMembership);
-    return roles.includes("wing_admin") && !roles.includes("society_admin") && !roles.includes("super_admin");
-  })();
-  const canAccess = hasPermissionForMembership(activeMembership, "manage_houses", null) || isWingAdmin(activeMembership);
+  const roles = getMembershipRoles(activeMembership);
+  const isSocietyAdmin = roles.includes("society_admin") || roles.includes("super_admin");
+  const isWingAdminAny = roles.includes("wing_admin");
+  const isPureWingAdmin = isWingAdminAny && !isSocietyAdmin;
+  const canAccess = hasPermissionForMembership(activeMembership, "manage_houses", null) || isWingAdminAny;
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
@@ -85,12 +84,14 @@ export default function ManageWingPage() {
     return map;
   }, [houses, familyQuery.data]);
 
-  // wing-scoped filtering: society_admin sees all, pure wing_admin only assigned wings
+  // wing-scoped filtering: Manage Wing always shows only assigned wing(s), even for society_admin+wing_admin
   const filtered = useMemo(() => {
     let result = houses;
-    if (isPureWingAdmin && activeMembership?.assignedWings?.length) {
+    if (isWingAdminAny && activeMembership?.assignedWings?.length) {
       const allowed = new Set(activeMembership.assignedWings.map((w) => String(w).toUpperCase()));
       result = result.filter((h) => allowed.has(String(h.block || "").toUpperCase()));
+    } else if (isWingAdminAny && !activeMembership?.assignedWings?.length) {
+      result = [];
     }
     if (statusFilter === "owner") result = result.filter((h) => h.isAssigned && !h.isRented);
     else if (statusFilter === "renter") result = result.filter((h) => h.isRented);
@@ -138,7 +139,7 @@ export default function ManageWingPage() {
 
   const assignedWings = activeMembership?.assignedWings || [];
   const displayedCount = filtered.length;
-  const totalWingCount = houses.filter((h)=> isPureWingAdmin ? assignedWings.map((w)=>String(w).toUpperCase()).includes(String(h.block||"").toUpperCase()) : true).length;
+  const totalWingCount = houses.filter((h)=> isWingAdminAny ? assignedWings.map((w)=>String(w).toUpperCase()).includes(String(h.block||"").toUpperCase()) : true).length;
 
   if (!canManageHouses) {
     return (
@@ -160,12 +161,12 @@ export default function ManageWingPage() {
           <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"><span className="material-symbols-outlined text-[16px]">arrow_back</span> Dashboard</Link>
           <h1 className="page-title">Manage Wing</h1>
           <p className="page-subtitle">
-            {isSocietyAdmin ? `Society Admin • Full access • ${houses.length} houses` : `Wing ${assignedWings.join(", ") || "—"} • ${displayedCount} houses`}
-            {isSocietyAdmin && assignedWings.length>0 && ` • Also Wing Admin for ${assignedWings.join(", ")} (society priority)`}
+            {`Wing ${assignedWings.join(", ") || "—"} • ${displayedCount} houses`}{isSocietyAdmin ? ` • Society Admin (wing-scoped view)` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`rounded-full px-3 py-1 text-label-sm font-bold ${isSocietyAdmin ? "bg-primary text-on-primary" : "bg-amber-100 text-amber-800"}`}>{isSocietyAdmin ? "Society Admin • Full Society" : `Wing Admin • Wing ${assignedWings.join(", ")}`}</span>
+          <span className="rounded-full px-3 py-1 text-label-sm font-bold bg-amber-100 text-amber-800">{`Wing Admin • Wing ${assignedWings.join(", ") || "—"}`}</span>
+          {isSocietyAdmin && <span className="rounded-full px-3 py-1 text-label-sm font-bold bg-primary/10 text-primary border border-primary/20">Society Admin too • wing view only</span>}
         </div>
       </section>
 
@@ -186,15 +187,14 @@ export default function ManageWingPage() {
 
       {housesQuery.isSuccess && (
         <>
-          {filtered.length===0 ? <div className="rounded-xl border p-10 text-center text-on-surface-variant">{isPureWingAdmin ? `No houses in your wing(s) ${assignedWings.join(", ")} match filter.` : "No houses found."}</div> : isApartmentStructure ? (
+          {filtered.length===0 ? <div className="rounded-xl border p-10 text-center text-on-surface-variant">{isWingAdminAny ? `No houses in your wing(s) ${assignedWings.join(", ")} match filter.` : "No houses found."}</div> : isApartmentStructure ? (
             <div className="space-y-6">
               {groupedWings.map(({wing, floorGroups, totalWing})=>(
                 <div key={wing} className="rounded-2xl border bg-white shadow-sm overflow-hidden">
                   <div className="flex items-center gap-3 px-5 py-3 bg-surface-container-low border-b">
                     <span className="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold">{wing}</span>
-                    <div className="flex-1"><h3 className="font-bold leading-none">Wing {wing}</h3><p className="text-body-sm text-on-surface-variant">{totalWing} houses • {floorGroups.length} floors {isPureWingAdmin && !assignedWings.map((w)=>String(w).toUpperCase()).includes(wing) ? "• Not your wing" : ""}</p></div>
-                    {isPureWingAdmin && assignedWings.map((w)=>String(w).toUpperCase()).includes(wing) && <span className="hidden sm:inline-flex bg-amber-100 text-amber-800 rounded-full px-3 py-1 text-label-sm font-bold">Your Wing</span>}
-                    {isSocietyAdmin && <span className="hidden sm:inline-flex bg-primary/10 text-primary rounded-full px-3 py-1 text-label-sm font-bold">Full Access</span>}
+                    <div className="flex-1"><h3 className="font-bold leading-none">Wing {wing}</h3><p className="text-body-sm text-on-surface-variant">{totalWing} houses • {floorGroups.length} floors</p></div>
+                    <span className="hidden sm:inline-flex bg-amber-100 text-amber-800 rounded-full px-3 py-1 text-label-sm font-bold">Your Wing</span>
                   </div>
                   <div className="p-5 space-y-5">
                     {floorGroups.map(({floor, houses: floorHouses})=>(
