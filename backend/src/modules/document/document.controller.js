@@ -44,6 +44,15 @@ class DocumentController {
     }
   }
 
+  async update(req, res, next) {
+    try {
+      const doc = await documentService.update(req.societyId, req.params.id, req.body);
+      res.json({ success: true, data: doc });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async remove(req, res, next) {
     try {
       const doc = await documentService.remove(req.societyId, req.params.id);

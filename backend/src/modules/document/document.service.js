@@ -66,6 +66,16 @@ class DocumentService {
     };
   }
 
+  async update(societyId, docId, data) {
+    const doc = await Document.findOne({ _id: docId, societyId, isActive: true });
+    if (!doc) throw new AppError("Document not found", 404);
+    if (data.title !== undefined) doc.title = data.title.trim();
+    if (data.category !== undefined) doc.category = data.category;
+    if (data.description !== undefined) doc.description = (data.description || "").trim();
+    await doc.save();
+    return this.mapDocument(doc);
+  }
+
   async remove(societyId, docId) {
     const doc = await Document.findOne({ _id: docId, societyId, isActive: true });
     if (!doc) throw new AppError("Document not found", 404);

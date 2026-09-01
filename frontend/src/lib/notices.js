@@ -3,6 +3,8 @@ import api from "./api";
 export const getNotices = (limit) =>
   api.get("/notices", { params: limit ? { limit } : {} });
 export const createNotice = (payload) => api.post("/notices", payload);
+export const updateNotice = (id, payload) => api.patch(`/notices/${id}`, payload);
+export const deleteNotice = (id) => api.delete(`/notices/${id}`);
 
 export function extractApiError(error, fallback) {
   return error?.response?.data?.error?.message || fallback;

@@ -26,6 +26,31 @@ class NoticeController {
       next(error);
     }
   }
+
+  async update(req, res, next) {
+    try {
+      const notice = await noticeService.update(
+        req.societyId,
+        req.params.id,
+        req.body
+      );
+      res.json({ success: true, data: noticeService.mapNotice(notice.toObject ? notice.toObject() : notice) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async remove(req, res, next) {
+    try {
+      const result = await noticeService.remove(
+        req.societyId,
+        req.params.id
+      );
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new NoticeController();

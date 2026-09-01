@@ -2,57 +2,148 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
-import { getDocuments, uploadDocument, downloadDocument, deleteDocument, extractApiError, formatFileSize, formatDate, DOCUMENT_CATEGORIES } from "../../lib/documents";
+import { getDocuments, uploadDocument, updateDocument, downloadDocument, deleteDocument, extractApiError, formatFileSize, formatDate, DOCUMENT_CATEGORIES } from "../../lib/documents";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
-function DocumentCard({ doc, canManage, onDelete, onDownload, downloadingId }) {
+function DocumentCard({ doc, canManage, onEdit, onDelete, onDownload, downloadingId }) {
   const isPdf = doc.fileType === "application/pdf" || doc.fileName?.toLowerCase().endsWith(".pdf");
   const cat = DOCUMENT_CATEGORIES.find((c) => c.value === doc.category) || DOCUMENT_CATEGORIES[4];
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-shadow hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isPdf ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700"}`}>
-            <span className="material-symbols-outlined text-[22px]">{isPdf ? "picture_as_pdf" : "image"}</span>
-          </span>
-          <div className="min-w-0">
-            <h3 className="truncate text-body-md font-semibold text-on-surface">{doc.title}</h3>
-            <p className="mt-0.5 flex items-center gap-1.5 text-label-sm">
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">{cat.label}</span>
-              <span className="text-outline">{formatFileSize(doc.fileSize)}</span>
-            </p>
+    <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-shadow hover:shadow-md">
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isPdf ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700"}`}>
+              <span className="material-symbols-outlined text-[22px]">{isPdf ? "picture_as_pdf" : "image"}</span>
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-body-md font-semibold text-on-surface">{doc.title}</h3>
+              <p className="mt-0.5 flex items-center gap-1.5 text-label-sm">
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">{cat.label}</span>
+                <span className="text-outline">{formatFileSize(doc.fileSize)}</span>
+              </p>
+            </div>
           </div>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-label-sm font-medium ${isPdf ? "bg-red-50 text-red-700 border border-red-200" : "bg-sky-50 text-sky-700 border border-sky-200"}`}>
+            {isPdf ? "PDF" : "Image"}
+          </span>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-label-sm font-medium ${isPdf ? "bg-red-50 text-red-700 border border-red-200" : "bg-sky-50 text-sky-700 border border-sky-200"}`}>
-          {isPdf ? "PDF" : "Image"}
-        </span>
+
+        {doc.description && <p className="mt-2 line-clamp-2 text-body-sm text-on-surface-variant">{doc.description}</p>}
+
+        <p className="mt-2 truncate text-label-sm text-outline">by {doc.uploadedByName} · {formatDate(doc.createdAt)}</p>
       </div>
 
-      {doc.description && <p className="mt-2 line-clamp-2 text-body-sm text-on-surface-variant">{doc.description}</p>}
-
-      <p className="mt-2 truncate text-label-sm text-outline">by {doc.uploadedByName} · {formatDate(doc.createdAt)} · {doc.fileName}</p>
-
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/50 pt-3">
         <button
           type="button"
           onClick={() => onDownload(doc)}
           disabled={downloadingId === doc.id}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[18px]">{downloadingId === doc.id ? "hourglass_top" : "download"}</span>
+          <span className="material-symbols-outlined text-[16px]">{downloadingId === doc.id ? "hourglass_top" : "download"}</span>
           {downloadingId === doc.id ? "Downloading..." : "Download"}
         </button>
         {canManage && (
-          <button
-            type="button"
-            onClick={() => { if (window.confirm(`Delete "${doc.title}"?`)) onDelete(doc.id); }}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant text-outline hover:border-error hover:text-error hover:bg-error-container/50"
-            title="Delete (requires Manage Documents)"
-          >
-            <span className="material-symbols-outlined text-[18px]">delete</span>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onEdit(doc)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+              title="Edit Details"
+            >
+              <span className="material-symbols-outlined text-[16px]">edit</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(doc)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-outline hover:border-error hover:text-error hover:bg-error-container/50 transition-colors cursor-pointer"
+              title="Delete File"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete</span>
+            </button>
+          </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EditDocumentModal({ doc, open, onClose, onSave, isSaving, error }) {
+  const [title, setTitle] = useState(doc?.title || "");
+  const [category, setCategory] = useState(doc?.category || "other");
+  const [description, setDescription] = useState(doc?.description || "");
+
+  if (!open || !doc) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSave({ id: doc.id, payload: { title: title.trim(), category, description: description.trim() } });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={isSaving ? undefined : onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-title-md font-bold text-on-surface">Edit Document Details</h3>
+          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-label-md font-medium text-on-surface">Title *</label>
+            <input
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-label-md font-medium text-on-surface">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            >
+              {DOCUMENT_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-label-md font-medium text-on-surface">Description (optional)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !title.trim()}
+              className="rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -105,14 +196,14 @@ function UploadModal({ onClose, onSuccess }) {
             </h3>
             <p className="mt-1 text-body-sm text-on-surface-variant">PDF or image, max 10MB. Everyone can download.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high">
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <div className="mt-4 space-y-4">
           <div>
-            <label className="mb-1 block text-label-md font-medium">Title *</label>
+            <label className="mb-1 block text-label-md font-medium text-on-surface">Title *</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -124,7 +215,7 @@ function UploadModal({ onClose, onSuccess }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-label-md font-medium">Category</label>
+              <label className="mb-1 block text-label-md font-medium text-on-surface">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm focus:border-primary focus:outline-none">
                 {DOCUMENT_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -132,7 +223,7 @@ function UploadModal({ onClose, onSuccess }) {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-label-md font-medium">File *</label>
+              <label className="mb-1 block text-label-md font-medium text-on-surface">File *</label>
               <input
                 type="file"
                 accept=".pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.pdf"
@@ -149,7 +240,7 @@ function UploadModal({ onClose, onSuccess }) {
           )}
 
           <div>
-            <label className="mb-1 block text-label-md font-medium">Description (optional)</label>
+            <label className="mb-1 block text-label-md font-medium text-on-surface">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -163,12 +254,12 @@ function UploadModal({ onClose, onSuccess }) {
           {error && <p className="rounded-lg bg-error-container px-3 py-2 text-label-sm text-on-error-container">{error}</p>}
 
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:border-primary">Cancel</button>
+            <button type="button" onClick={onClose} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:border-primary cursor-pointer">Cancel</button>
             <button
               type="button"
               onClick={() => uploadMut.mutate()}
               disabled={uploadMut.isPending}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">upload</span>
               {uploadMut.isPending ? "Uploading..." : "Upload"}
@@ -186,6 +277,8 @@ export default function DocumentsPage() {
   const membership = useSocietyStore(selectActiveMembership);
   const queryClient = useQueryClient();
   const [showUpload, setShowUpload] = useState(false);
+  const [editingDoc, setEditingDoc] = useState(null);
+  const [deletingDoc, setDeletingDoc] = useState(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [downloadingId, setDownloadingId] = useState(null);
@@ -239,9 +332,25 @@ export default function DocumentsPage() {
     }
   };
 
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }) => updateDocument(id, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      setEditingDoc(null);
+      setMsg("Document details updated");
+      setTimeout(() => setMsg(""), 2500);
+    },
+    onError: (e) => setErr(extractApiError(e, "Update failed")),
+  });
+
   const deleteMut = useMutation({
     mutationFn: (id) => deleteDocument(id).then((r) => r.data.data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setMsg("Deleted"); setTimeout(()=>setMsg(""),2000); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      setDeletingDoc(null);
+      setMsg("Document deleted");
+      setTimeout(() => setMsg(""), 2000);
+    },
     onError: (e) => setErr(extractApiError(e, "Delete failed")),
   });
 
@@ -258,7 +367,7 @@ export default function DocumentsPage() {
           <p className="page-subtitle">{activeSociety ? `${activeSociety.name} · ` : ""}Bills, Navratri collections & expense sheets — everyone can download</p>
         </div>
         {canManage && (
-          <button type="button" onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md text-on-primary hover:opacity-90">
+          <button type="button" onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md text-on-primary hover:opacity-90 cursor-pointer shadow-sm">
             <span className="material-symbols-outlined text-[18px]">upload</span> Upload Bill
           </button>
         )}
@@ -320,12 +429,41 @@ export default function DocumentsPage() {
       {docs.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {docs.map((d) => (
-            <DocumentCard key={d.id} doc={d} canManage={canManage} onDelete={(id) => deleteMut.mutate(id)} onDownload={handleDownload} downloadingId={downloadingId} />
+            <DocumentCard
+              key={d.id}
+              doc={d}
+              canManage={canManage}
+              onEdit={(doc) => setEditingDoc(doc)}
+              onDelete={(doc) => setDeletingDoc(doc)}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+            />
           ))}
         </div>
       )}
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onSuccess={() => setMsg("Uploaded successfully")} />}
+
+      <EditDocumentModal
+        doc={editingDoc}
+        open={Boolean(editingDoc)}
+        onClose={() => setEditingDoc(null)}
+        onSave={(data) => updateMut.mutate(data)}
+        isSaving={updateMut.isPending}
+        error={err}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletingDoc)}
+        title={`Delete Document "${deletingDoc?.title}"?`}
+        message="Are you sure you want to delete this document? The file will be permanently removed from the society vault."
+        confirmLabel="Delete File"
+        danger
+        busy={deleteMut.isPending}
+        error={err}
+        onConfirm={() => deleteMut.mutate(deletingDoc?.id)}
+        onClose={() => setDeletingDoc(null)}
+      />
     </div>
   );
 }

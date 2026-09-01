@@ -15,6 +15,7 @@ export const uploadDocument = (formData) =>
   });
 export const downloadDocument = (id) =>
   api.get(`/documents/${id}/download`, { responseType: "blob" });
+export const updateDocument = (id, payload) => api.patch(`/documents/${id}`, payload);
 export const deleteDocument = (id) => api.delete(`/documents/${id}`);
 
 export function extractApiError(error, fallback) {

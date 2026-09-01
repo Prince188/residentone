@@ -56,8 +56,9 @@ router.use(authenticate, resolveSocietyContext, requireSociety);
 router.get("/", (req, res, next) => documentController.list(req, res, next));
 router.get("/:id/download", (req, res, next) => documentController.download(req, res, next));
 
-// Only permission holders can upload/delete
+// Only permission holders can upload/update/delete
 router.post("/", requirePermission("manage_documents"), upload.single("file"), (req, res, next) => documentController.create(req, res, next));
+router.patch("/:id", requirePermission("manage_documents"), (req, res, next) => documentController.update(req, res, next));
 router.delete("/:id", requirePermission("manage_documents"), (req, res, next) => documentController.remove(req, res, next));
 
 // Multer error handler for this router

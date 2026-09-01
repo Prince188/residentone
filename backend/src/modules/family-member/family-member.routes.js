@@ -10,6 +10,7 @@ router.use(authenticate, resolveSocietyContext, requireSociety);
 
 router.get("/", (req, res, next) => familyMemberController.list(req, res, next));
 router.post("/", validate(createFamilyMemberSchema), (req, res, next) => familyMemberController.create(req, res, next));
+router.patch("/:id", validate(updateFamilyMemberSchema), (req, res, next) => familyMemberController.update(req, res, next));
 router.delete("/:id", (req, res, next) => familyMemberController.remove(req, res, next));
 
 module.exports = router;

@@ -14,6 +14,13 @@ class FamilyMemberController {
       res.status(201).json({ success: true, data: familyMemberService.map(populated) });
     } catch (e) { next(e); }
   }
+  async update(req, res, next) {
+    try {
+      const doc = await familyMemberService.update(req.societyId, req.params.id, req.userId, req.membership, req.body);
+      const populated = await doc.populate([{ path: "unitId", select: "label" }, { path: "addedBy", select: "name" }]);
+      res.json({ success: true, data: familyMemberService.map(populated) });
+    } catch (e) { next(e); }
+  }
   async remove(req, res, next) {
     try {
       const doc = await familyMemberService.remove(req.societyId, req.params.id, req.userId, req.membership);

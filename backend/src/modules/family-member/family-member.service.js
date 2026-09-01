@@ -60,6 +60,20 @@ class FamilyMemberService {
     return member;
   }
 
+  async update(societyId, id, userId, membership, data) {
+    const doc = await FamilyMember.findOne({ _id: id, societyId, isActive: true });
+    if (!doc) throw new AppError("Family member not found", 404);
+    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    if (!isAdmin && String(doc.addedBy) !== String(userId)) {
+      throw new AppError("You can only edit members you added", 403);
+    }
+    if (data.name !== undefined) doc.name = data.name.trim();
+    if (data.relation !== undefined) doc.relation = data.relation;
+    if (data.phone !== undefined) doc.phone = data.phone.trim();
+    await doc.save();
+    return doc;
+  }
+
   async remove(societyId, id, userId, membership) {
     const doc = await FamilyMember.findOne({ _id: id, societyId, isActive: true });
     if (!doc) throw new AppError("Family member not found", 404);
