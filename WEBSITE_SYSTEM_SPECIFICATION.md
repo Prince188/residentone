@@ -261,10 +261,26 @@ A membership can have `additionalRoles: ["wing_admin"]` and `assignedWings: ["A"
 The Dashboard (`/dashboard`) acts as the central router for all client operations.
 
 ### 6.1 Layout Configuration
-*   **Greeting Banner:** Greets user dynamically based on local device time (`Good morning` if <12 PM, `Good afternoon` if <5 PM, else `Good evening`).
-*   **Quick Summary / Badges Bar:** Displays active counts for complaints, open polls, and active surveys.
-*   **Resident Action Grid:** Houses, Maintenance, Collections, Complaints, Notices, Amenities, Documents, Polls, Surveys, Directory, Chat, Family Members, Vehicles, My Unit.
-*   **Privileged (Admin) Actions Grid:** Displayed only if `hasPermission(permission)` checks evaluate to true: Manage Society, Manage Wing, Manage Houses, Society Dues, Manage Collections, Manage Amenities, Manage Committee, Super-Admin Societies.
+*   **Super Admin View (`isSuperAdmin: true`):**
+    *   Since Super Admins operate at the platform level and are not assigned to individual societies, `/dashboard` displays the dedicated **Platform State & Operations Center**.
+    *   **Platform Statistics Grid:** Displays the live state of the entire platform:
+        *   `Total Societies` (All registered societies)
+        *   `Active Societies` (Live, operational societies)
+        *   `Pending Approvals` (Pending society registrations with direct action link)
+        *   `Suspended Societies` (Flagged/suspended societies)
+        *   `Total Units Across Platform` (All flats and row houses)
+        *   `Total Platform Users` (All registered user accounts)
+    *   **Platform Administration Shortcuts:** Quick cards for *Societies* (`/admin/societies`), *Pending Approvals* (`/admin/societies/pending`), and *New Society* (`/admin/societies/new`).
+    *   **Pending Registrations Queue:** Quick review cards with one-click *Review & Approve* navigation.
+    *   **Recent Societies Table:** Live feed of recently onboarded societies.
+    *   *Note:* Super Admin dashboard strictly hides regular resident cards (Pay Maintenance, Collections, My Unit, Complaints, Amenities, Chat, Notices, etc.).
+*   **Resident & Society Admin View (`isSuperAdmin: false`):**
+    *   **Greeting Banner:** Greets user dynamically based on local device time (`Good morning` if <12 PM, `Good afternoon` if <5 PM, else `Good evening`).
+    *   **Active Society & Unit Banner:** Displays linked society name, assigned flat number, and role badge.
+    *   **Maintenance Alert:** Highlights overdue or due maintenance invoices with a direct *Pay Now* link.
+    *   **Privileged (Admin / Wing Admin) Actions Grid:** Displayed based on `hasPermissionForMembership` checks (Manage Society, Manage Wing, Manage Houses, Manage Maintenance, Manage Collections, Create Notice, Manage Amenities, Create Poll, Create Survey, Manage Committee).
+    *   **Resident Action Grid:** Pay Maintenance, Collections, My Unit, Add Members, Notices, Visitors, Complaints, Amenities, Polls, Surveys, Chat, Documents, Emergency Contacts, Directory, Vehicles.
+    *   **Recent Notices Feed:** Latest community announcements with *View All* shortcut.
 
 ### 6.2 The Badging Algorithm
 Badges are computed dynamically per-user relative to when they last visited specific features.

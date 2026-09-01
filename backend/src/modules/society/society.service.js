@@ -35,14 +35,18 @@ class SocietyService {
   }
 
   async stats() {
-    const [total, pending, active, rejected, suspended] = await Promise.all([
+    const { Unit } = require("../unit/unit.model");
+    const { User } = require("../user/user.model");
+    const [total, pending, active, rejected, suspended, totalUnits, totalUsers] = await Promise.all([
       Society.countDocuments({}),
       Society.countDocuments({ status: "pending" }),
       Society.countDocuments({ status: "active" }),
       Society.countDocuments({ status: "rejected" }),
       Society.countDocuments({ status: "suspended" }),
+      Unit.countDocuments({ isActive: true }),
+      User.countDocuments({ isActive: true }),
     ]);
-    return { total, pending, active, rejected, suspended };
+    return { total, pending, active, rejected, suspended, totalUnits, totalUsers };
   }
 
   mapRegistrationPayload(data) {

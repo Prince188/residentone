@@ -150,12 +150,12 @@ export default function MaintenanceDetailPage() {
                       <html><head><title>Receipt ${data.receiptNo}</title>
                       <style>
                         body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a}
-                        .header{border-bottom:2px solid #1a73e8;padding-bottom:16px;margin-bottom:20px}
-                        .header h1{margin:0;color:#1a73e8;font-size:22px}
+                        .header{border-bottom:2px solid #0e4a5a;padding-bottom:16px;margin-bottom:20px}
+                        .header h1{margin:0;color:#0e4a5a;font-size:22px}
                         .header p{margin:4px 0;color:#555;font-size:13px}
                         .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
                         .label{color:#666} .value{font-weight:600}
-                        .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #1a73e8;padding-top:12px}
+                        .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #0e4a5a;padding-top:12px}
                         .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
                       </style></head><body>
                       <div class="header">
@@ -228,12 +228,12 @@ export default function MaintenanceDetailPage() {
                     <html><head><title>Receipt ${data.receiptNo}</title>
                     <style>
                       body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a}
-                      .header{border-bottom:2px solid #1a73e8;padding-bottom:16px;margin-bottom:20px}
-                      .header h1{margin:0;color:#1a73e8;font-size:22px}
+                      .header{border-bottom:2px solid #0e4a5a;padding-bottom:16px;margin-bottom:20px}
+                      .header h1{margin:0;color:#0e4a5a;font-size:22px}
                       .header p{margin:4px 0;color:#555;font-size:13px}
                       .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
                       .label{color:#666} .value{font-weight:600}
-                      .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #1a73e8;padding-top:12px}
+                      .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #0e4a5a;padding-top:12px}
                       .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
                     </style></head><body>
                     <div class="header">

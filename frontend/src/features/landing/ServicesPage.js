@@ -62,7 +62,7 @@ export default function ServicesPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="py-20 px-12 text-center bg-[#f8f9ff]">
+      <section className="py-20 px-12 text-center bg-primary-fixed/30">
         <span className="inline-block px-4 py-1.5 rounded-full bg-blue-50 text-brand text-[13px] font-semibold mb-5">
           Our Services
         </span>
@@ -121,7 +121,7 @@ export default function ServicesPage() {
                 </ul>
               </div>
               <div
-                className="bg-[#f8f9ff] min-h-[260px] flex items-center justify-center text-[64px] rounded-[14px] border border-gray-100"
+                className="bg-primary-fixed/20 min-h-[260px] flex items-center justify-center text-[64px] rounded-[14px] border border-outline-variant/30"
                 style={i % 2 === 1 ? { order: 1 } : {}}
               >
                 {i === 0 ? "🏢" : "📱"}

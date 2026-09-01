@@ -177,7 +177,7 @@ export default function Navbar() {
               <Link
                 to="/register"
                 onClick={() => setOpen(false)}
-                className="flex items-center justify-center gap-2 bg-primary text-white rounded-xl py-3.5 text-sm font-semibold no-underline hover:bg-[#0040b8] transition-colors"
+                className="flex items-center justify-center gap-2 bg-primary text-white rounded-xl py-3.5 text-sm font-semibold no-underline hover:bg-primary-container transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">person_add</span>
                 Join

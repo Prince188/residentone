@@ -25,7 +25,7 @@ export default function AboutPage() {
       {/* Hero */}
       <header className="relative bg-on-primary-fixed overflow-hidden min-h-[400px] md:min-h-[500px] flex items-center pt-10">
         <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00174b] via-[#004ac6]/90 to-[#00174b] opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#051f26] via-primary/90 to-[#051f26] opacity-80" />
         </div>
         <div className="relative z-10 max-w-container mx-auto px-margin-mobile md:px-margin-desktop w-full text-center">
           <span className="inline-block py-1 px-3 rounded-full bg-surface-container-highest/20 text-inverse-primary text-label-sm font-semibold mb-4 backdrop-blur-sm border border-inverse-primary/30 uppercase tracking-widest">
@@ -133,7 +133,7 @@ export default function AboutPage() {
 
       {/* CTA */}
       <section className="py-16 md:py-24 bg-on-primary-fixed relative overflow-hidden text-center">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand to-[#003ea8] opacity-90" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand to-[#093743] opacity-90" />
         <div className="relative z-10 max-w-3xl mx-auto px-margin-mobile md:px-margin-desktop">
           <h2 className="text-[28px] md:text-[36px] lg:text-[44px] leading-tight font-bold text-on-primary mb-6">
             Join Us in Building Better Communities

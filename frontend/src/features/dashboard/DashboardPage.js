@@ -8,13 +8,16 @@ import useSocietyStore, {
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
+import { getSocietyStats, listSocieties, SOCIETY_STATUS_LABELS, SOCIETY_TYPE_LABELS } from "../../lib/societies";
+import StatusBadge from "../../components/ui/StatusBadge";
 import api from "../../lib/api";
 import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 import { getBadges } from "../../lib/dashboard";
 
 const superAdminCards = [
-  { icon: "apartment", label: "Societies", to: "/admin/societies" },
-  { icon: "pending_actions", label: "Pending Approvals", to: "/admin/societies/pending" },
+  { icon: "apartment", label: "Societies", to: "/admin/societies", desc: "Manage all registered societies" },
+  { icon: "pending_actions", label: "Pending Approvals", to: "/admin/societies/pending", desc: "Review new society registrations", badgeKey: "pending" },
+  { icon: "add_business", label: "New Society", to: "/admin/societies/new", desc: "Manually provision a new society" },
 ];
 
 const adminCards = [
@@ -196,6 +199,255 @@ function NoticeItem({ title, body, createdAt, featured }) {
   );
 }
 
+/**
+ * Super Admin Dedicated Dashboard View
+ * Displays only platform-level overview, statistics, and platform admin tools.
+ */
+function SuperAdminDashboardView({ user }) {
+  const firstName = user?.name?.split(" ")[0] || "Super Admin";
+
+  const statsQuery = useQuery({
+    queryKey: ["superadmin-society-stats"],
+    queryFn: async () => (await getSocietyStats()).data.data,
+  });
+  const stats = statsQuery.data || { total: 0, pending: 0, active: 0, rejected: 0, suspended: 0, totalUnits: 0, totalUsers: 0 };
+
+  const pendingSocietiesQuery = useQuery({
+    queryKey: ["superadmin-pending-societies"],
+    queryFn: async () => (await listSocieties({ status: "pending", limit: 5 })).data.data,
+  });
+  const pendingSocieties = pendingSocietiesQuery.data || [];
+
+  const recentSocietiesQuery = useQuery({
+    queryKey: ["superadmin-recent-societies"],
+    queryFn: async () => (await listSocieties({ limit: 5 })).data.data,
+  });
+  const recentSocieties = recentSocietiesQuery.data || [];
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 sm:space-y-7">
+      {/* Super Admin Welcome Banner */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-5 shadow-lg sm:p-7">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 right-28 h-40 w-40 rounded-full bg-white/5" />
+
+        <div className="relative flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-white/70 sm:text-label-sm">
+              {getGreeting()}
+            </p>
+            <h1 className="mt-1 text-headline-md font-bold leading-snug text-white sm:text-headline-lg">
+              {firstName}
+            </h1>
+            <p className="mt-1 text-body-sm text-white/80">
+              ResidentOne Platform Control & Health Center
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <RolePill isSuper={true} />
+          </div>
+        </div>
+      </section>
+
+      {/* State of the Website - Platform KPI Statistics Grid */}
+      <section>
+        <SectionTitle>Platform Overview & Statistics</SectionTitle>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-label-sm font-medium text-outline">Total Societies</span>
+              <span className="material-symbols-outlined text-primary text-[20px]">domain</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+              {statsQuery.isLoading ? "..." : stats.total}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-label-sm font-medium text-outline">Active</span>
+              <span className="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+              {statsQuery.isLoading ? "..." : stats.active}
+            </p>
+          </div>
+
+          <Link
+            to="/admin/societies/pending"
+            className="group rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm no-underline transition-all hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-label-sm font-semibold text-on-surface">Pending Review</span>
+              <span className="material-symbols-outlined text-primary text-[20px] transition-transform group-hover:scale-110">pending_actions</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <p className="text-headline-sm font-bold text-on-surface">
+                {statsQuery.isLoading ? "..." : stats.pending}
+              </p>
+              {stats.pending > 0 && (
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white uppercase">Action</span>
+              )}
+            </div>
+          </Link>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-label-sm font-medium text-outline">Suspended</span>
+              <span className="material-symbols-outlined text-outline text-[20px]">block</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+              {statsQuery.isLoading ? "..." : stats.suspended}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-label-sm font-medium text-outline">Total Units</span>
+              <span className="material-symbols-outlined text-primary text-[20px]">apartment</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+              {statsQuery.isLoading ? "..." : (stats.totalUnits ?? "-")}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-label-sm font-medium text-outline">Platform Users</span>
+              <span className="material-symbols-outlined text-primary text-[20px]">group</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+              {statsQuery.isLoading ? "..." : (stats.totalUsers ?? "-")}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Super Admin Quick Navigation Actions */}
+      <section>
+        <SectionTitle>Platform Administration</SectionTitle>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {superAdminCards.map((card) => {
+            const hasPendingBadge = card.badgeKey === "pending" && stats.pending > 0;
+            return (
+              <Link
+                key={card.label}
+                to={card.to}
+                className="group flex items-center gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-105">
+                  <span className="material-symbols-outlined text-[26px]">{card.icon}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-body-md font-semibold text-on-surface">{card.label}</h3>
+                    {hasPendingBadge && (
+                      <span className="rounded-full bg-error px-2 py-0.5 text-label-sm font-bold text-white">
+                        {stats.pending}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-label-sm text-on-surface-variant truncate">{card.desc}</p>
+                </div>
+                <span className="material-symbols-outlined text-outline transition-transform group-hover:translate-x-1 group-hover:text-primary">
+                  arrow_forward
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Pending Approvals Quick Review List */}
+      {stats.pending > 0 && (
+        <section>
+          <div className="flex items-center justify-between">
+            <SectionTitle>Pending Society Registrations</SectionTitle>
+            <Link
+              to="/admin/societies/pending"
+              className="inline-flex items-center gap-1 text-label-md font-semibold text-primary no-underline hover:underline"
+            >
+              View all pending ({stats.pending})
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
+          </div>
+          <div className="mt-3 space-y-2.5">
+            {pendingSocietiesQuery.isLoading ? (
+              <div className="h-20 animate-pulse rounded-xl bg-surface-container-high" />
+            ) : (
+              pendingSocieties.map((society) => (
+                <div
+                  key={society.id || society._id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm transition-colors hover:bg-surface-container-low"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="truncate text-body-md font-bold text-on-surface">{society.name}</h4>
+                      <StatusBadge status="pending" />
+                    </div>
+                    <p className="mt-0.5 text-label-sm text-on-surface-variant">
+                      {society.city}, {society.state} · {society.totalUnits} Units · Contact: {society.contactPersonName} ({society.contactPhone})
+                    </p>
+                  </div>
+                  <Link
+                    to={`/admin/societies/${society.id || society._id}`}
+                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-label-md font-semibold text-on-primary no-underline shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    Review & Approve
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </Link>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Recent Societies Platform Directory */}
+      <section>
+        <div className="flex items-center justify-between">
+          <SectionTitle>Recent Societies on Platform</SectionTitle>
+          <Link
+            to="/admin/societies"
+            className="inline-flex items-center gap-1 text-label-md font-semibold text-primary no-underline hover:underline"
+          >
+            View all societies
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </Link>
+        </div>
+        <div className="mt-3 divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+          {recentSocietiesQuery.isLoading ? (
+            <div className="p-6 text-center text-body-sm text-outline">Loading societies...</div>
+          ) : recentSocieties.length === 0 ? (
+            <div className="p-6 text-center text-body-sm text-on-surface-variant">No societies registered yet.</div>
+          ) : (
+            recentSocieties.map((soc) => (
+              <Link
+                key={soc.id || soc._id}
+                to={`/admin/societies/${soc.id || soc._id}`}
+                className="flex items-center justify-between p-4 text-on-surface no-underline transition-colors hover:bg-surface-container-low"
+              >
+                <div className="min-w-0 pr-3">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-body-md font-semibold text-on-surface">{soc.name}</span>
+                    <StatusBadge status={soc.status} />
+                  </div>
+                  <p className="mt-0.5 text-label-sm text-on-surface-variant truncate">
+                    {soc.city}, {soc.state} · {SOCIETY_TYPE_LABELS[soc.societyType] || "Apartment"} · {soc.totalUnits} Units
+                  </p>
+                </div>
+                <span className="material-symbols-outlined shrink-0 text-outline text-[20px]">
+                  chevron_right
+                </span>
+              </Link>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const activeSociety = useSocietyStore(selectActiveSociety);
@@ -203,6 +455,7 @@ export default function DashboardPage() {
   const activeUnit = useSocietyStore(selectPrimaryUnit);
 
   const isSuperAdmin = user?.role?.includes("super_admin");
+
   const activeRoles = getMembershipRoles(activeMembership);
   const isAdmin = activeRoles.includes("society_admin") || activeRoles.includes("super_admin");
   const isWingOnly = activeRoles.includes("wing_admin") && !isAdmin;
@@ -214,7 +467,7 @@ export default function DashboardPage() {
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
-    enabled: Boolean(activeSociety),
+    enabled: Boolean(activeSociety) && !isSuperAdmin,
   });
   const customPermissions = permissionsQuery.data || {};
 
@@ -236,7 +489,6 @@ export default function DashboardPage() {
 
   const filteredAdminCards = (() => {
     if (isAdminWithWing) {
-      // society_admin + wing_admin: Society Admin section without Manage Wing (Wing Admin shown separately)
       return adminCards.filter((card) => {
         if (card.label === "Manage Wing") return false;
         if (card.label === "Manage Society") return true;
@@ -246,7 +498,6 @@ export default function DashboardPage() {
       });
     }
     if (isPureAdmin) {
-      // pure society_admin: all admin cards except Manage Wing
       return adminCards.filter((card) => {
         if (card.label === "Manage Wing") return false;
         if (card.label === "Manage Society") return true;
@@ -256,7 +507,6 @@ export default function DashboardPage() {
       });
     }
     if (isWingOnly) {
-      // pure wing_admin: Manage Wing + Create Poll/Survey (wing-locked) + Create Notice
       return adminCards.filter((card) => ["Manage Wing", "Create Poll", "Create Survey", "Create Notice"].includes(card.label) && hasPermissionForMembership(activeMembership, cardPermissionMap[card.label] || "create_poll", customPermissions));
     }
     if (isCommitteeRole) {
@@ -279,7 +529,7 @@ export default function DashboardPage() {
   const badgesQuery = useQuery({
     queryKey: ["dashboard-badges", activeSociety?.id, isSuperAdmin ? "super" : "member"],
     queryFn: async () => (await getBadges()).data.data,
-    enabled: Boolean(activeSociety) || Boolean(isSuperAdmin),
+    enabled: Boolean(activeSociety) && !isSuperAdmin,
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -288,15 +538,20 @@ export default function DashboardPage() {
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id, "recent"],
     queryFn: async () => (await getNotices(2)).data.data,
-    enabled: Boolean(activeSociety),
+    enabled: Boolean(activeSociety) && !isSuperAdmin,
   });
   const recentNotices = noticesQuery.data || [];
 
   const maintenanceQuery = useQuery({
     queryKey: ["maintenance", "latest"],
     queryFn: async () => (await getLatestCycle()).data.data,
-    enabled: Boolean(activeSociety),
+    enabled: Boolean(activeSociety) && !isSuperAdmin,
   });
+
+  // If user is platform Super Admin, render exclusively the Super Admin Platform Dashboard View
+  if (isSuperAdmin) {
+    return <SuperAdminDashboardView user={user} />;
+  }
 
   const latestCycle = maintenanceQuery.data;
   let maintenanceAlert = null;
@@ -354,9 +609,9 @@ export default function DashboardPage() {
               {firstName}
             </h1>
           </div>
-          {(activeMembership || isSuperAdmin) && (
+          {activeMembership && (
             <div className="flex flex-wrap gap-2">
-              <RolePill role={activeMembership?.role} isSuper={isSuperAdmin} />
+              <RolePill role={activeMembership?.role} isSuper={false} />
               {getMembershipRoles(activeMembership).filter((r)=> r !== activeMembership?.role).map((r)=>(
                 <span key={r} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-bold ${r==="wing_admin" ? "bg-amber-100 text-amber-800" : "bg-white/20 text-white border border-white/20"}`}>
                   {ROLE_TITLES[r] || r} {r==="wing_admin" && (activeMembership.assignedWings||[]).length ? `• ${activeMembership.assignedWings.join(", ")}` : ""}
@@ -421,10 +676,6 @@ export default function DashboardPage() {
             </span>
           </span>
         </Link>
-      )}
-
-      {isSuperAdmin && (
-        <CardSection title="Super Admin" cards={superAdminCards} variant="admin" badges={badges} />
       )}
 
       {isWingOnly && filteredAdminCards.length > 0 && (
