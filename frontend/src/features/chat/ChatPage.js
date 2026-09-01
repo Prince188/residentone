@@ -6,7 +6,7 @@ import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "..
 import useAuthStore from "../../stores/auth.store";
 import { getGroups, createGroup, getGroupMessages, sendGroupMessage, getGroupInfo, addGroupMembers, removeGroupMembers, leaveGroup, deleteGroupMessage, reactGroupMessage, pinGroupMessage, getPinnedMessage, getAdmins, getDirectChats, getDirectMessages, sendDirectMessage, deleteDirectMessage, reactDirectMessage, extractApiError } from "../../lib/chat";
 import { getSocietyDirectory } from "../../lib/directory";
-import api, { getAccessToken } from "../../lib/api";
+import api, { getAccessToken, getSocketUrl } from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
 
 const EMOJIS = ["😀","😃","😄","😁","😆","😅","😂","🤣","🥲","🥹","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥸","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😮‍💨","😤","😠","😡","🤬","😳","🥵","🥶","😶‍🌫️","😱","😨","😰","😥","😓","🤗","🤔","🫣","🤭","🫢","🫡","🤫","🫠","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","😵‍💫","🤐","🥴","😷","🤒","🤕","🤢","🤮","🥴","🤧","😴","👍","👎","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👏","🙌","🫶","🙏","💪","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💝","💘","😺","😸","😹","🙏","🔥","⭐","🎉","✅","❌","💯"];
@@ -116,7 +116,7 @@ export default function ChatPage() {
   useEffect(() => {
     const t = getAccessToken();
     if (!t) return;
-    const socketUrl = window.location.hostname === "localhost" ? "http://localhost:5000" : window.location.origin;
+    const socketUrl = getSocketUrl();
     let socket;
     try {
       const { io } = require("socket.io-client");

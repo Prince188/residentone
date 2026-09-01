@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import { getAccessToken } from "../../lib/api";
+import { getAccessToken, getSocketUrl } from "../../lib/api";
 import useSocietyStore from "../../stores/society.store";
 
 export default function AppLayout() {
@@ -21,9 +21,7 @@ export default function AppLayout() {
     const token = getAccessToken();
     if (!token) return;
 
-    const socketUrl = window.location.hostname === "localhost"
-      ? "http://localhost:5000"
-      : window.location.origin;
+    const socketUrl = getSocketUrl();
 
     const socket = io(socketUrl, {
       auth: { token, societyId: activeSocietyId },
