@@ -8,16 +8,16 @@ import useSocietyStore, {
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
-import { getSocietyStats, listSocieties, SOCIETY_STATUS_LABELS, SOCIETY_TYPE_LABELS } from "../../lib/societies";
+import { getSocietyStats, listSocieties, SOCIETY_TYPE_LABELS } from "../../lib/societies";
 import StatusBadge from "../../components/ui/StatusBadge";
 import api from "../../lib/api";
 import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 import { getBadges } from "../../lib/dashboard";
 
 const superAdminCards = [
-  { icon: "apartment", label: "Societies", to: "/admin/societies", desc: "Manage all registered societies" },
-  { icon: "pending_actions", label: "Pending Approvals", to: "/admin/societies/pending", desc: "Review new society registrations", badgeKey: "pending" },
-  { icon: "add_business", label: "New Society", to: "/admin/societies/new", desc: "Manually provision a new society" },
+  { icon: "apartment", label: "Societies Directory", to: "/admin/societies", desc: "View, filter and manage all societies" },
+  { icon: "pending_actions", label: "Pending Approvals", to: "/admin/societies/pending", desc: "Review incoming registrations", badgeKey: "pending" },
+  { icon: "add_business", label: "Provision Society", to: "/admin/societies/new", desc: "Manually onboard a new society" },
 ];
 
 const adminCards = [
@@ -104,12 +104,15 @@ function RolePill({ role, isSuper }) {
   );
 }
 
-function SectionTitle({ children }) {
+function SectionTitle({ children, subtitle }) {
   return (
-    <h2 className="flex items-center gap-2 text-body-md font-semibold text-on-surface sm:text-body-lg">
-      <span aria-hidden="true" className="h-4 w-1 rounded-full bg-primary" />
-      {children}
-    </h2>
+    <div className="flex flex-col">
+      <h2 className="flex items-center gap-2 text-body-md font-bold text-on-surface sm:text-body-lg">
+        <span aria-hidden="true" className="h-4 w-1 rounded-full bg-primary shrink-0" />
+        {children}
+      </h2>
+      {subtitle && <p className="mt-0.5 text-label-sm text-on-surface-variant pl-3">{subtitle}</p>}
+    </div>
   );
 }
 
@@ -200,8 +203,13 @@ function NoticeItem({ title, body, createdAt, featured }) {
 }
 
 /**
- * Super Admin Dedicated Dashboard View
- * Displays only platform-level overview, statistics, and platform admin tools.
+ * Super Admin Structured Platform Dashboard View
+ * Well-organized layout with:
+ * 1. Hero header with quick primary action buttons
+ * 2. Top-level 4-card KPI metric grid
+ * 3. Two-column operational section:
+ *    - Left: Pending Approval queue & Recent Societies Table
+ *    - Right: Quick Management actions, Society Status Distribution & Platform Health
  */
 function SuperAdminDashboardView({ user }) {
   const firstName = user?.name?.split(" ")[0] || "Super Admin";
@@ -220,230 +228,355 @@ function SuperAdminDashboardView({ user }) {
 
   const recentSocietiesQuery = useQuery({
     queryKey: ["superadmin-recent-societies"],
-    queryFn: async () => (await listSocieties({ limit: 5 })).data.data,
+    queryFn: async () => (await listSocieties({ limit: 6 })).data.data,
   });
   const recentSocieties = recentSocietiesQuery.data || [];
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 sm:space-y-7">
-      {/* Super Admin Welcome Banner */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-5 shadow-lg sm:p-7">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10" />
-        <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 right-28 h-40 w-40 rounded-full bg-white/5" />
+  const activePercent = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
+  const pendingPercent = stats.total > 0 ? Math.round((stats.pending / stats.total) * 100) : 0;
+  const suspendedPercent = stats.total > 0 ? Math.round((stats.suspended / stats.total) * 100) : 0;
 
-        <div className="relative flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-white/70 sm:text-label-sm">
-              {getGreeting()}
-            </p>
-            <h1 className="mt-1 text-headline-md font-bold leading-snug text-white sm:text-headline-lg">
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 sm:space-y-7">
+      {/* 1. Header & Hero Section */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-6 text-white shadow-lg sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/10" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 right-24 h-48 w-48 rounded-full bg-white/5" />
+
+        <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white/70">
+                {getGreeting()}
+              </span>
+              <span className="text-white/40">·</span>
+              <RolePill isSuper={true} />
+            </div>
+            <h1 className="text-headline-md font-bold leading-tight sm:text-headline-lg">
               {firstName}
             </h1>
-            <p className="mt-1 text-body-sm text-white/80">
-              ResidentOne Platform Control & Health Center
+            <p className="text-body-sm text-white/80 sm:text-body-md max-w-xl">
+              Platform Operations, Society Approvals & Multi-Tenant Infrastructure Control Center.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <RolePill isSuper={true} />
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/admin/societies/new"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-label-md font-bold text-primary shadow-sm no-underline transition-all hover:bg-white/90 hover:shadow-md active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[20px]">add_business</span>
+              Onboard Society
+            </Link>
+            <Link
+              to="/admin/societies"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-label-md font-semibold text-white backdrop-blur-sm no-underline transition-all hover:bg-white/25"
+            >
+              <span className="material-symbols-outlined text-[20px]">apartment</span>
+              All Societies
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* State of the Website - Platform KPI Statistics Grid */}
+      {/* 2. Key Metric KPI Cards (Top 4 Structured Cards) */}
       <section>
-        <SectionTitle>Platform Overview & Statistics</SectionTitle>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Total Societies */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
             <div className="flex items-center justify-between">
-              <span className="text-label-sm font-medium text-outline">Total Societies</span>
-              <span className="material-symbols-outlined text-primary text-[20px]">domain</span>
+              <span className="text-label-md font-medium text-on-surface-variant">Total Societies</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[22px]">domain</span>
+              </span>
             </div>
-            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+            <p className="mt-3 text-headline-md font-bold text-on-surface">
               {statsQuery.isLoading ? "..." : stats.total}
             </p>
-          </div>
-
-          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-label-sm font-medium text-outline">Active</span>
-              <span className="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+            <div className="mt-2 flex items-center gap-2 text-label-sm text-on-surface-variant">
+              <span className="inline-flex items-center gap-1 font-semibold text-on-surface">
+                <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                {stats.active} Active
+              </span>
+              <span>·</span>
+              <span>{stats.suspended} Suspended</span>
             </div>
-            <p className="mt-2 text-headline-sm font-bold text-on-surface">
-              {statsQuery.isLoading ? "..." : stats.active}
-            </p>
           </div>
 
+          {/* Pending Review Approvals */}
           <Link
             to="/admin/societies/pending"
-            className="group rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm no-underline transition-all hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md"
+            className="group rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 no-underline shadow-sm transition-all hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <span className="text-label-sm font-semibold text-on-surface">Pending Review</span>
-              <span className="material-symbols-outlined text-primary text-[20px] transition-transform group-hover:scale-110">pending_actions</span>
+              <span className="text-label-md font-medium text-on-surface-variant">Pending Approvals</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-110">
+                <span className="material-symbols-outlined text-[22px]">pending_actions</span>
+              </span>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <p className="text-headline-sm font-bold text-on-surface">
+            <div className="mt-3 flex items-baseline gap-2">
+              <p className="text-headline-md font-bold text-on-surface">
                 {statsQuery.isLoading ? "..." : stats.pending}
               </p>
               {stats.pending > 0 && (
-                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white uppercase">Action</span>
+                <span className="rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-white uppercase">
+                  Action Required
+                </span>
               )}
             </div>
+            <p className="mt-2 text-label-sm text-on-surface-variant">
+              {stats.pending > 0 ? "Awaiting super-admin verification" : "All registrations reviewed"}
+            </p>
           </Link>
 
-          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+          {/* Total Managed Flats / Units */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
             <div className="flex items-center justify-between">
-              <span className="text-label-sm font-medium text-outline">Suspended</span>
-              <span className="material-symbols-outlined text-outline text-[20px]">block</span>
+              <span className="text-label-md font-medium text-on-surface-variant">Total Housing Units</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[22px]">apartment</span>
+              </span>
             </div>
-            <p className="mt-2 text-headline-sm font-bold text-on-surface">
-              {statsQuery.isLoading ? "..." : stats.suspended}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-label-sm font-medium text-outline">Total Units</span>
-              <span className="material-symbols-outlined text-primary text-[20px]">apartment</span>
-            </div>
-            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+            <p className="mt-3 text-headline-md font-bold text-on-surface">
               {statsQuery.isLoading ? "..." : (stats.totalUnits ?? "-")}
             </p>
+            <p className="mt-2 text-label-sm text-on-surface-variant">
+              Flats & villas across all societies
+            </p>
           </div>
 
-          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+          {/* Total Registered Platform Users */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
             <div className="flex items-center justify-between">
-              <span className="text-label-sm font-medium text-outline">Platform Users</span>
-              <span className="material-symbols-outlined text-primary text-[20px]">group</span>
+              <span className="text-label-md font-medium text-on-surface-variant">Registered Users</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[22px]">group</span>
+              </span>
             </div>
-            <p className="mt-2 text-headline-sm font-bold text-on-surface">
+            <p className="mt-3 text-headline-md font-bold text-on-surface">
               {statsQuery.isLoading ? "..." : (stats.totalUsers ?? "-")}
+            </p>
+            <p className="mt-2 text-label-sm text-on-surface-variant">
+              Admins, residents, and staff accounts
             </p>
           </div>
         </div>
       </section>
 
-      {/* Super Admin Quick Navigation Actions */}
-      <section>
-        <SectionTitle>Platform Administration</SectionTitle>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {superAdminCards.map((card) => {
-            const hasPendingBadge = card.badgeKey === "pending" && stats.pending > 0;
-            return (
+      {/* 3. Main Operational Section (Two Column Layout: 8 / 4 Grid) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column (8 cols): Pending Approvals Queue + Recent Societies Table */}
+        <div className="space-y-6 lg:col-span-8">
+          {/* Pending Approvals Review Section */}
+          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <SectionTitle subtitle="Registration requests awaiting verification & credential issuance">
+                Pending Society Registrations
+              </SectionTitle>
               <Link
-                key={card.label}
-                to={card.to}
-                className="group flex items-center gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md"
+                to="/admin/societies/pending"
+                className="inline-flex items-center gap-1 text-label-sm font-semibold text-primary no-underline hover:underline"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-105">
-                  <span className="material-symbols-outlined text-[26px]">{card.icon}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-body-md font-semibold text-on-surface">{card.label}</h3>
-                    {hasPendingBadge && (
-                      <span className="rounded-full bg-error px-2 py-0.5 text-label-sm font-bold text-white">
-                        {stats.pending}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-label-sm text-on-surface-variant truncate">{card.desc}</p>
-                </div>
-                <span className="material-symbols-outlined text-outline transition-transform group-hover:translate-x-1 group-hover:text-primary">
-                  arrow_forward
-                </span>
+                View all ({stats.pending})
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
-            );
-          })}
-        </div>
-      </section>
+            </div>
 
-      {/* Pending Approvals Quick Review List */}
-      {stats.pending > 0 && (
-        <section>
-          <div className="flex items-center justify-between">
-            <SectionTitle>Pending Society Registrations</SectionTitle>
-            <Link
-              to="/admin/societies/pending"
-              className="inline-flex items-center gap-1 text-label-md font-semibold text-primary no-underline hover:underline"
-            >
-              View all pending ({stats.pending})
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-            </Link>
-          </div>
-          <div className="mt-3 space-y-2.5">
-            {pendingSocietiesQuery.isLoading ? (
-              <div className="h-20 animate-pulse rounded-xl bg-surface-container-high" />
-            ) : (
-              pendingSocieties.map((society) => (
-                <div
-                  key={society.id || society._id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm transition-colors hover:bg-surface-container-low"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="truncate text-body-md font-bold text-on-surface">{society.name}</h4>
-                      <StatusBadge status="pending" />
-                    </div>
-                    <p className="mt-0.5 text-label-sm text-on-surface-variant">
-                      {society.city}, {society.state} · {society.totalUnits} Units · Contact: {society.contactPersonName} ({society.contactPhone})
-                    </p>
-                  </div>
-                  <Link
-                    to={`/admin/societies/${society.id || society._id}`}
-                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-label-md font-semibold text-on-primary no-underline shadow-sm transition-colors hover:bg-primary/90"
-                  >
-                    Review & Approve
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </Link>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Recent Societies Platform Directory */}
-      <section>
-        <div className="flex items-center justify-between">
-          <SectionTitle>Recent Societies on Platform</SectionTitle>
-          <Link
-            to="/admin/societies"
-            className="inline-flex items-center gap-1 text-label-md font-semibold text-primary no-underline hover:underline"
-          >
-            View all societies
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-          </Link>
-        </div>
-        <div className="mt-3 divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-          {recentSocietiesQuery.isLoading ? (
-            <div className="p-6 text-center text-body-sm text-outline">Loading societies...</div>
-          ) : recentSocieties.length === 0 ? (
-            <div className="p-6 text-center text-body-sm text-on-surface-variant">No societies registered yet.</div>
-          ) : (
-            recentSocieties.map((soc) => (
-              <Link
-                key={soc.id || soc._id}
-                to={`/admin/societies/${soc.id || soc._id}`}
-                className="flex items-center justify-between p-4 text-on-surface no-underline transition-colors hover:bg-surface-container-low"
-              >
-                <div className="min-w-0 pr-3">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-body-md font-semibold text-on-surface">{soc.name}</span>
-                    <StatusBadge status={soc.status} />
-                  </div>
-                  <p className="mt-0.5 text-label-sm text-on-surface-variant truncate">
-                    {soc.city}, {soc.state} · {SOCIETY_TYPE_LABELS[soc.societyType] || "Apartment"} · {soc.totalUnits} Units
+            <div className="mt-4 space-y-3">
+              {pendingSocietiesQuery.isLoading ? (
+                <div className="h-24 animate-pulse rounded-xl bg-surface-container-high" />
+              ) : pendingSocieties.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
+                  <span className="material-symbols-outlined text-[32px] text-outline">verified</span>
+                  <p className="mt-2 text-body-sm font-semibold text-on-surface">All caught up!</p>
+                  <p className="text-label-sm text-on-surface-variant">
+                    There are no pending society applications requiring review at this time.
                   </p>
                 </div>
-                <span className="material-symbols-outlined shrink-0 text-outline text-[20px]">
-                  chevron_right
-                </span>
+              ) : (
+                pendingSocieties.map((society) => (
+                  <div
+                    key={society.id || society._id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-all hover:border-primary/50 hover:bg-surface-container-low"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-body-md font-bold text-on-surface">
+                          {society.name}
+                        </h3>
+                        <StatusBadge status="pending" />
+                      </div>
+                      <p className="text-label-sm text-on-surface-variant truncate">
+                        {society.city}, {society.state} · {society.totalUnits} Units ({SOCIETY_TYPE_LABELS[society.societyType] || "Apartment"})
+                      </p>
+                      <p className="text-[12px] text-outline">
+                        Contact: <span className="font-semibold text-on-surface">{society.contactPersonName}</span> · {society.contactPhone}
+                      </p>
+                    </div>
+
+                    <Link
+                      to={`/admin/societies/${society.id || society._id}`}
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-label-md font-semibold text-on-primary no-underline shadow-sm transition-all hover:bg-primary/90 active:scale-95"
+                    >
+                      Review & Approve
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </Link>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Recent Societies Platform Directory Table */}
+          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <SectionTitle subtitle="Overview of newly registered and active societies">
+                Registered Societies
+              </SectionTitle>
+              <Link
+                to="/admin/societies"
+                className="inline-flex items-center gap-1 text-label-sm font-semibold text-primary no-underline hover:underline"
+              >
+                Full directory
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
-            ))
-          )}
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-xl border border-outline-variant">
+              <div className="divide-y divide-outline-variant">
+                {recentSocietiesQuery.isLoading ? (
+                  <div className="p-6 text-center text-body-sm text-outline">Loading societies...</div>
+                ) : recentSocieties.length === 0 ? (
+                  <div className="p-6 text-center text-body-sm text-on-surface-variant">
+                    No societies registered yet.
+                  </div>
+                ) : (
+                  recentSocieties.map((soc) => (
+                    <Link
+                      key={soc.id || soc._id}
+                      to={`/admin/societies/${soc.id || soc._id}`}
+                      className="group flex items-center justify-between p-3.5 sm:p-4 text-on-surface no-underline transition-colors hover:bg-surface-container-low"
+                    >
+                      <div className="min-w-0 pr-3 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-body-sm sm:text-body-md font-bold text-on-surface group-hover:text-primary">
+                            {soc.name}
+                          </span>
+                          <StatusBadge status={soc.status} />
+                        </div>
+                        <p className="text-label-sm text-on-surface-variant truncate">
+                          {soc.city}, {soc.state} · {SOCIETY_TYPE_LABELS[soc.societyType] || "Apartment"} · {soc.totalUnits} Units
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="material-symbols-outlined text-outline text-[20px] transition-transform group-hover:translate-x-0.5 group-hover:text-primary">
+                          chevron_right
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+
+        {/* Right Column (4 cols): Quick Operations, Status Breakdown & Infrastructure Info */}
+        <div className="space-y-6 lg:col-span-4">
+          {/* Quick Management Actions Cards */}
+          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+            <SectionTitle subtitle="Platform controls & shortcuts">
+              Administration Tools
+            </SectionTitle>
+            <div className="mt-4 space-y-2.5">
+              {superAdminCards.map((card) => {
+                const hasBadge = card.badgeKey === "pending" && stats.pending > 0;
+                return (
+                  <Link
+                    key={card.label}
+                    to={card.to}
+                    className="group flex items-center gap-3.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5 no-underline transition-all hover:border-primary/50 hover:bg-surface-container-low"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-105">
+                      <span className="material-symbols-outlined text-[22px]">{card.icon}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-body-sm font-bold text-on-surface">{card.label}</h4>
+                        {hasBadge && (
+                          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                            {stats.pending}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-on-surface-variant truncate">{card.desc}</p>
+                    </div>
+                    <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-primary">
+                      arrow_forward
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Platform Distribution & Status Breakdown */}
+          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+            <SectionTitle subtitle="Status distribution across platform">
+              Society Status Ratio
+            </SectionTitle>
+            <div className="mt-4 space-y-4">
+              {/* Progress visual bar */}
+              <div className="h-3 w-full overflow-hidden rounded-full bg-surface-container flex">
+                <div style={{ width: `${activePercent}%` }} className="bg-primary h-full transition-all duration-500" title={`Active: ${activePercent}%`} />
+                <div style={{ width: `${pendingPercent}%` }} className="bg-outline h-full transition-all duration-500" title={`Pending: ${pendingPercent}%`} />
+                <div style={{ width: `${suspendedPercent}%` }} className="bg-error h-full transition-all duration-500" title={`Suspended: ${suspendedPercent}%`} />
+              </div>
+
+              <div className="space-y-2.5 divide-y divide-outline-variant/60 text-label-sm">
+                <div className="flex items-center justify-between pt-1">
+                  <span className="flex items-center gap-2 text-on-surface-variant">
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                    Active Operational
+                  </span>
+                  <span className="font-bold text-on-surface">{stats.active} ({activePercent}%)</span>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="flex items-center gap-2 text-on-surface-variant">
+                    <span className="h-2.5 w-2.5 rounded-full bg-outline" />
+                    Pending Verification
+                  </span>
+                  <span className="font-bold text-on-surface">{stats.pending} ({pendingPercent}%)</span>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="flex items-center gap-2 text-on-surface-variant">
+                    <span className="h-2.5 w-2.5 rounded-full bg-error" />
+                    Suspended / Inactive
+                  </span>
+                  <span className="font-bold text-on-surface">{stats.suspended} ({suspendedPercent}%)</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Infrastructure Health Card */}
+          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[20px]">dns</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface">Platform Infrastructure</h4>
+                <p className="text-[11px] text-on-surface-variant">Multi-Tenant MongoDB & Socket Cluster</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2 text-[12px]">
+              <span className="text-on-surface-variant">Security & RBAC</span>
+              <span className="font-bold text-primary">14 Permissions Active</span>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
@@ -548,7 +681,7 @@ export default function DashboardPage() {
     enabled: Boolean(activeSociety) && !isSuperAdmin,
   });
 
-  // If user is platform Super Admin, render exclusively the Super Admin Platform Dashboard View
+  // If user is platform Super Admin, render exclusively the Structured Super Admin Platform Dashboard View
   if (isSuperAdmin) {
     return <SuperAdminDashboardView user={user} />;
   }
