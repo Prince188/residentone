@@ -98,6 +98,14 @@ export default function AppLayout() {
       queryClient.invalidateQueries({ queryKey: ["chat-direct-messages"] });
     });
 
+    socket.on("collection:change", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["collections"] });
+      if (data?.id) {
+        queryClient.invalidateQueries({ queryKey: ["collection", String(data.id)] });
+        queryClient.invalidateQueries({ queryKey: ["collection-units", String(data.id)] });
+      }
+    });
+
     socket.on("society:change", (data) => {
       queryClient.invalidateQueries({ queryKey: ["societies"] });
       queryClient.invalidateQueries({ queryKey: ["society"] });

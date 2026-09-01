@@ -39,8 +39,41 @@ class CollectionService {
       .populate("createdBy", "name")
       .sort({ createdAt: -1 })
       .lean();
-    // Auto-close if past due? Keep active until manual close, but we can mark isPastDue
-    return collections.map((c) => this.mapCollection(c));
+
+    const totalUnits = await Unit.countDocuments({ societyId, isActive: true });
+    const collectionIds = collections.map((c) => c._id);
+
+    const payments = await CollectionPayment.find({
+      societyId,
+      collectionId: { $in: collectionIds },
+      isActive: true,
+      gatewayStatus: { $in: ["paid", "cash"] },
+    }).lean();
+
+    const paymentStatsMap = new Map();
+    for (const p of payments) {
+      const colIdStr = String(p.collectionId);
+      const existing = paymentStatsMap.get(colIdStr) || { totalCollected: 0, paidCount: 0 };
+      existing.totalCollected += Number(p.totalAmount || p.amount || 0);
+      existing.paidCount += 1;
+      paymentStatsMap.set(colIdStr, existing);
+    }
+
+    return collections.map((c) => {
+      const stats = paymentStatsMap.get(String(c._id)) || { totalCollected: 0, paidCount: 0 };
+      const base = this.mapCollection(c);
+      const targetGoal = (c.amount || 0) * totalUnits;
+      const totalCollected = stats.totalCollected || (stats.paidCount * (c.amount || 0));
+      return {
+        ...base,
+        totalUnits,
+        paidCount: stats.paidCount,
+        pendingCount: Math.max(0, totalUnits - stats.paidCount),
+        totalCollected,
+        targetGoal,
+        progressPercent: targetGoal > 0 ? Math.min(100, Math.round((totalCollected / targetGoal) * 100)) : 0,
+      };
+    });
   }
 
   async getById(societyId, collectionId) {
@@ -228,6 +261,32 @@ class CollectionService {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
+    await this.checkAndAutoCloseCollection(societyId, collection._id);
+    return payment;
+  }
+
+  async checkAndAutoCloseCollection(societyId, collectionId) {
+    try {
+      const totalUnits = await Unit.countDocuments({ societyId, isActive: true });
+      if (totalUnits === 0) return;
+      const paidCount = await CollectionPayment.countDocuments({
+        societyId,
+        collectionId,
+        isActive: true,
+        gatewayStatus: { $in: ["paid", "cash"] },
+      });
+      if (paidCount >= totalUnits) {
+        const col = await Collection.findOne({ _id: collectionId, societyId, isActive: true });
+        if (col && col.status !== "closed") {
+          col.status = "closed";
+          await col.save();
+          try {
+            const s = require("../../socket");
+            s.emitToSociety(String(societyId), "collection:change", { id: collectionId, action: "auto_close" });
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
   }
 
   async createRazorpayOrder(societyId, collection, unitId, userId) {
@@ -304,6 +363,7 @@ class CollectionService {
       { new: true }
     ).lean();
     if (!updated) throw new AppError("Failed to record payment", 500);
+    await this.checkAndAutoCloseCollection(societyId, collection._id);
     return updated;
   }
 

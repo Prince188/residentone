@@ -2,7 +2,21 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
-import { getCollection, getCollectionUnits, getCollectionUnitDetail, updateCollection, exportCollectionExcel, extractApiError, formatAmount, formatDate, CATEGORY_UI, STATUS_UI, COLLECTION_CATEGORIES } from "../../lib/collections";
+import {
+  getCollection,
+  getCollectionUnits,
+  getCollectionUnitDetail,
+  updateCollection,
+  closeCollection,
+  exportCollectionExcel,
+  extractApiError,
+  formatAmount,
+  formatDate,
+  CATEGORY_UI,
+  STATUS_UI,
+  COLLECTION_CATEGORIES,
+} from "../../lib/collections";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
 
@@ -231,6 +245,19 @@ export default function CollectionDetailPage() {
     onError: (err) => setActionError(extractApiError(err, "Failed to update collection fund")),
   });
 
+  const [closingConfirm, setClosingConfirm] = useState(false);
+
+  const closeMutation = useMutation({
+    mutationFn: () => closeCollection(id).then((r) => r.data.data),
+    onSuccess: () => {
+      setClosingConfirm(false);
+      setActionError("");
+      queryClient.invalidateQueries({ queryKey: ["collection", id] });
+      queryClient.invalidateQueries({ queryKey: ["collections"] });
+    },
+    onError: (err) => setActionError(extractApiError(err, "Failed to close collection fund")),
+  });
+
   const filtered = useMemo(() => {
     let list = units;
     if (filter !== "all") list = list.filter((u) => u.status === filter);
@@ -289,8 +316,8 @@ export default function CollectionDetailPage() {
   const cat = CATEGORY_UI[collection.category] || CATEGORY_UI.other;
   const isOverdue = collection.isOverdue;
 
-  const backTo = isAdmin ? "/collections/history" : "/collections/pay";
-  const backLabel = isAdmin ? "History" : "Collections";
+  const backTo = isAdmin ? "/collections/manage" : "/collections/pay";
+  const backLabel = isAdmin ? "Manage Collections" : "Collections";
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
@@ -311,7 +338,7 @@ export default function CollectionDetailPage() {
         </div>
         <div className="flex flex-col items-end gap-2">
           {isAdmin && <span className="text-label-sm text-outline">{units.length} houses · {counts.paid + counts.late_paid} paid</span>}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isAdmin && (
               <button
                 type="button"
@@ -319,10 +346,20 @@ export default function CollectionDetailPage() {
                   setActionError("");
                   setEditingCollection(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer shadow-sm"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span>
                 Edit Fund
+              </button>
+            )}
+            {isAdmin && collection.status !== "closed" && (
+              <button
+                type="button"
+                onClick={() => setClosingConfirm(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-semibold text-amber-700 dark:text-amber-400 hover:border-amber-500 transition-colors cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">task_alt</span>
+                Close Fund
               </button>
             )}
             {canExport && (
@@ -390,6 +427,20 @@ export default function CollectionDetailPage() {
         onSave={(data) => updateMutation.mutate(data)}
         isSaving={updateMutation.isPending}
         error={actionError}
+      />
+
+      <ConfirmDialog
+        open={closingConfirm}
+        title={`Close Collection: ${collection.title}?`}
+        message="Are you sure you want to close this collection fund? It will be archived to History and marked as completed."
+        confirmLabel="Close Fund"
+        busy={closeMutation.isPending}
+        error={actionError}
+        onConfirm={() => closeMutation.mutate()}
+        onClose={() => {
+          setClosingConfirm(false);
+          setActionError("");
+        }}
       />
     </div>
   );

@@ -5,8 +5,6 @@ import {
   assignOwnerToHouse,
   unassignOwnerFromHouse,
   createHouseInviteLink,
-  updateUnit,
-  deleteUnit,
   extractApiError,
 } from "../../lib/houses";
 import { getFamilyMembers } from "../../lib/familyMembers";

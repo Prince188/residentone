@@ -11,7 +11,7 @@ import AssignHouseModal from "./AssignHouseModal";
 import EditHouseModal from "./EditHouseModal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import api from "../../lib/api";
-import { hasPermissionForMembership, getMembershipRoles, isPureWingAdmin } from "../../lib/permissions";
+import { hasPermissionForMembership, isPureWingAdmin } from "../../lib/permissions";
 
 const STATUS_FILTERS = [
   { id: "all", label: "All" },
