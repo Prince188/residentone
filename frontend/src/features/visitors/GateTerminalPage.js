@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, {
@@ -51,12 +51,12 @@ export default function GateTerminalPage() {
   const [verifiedPass, setVerifiedPass] = useState(null);
   const [verifyError, setVerifyError] = useState("");
 
-  // Walk-In Form State
+  // Walk-In Form State (Defaults to 'guest')
   const [walkInForm, setWalkInForm] = useState({
     unitId: "",
     name: "",
     phone: "",
-    visitorType: "delivery",
+    visitorType: "guest",
     company: "",
     vehicleNumber: "",
     isParcel: false,
@@ -65,13 +65,59 @@ export default function GateTerminalPage() {
   const [pendingWalkIn, setPendingWalkIn] = useState(null);
   const [walkInStatus, setWalkInStatus] = useState(null); // 'waiting' | 'approved' | 'rejected' | 'left_at_gate'
 
+  // House Autocomplete Search State
+  const [houseSearchQuery, setHouseSearchQuery] = useState("");
+  const [isHouseDropdownOpen, setIsHouseDropdownOpen] = useState(false);
+  const houseDropdownRef = useRef(null);
+
+  // Close house suggestion dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (houseDropdownRef.current && !houseDropdownRef.current.contains(e.target)) {
+        setIsHouseDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Query Houses for flat selector
   const housesQuery = useQuery({
     queryKey: ["house-cards", activeSociety?.id],
     queryFn: async () => (await getHouseCards()).data.data,
     enabled: Boolean(activeSociety?.id),
   });
-  const houses = housesQuery.data || [];
+  const houses = useMemo(() => housesQuery.data || [], [housesQuery.data]);
+
+  // Filter houses by house number, block, doorNo, owner name/phone, tenant name/phone
+  const filteredHouses = useMemo(() => {
+    if (!houseSearchQuery.trim()) return houses.slice(0, 15);
+    const q = houseSearchQuery.toLowerCase().trim();
+    return houses.filter((h) => {
+      const labelMatch = String(h.label || "").toLowerCase().includes(q);
+      const doorMatch = String(h.doorNo || "").toLowerCase().includes(q);
+      const blockMatch = String(h.block || "").toLowerCase().includes(q);
+      const ownerNameMatch = String(h.owner?.name || "").toLowerCase().includes(q);
+      const ownerPhoneMatch = String(h.owner?.phone || "").toLowerCase().includes(q);
+      const tenantNameMatch = String(h.tenant?.name || "").toLowerCase().includes(q);
+      const tenantPhoneMatch = String(h.tenant?.phone || "").toLowerCase().includes(q);
+      return (
+        labelMatch ||
+        doorMatch ||
+        blockMatch ||
+        ownerNameMatch ||
+        ownerPhoneMatch ||
+        tenantNameMatch ||
+        tenantPhoneMatch
+      );
+    });
+  }, [houses, houseSearchQuery]);
+
+  // Selected house details
+  const selectedHouse = useMemo(() => {
+    if (!walkInForm.unitId) return null;
+    return houses.find((h) => String(h.id || h._id) === String(walkInForm.unitId));
+  }, [houses, walkInForm.unitId]);
 
   // Query Visitors Inside
   const insideQuery = useQuery({
@@ -193,11 +239,13 @@ export default function GateTerminalPage() {
       toast.info(`Approval Sent for ${data.name}`, "Waiting for host resident approval");
       setPendingWalkIn(data);
       setWalkInStatus("waiting");
+      setHouseSearchQuery("");
+      setIsHouseDropdownOpen(false);
       setWalkInForm({
         unitId: "",
         name: "",
         phone: "",
-        visitorType: "delivery",
+        visitorType: "guest",
         company: "",
         vehicleNumber: "",
         isParcel: false,
@@ -634,24 +682,162 @@ export default function GateTerminalPage() {
                 </div>
               </div>
 
-              {/* Destination Flat Selector */}
+              {/* Destination Flat Autocomplete Search */}
               <div>
-                <label className="block text-label-md font-semibold text-on-surface mb-1">
-                  Destination Flat / House *
-                </label>
-                <select
-                  value={walkInForm.unitId}
-                  onChange={(e) => setWalkInForm({ ...walkInForm, unitId: e.target.value })}
-                  required
-                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  <option value="">-- Select House --</option>
-                  {houses.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      House {h.label} {h.block ? `(Block ${h.block})` : ""} {h.owner ? `· ${h.owner.name}` : h.tenant ? `· ${h.tenant.name}` : "(Vacant)"}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-label-md font-semibold text-on-surface">
+                    Destination Flat / House *
+                  </label>
+                  {walkInForm.unitId && (
+                    <span className="text-[11px] font-extrabold text-primary flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      House Selected
+                    </span>
+                  )}
+                </div>
+
+                {selectedHouse ? (
+                  /* Selected House Card */
+                  <div className="flex items-center justify-between p-3 rounded-2xl border-2 border-primary/50 bg-primary/5 shadow-xs animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary font-black text-title-sm shadow-xs">
+                        {selectedHouse.label}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-on-surface text-body-md">
+                            House {selectedHouse.label}
+                          </span>
+                          {selectedHouse.block && (
+                            <span className="text-[10px] font-bold text-outline bg-surface-container-high px-1.5 py-0.5 rounded">
+                              Block {selectedHouse.block}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5 truncate">
+                          <span className="material-symbols-outlined text-[14px] text-primary">person</span>
+                          <span>
+                            {selectedHouse.owner?.name ? (
+                              <><strong>{selectedHouse.owner.name}</strong> (Owner)</>
+                            ) : selectedHouse.tenant?.name ? (
+                              <><strong>{selectedHouse.tenant.name}</strong> (Tenant)</>
+                            ) : (
+                              <span className="text-outline italic">Vacant</span>
+                            )}
+                          </span>
+                          {(selectedHouse.owner?.phone || selectedHouse.tenant?.phone) && (
+                            <span className="text-outline font-mono text-[11px]">
+                              · {selectedHouse.owner?.phone || selectedHouse.tenant?.phone}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWalkInForm({ ...walkInForm, unitId: "" });
+                        setHouseSearchQuery("");
+                        setIsHouseDropdownOpen(true);
+                      }}
+                      className="shrink-0 px-3 py-1.5 text-label-sm font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer flex items-center gap-1 border border-primary/20"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">edit</span>
+                      <span>Change</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Search Input & Dropdown Suggestions */
+                  <div className="relative" ref={houseDropdownRef}>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-outline pointer-events-none">
+                        search
+                      </span>
+                      <input
+                        type="text"
+                        value={houseSearchQuery}
+                        onChange={(e) => {
+                          setHouseSearchQuery(e.target.value);
+                          setIsHouseDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsHouseDropdownOpen(true)}
+                        placeholder="Type house number (e.g. 101, A-202) or resident name..."
+                        className="w-full rounded-2xl border border-outline-variant bg-surface py-2.5 pl-10 pr-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
+                      />
+                      {houseSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setHouseSearchQuery("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-outline hover:text-on-surface rounded-full cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {isHouseDropdownOpen && (
+                      <div className="absolute z-50 mt-1.5 w-full max-h-60 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-2xl divide-y divide-outline-variant/40 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="p-2.5 bg-surface-container-low text-[11px] font-bold text-outline uppercase tracking-wider flex items-center justify-between">
+                          <span>Select House / Resident ({filteredHouses.length} matches)</span>
+                          <span className="text-[10px] text-primary">Tap to select</span>
+                        </div>
+
+                        {filteredHouses.length === 0 ? (
+                          <div className="p-5 text-center text-on-surface-variant text-body-sm">
+                            <span className="material-symbols-outlined text-[28px] text-outline/60 mb-1 block">
+                              search_off
+                            </span>
+                            No house or resident matching "{houseSearchQuery}"
+                          </div>
+                        ) : (
+                          filteredHouses.map((h) => {
+                            const residentName = h.owner?.name || h.tenant?.name || "Vacant House";
+                            const residentRole = h.owner?.name ? "Owner" : h.tenant?.name ? "Tenant" : "";
+                            const residentPhone = h.owner?.phone || h.tenant?.phone || "";
+
+                            return (
+                              <button
+                                key={h.id || h._id}
+                                type="button"
+                                onClick={() => {
+                                  setWalkInForm({ ...walkInForm, unitId: h.id || h._id });
+                                  setIsHouseDropdownOpen(false);
+                                  setHouseSearchQuery("");
+                                }}
+                                className="w-full text-left p-3 hover:bg-primary/5 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-black text-body-sm group-hover:bg-primary group-hover:text-on-primary transition-colors shadow-xs">
+                                    {h.label}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-extrabold text-on-surface text-body-sm block truncate">
+                                        House {h.label}
+                                      </span>
+                                      {h.block && (
+                                        <span className="text-[10px] font-bold text-outline bg-surface-container-high px-1 rounded">
+                                          Block {h.block}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[12px] text-on-surface-variant block truncate mt-0.5">
+                                      👤 {residentName} {residentRole ? `· ${residentRole}` : ""} {residentPhone ? `· ${residentPhone}` : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="material-symbols-outlined text-[18px] text-outline group-hover:text-primary transition-colors shrink-0">
+                                  check
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Name & Phone */}
