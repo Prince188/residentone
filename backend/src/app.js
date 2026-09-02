@@ -22,6 +22,8 @@ const collectionRoutes = require("./modules/collections/collection.routes");
 const documentRoutes = require("./modules/document/document.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
+const visitorRoutes = require("./modules/visitor/visitor.routes");
+const staffRoutes = require("./modules/staff/staff.routes");
 const healthRoutes = require("./modules/health/health.routes");
 
 const app = express();
@@ -74,6 +76,8 @@ app.use("/api/v1/collections", collectionRoutes);
 app.use("/api/v1/documents", documentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/visitors", visitorRoutes);
+app.use("/api/v1/staff", staffRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 
 const features = [
   { icon: "build", title: "Maintenance Tracking", desc: "Automate monthly billing and provide residents with a transparent portal for complaint resolution and status tracking." },
@@ -13,9 +14,42 @@ const steps = [
   { n: "03", title: "Connect", desc: "Enjoy a peaceful, organized community where everyone stays informed and engaged." },
 ];
 
+const landingSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "ResidentOne — Modern Residential Society & Apartment Management Platform",
+  "description": "Streamline society maintenance, enhance gate security with digital visitor passes, and simplify community communication.",
+  "url": "https://residentone.app/",
+  "mainEntity": {
+    "@type": "SoftwareApplication",
+    "name": "ResidentOne",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web, iOS, Android",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "ratingCount": "2400"
+    }
+  }
+};
+
 export default function LandingPage() {
   return (
     <div>
+      <SEO
+        title="Smart Society & Apartment Management Platform"
+        description="Streamline maintenance requests, automate billing, enhance gate security with visitor approvals, and unite your residential community with ResidentOne."
+        keywords={[
+          "residential society management",
+          "apartment billing system",
+          "housing society app",
+          "visitor gate management",
+          "resident communication platform",
+          "society maintenance collection",
+        ]}
+        canonicalPath="/"
+        schema={landingSchema}
+      />
       {/* Hero */}
       <header className="relative bg-surface-container-lowest pt-24 pb-14 md:pt-32 md:pb-24">
         <div className="max-w-container mx-auto px-margin-mobile md:px-margin-desktop">

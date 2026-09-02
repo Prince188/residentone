@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 
 const featureDetails = [
   {
@@ -47,9 +48,36 @@ const featureDetails = [
   },
 ];
 
+const featuresSchema = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "ResidentOne Features & Modules",
+  "description": "Comprehensive suite of residential management tools",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Automated Maintenance Tracking" },
+    { "@type": "ListItem", "position": 2, "name": "Smart Security & Visitor Management" },
+    { "@type": "ListItem", "position": 3, "name": "Community Communication Hub" },
+    { "@type": "ListItem", "position": 4, "name": "Facility & Amenity Booking System" }
+  ]
+};
+
 export default function FeaturesPage() {
   return (
     <main className="flex-grow">
+      <SEO
+        title="Features & Modules — Gate Security, Billing & Resident Tools"
+        description="Explore ResidentOne features: automated maintenance tracking, digital visitor security, complaint resolution, facility bookings, and official notices."
+        keywords={[
+          "society management features",
+          "apartment security system",
+          "maintenance billing automation",
+          "society amenity booking",
+          "digital resident directory",
+          "visitor pass app",
+        ]}
+        canonicalPath="/features"
+        schema={featuresSchema}
+      />
       {/* Hero */}
       <section className="max-w-container mx-auto px-margin-mobile md:px-margin-desktop py-16 md:py-24 flex flex-col md:flex-row items-center gap-gutter">
         <div className="md:w-1/2 space-y-5">

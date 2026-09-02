@@ -13,13 +13,14 @@ const PERMISSIONS = [
   { key: "manage_directory", label: "View Directory", desc: "Resident list" },
   { key: "manage_collections", label: "Manage Collections", desc: "Festival & occasion funds (Navratri, events, etc)" },
   { key: "manage_documents", label: "Manage Documents", desc: "Upload bills & sheets" },
+  { key: "manage_staff", label: "Manage Staff", desc: "Add / remove guards & staff" },
 ];
 
 const DEFAULT_ROLE_PERMISSIONS = {
   society_admin: PERMISSIONS.map((p) => p.key),
   super_admin: PERMISSIONS.map((p) => p.key),
-  wing_admin: ["manage_houses", "manage_complaints", "create_notice", "create_poll", "create_survey", "manage_visitors", "manage_directory", "view_financials"],
-  manager: ["manage_houses", "manage_maintenance", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory", "manage_committee", "manage_collections", "manage_documents"],
+  wing_admin: ["manage_houses", "manage_complaints", "create_notice", "create_poll", "create_survey", "manage_visitors", "manage_directory", "view_financials", "manage_staff"],
+  manager: ["manage_houses", "manage_maintenance", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory", "manage_committee", "manage_collections", "manage_documents", "manage_staff"],
   treasurer: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials", "manage_directory"],
   accountant: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials"],
   helpdesk_manager: ["manage_complaints", "manage_visitors", "manage_directory"],

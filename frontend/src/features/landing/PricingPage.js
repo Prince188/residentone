@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 
 const RATE = { starter: 6, professional: 10, enterprise: 15 };
 const YEARLY_MONTHS = 10;
@@ -56,6 +57,42 @@ function getPlans(units, billing) {
   });
 }
 
+const pricingSchema = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "ResidentOne Society Management Plans",
+  "description": "Affordable residential society and apartment complex management pricing plans.",
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Basic Plan",
+      "price": "6",
+      "priceCurrency": "INR",
+      "priceValidUntil": "2027-12-31",
+      "availability": "https://schema.org/InStock",
+      "description": "Essential billing and resident directories for small societies."
+    },
+    {
+      "@type": "Offer",
+      "name": "Standard Plan",
+      "price": "10",
+      "priceCurrency": "INR",
+      "priceValidUntil": "2027-12-31",
+      "availability": "https://schema.org/InStock",
+      "description": "Automated visitor security and amenity bookings for active communities."
+    },
+    {
+      "@type": "Offer",
+      "name": "Premium Plan",
+      "price": "15",
+      "priceCurrency": "INR",
+      "priceValidUntil": "2027-12-31",
+      "availability": "https://schema.org/InStock",
+      "description": "Deep financial compliance, elections, and documents for large complexes."
+    }
+  ]
+};
+
 export default function PricingPage() {
   const [billing, setBilling] = useState("monthly");
   const [units, setUnits] = useState(100);
@@ -65,6 +102,18 @@ export default function PricingPage() {
 
   return (
     <main className="flex-grow">
+      <SEO
+        title="Affordable Society Management Pricing & Plans"
+        description="Simple and transparent pricing plans for residential societies and apartments. Scale effortlessly with monthly or yearly billing and 2 months free."
+        keywords={[
+          "society software pricing",
+          "apartment app plans",
+          "housing society cost calculator",
+          "society maintenance billing software price",
+        ]}
+        canonicalPath="/pricing"
+        schema={pricingSchema}
+      />
       {/* Hero */}
       <section className="py-16 md:py-24 px-margin-mobile md:px-margin-desktop max-w-container mx-auto text-center">
         <h1 className="text-[28px] md:text-[36px] lg:text-[44px] leading-tight font-bold text-on-surface mb-4 max-w-3xl mx-auto">

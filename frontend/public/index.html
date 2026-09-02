@@ -3,32 +3,95 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
     <meta name="theme-color" content="#134a36" />
+    
+    <!-- Primary Search Engine Meta Tags -->
+    <title>ResidentOne — Modern Residential Society & Apartment Management Platform</title>
+    <meta name="title" content="ResidentOne — Modern Residential Society & Apartment Management Platform" />
     <meta
       name="description"
-      content="ResidentOne — Multi-society residential management platform for billing, complaints, visitors, notices & more."
+      content="ResidentOne is an all-in-one residential society management platform for automated maintenance billing, digital visitor gate tracking, complaints, notices, facility booking, and community communication."
     />
+    <meta
+      name="keywords"
+      content="society management app, apartment billing software, visitor management system, residential community portal, housing society accounting, maintenance payment gateway"
+    />
+    <meta name="author" content="ResidentOne" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://residentone.app/" />
+
+    <!-- Open Graph / Facebook / WhatsApp / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ResidentOne" />
+    <meta property="og:url" content="https://residentone.app/" />
+    <meta property="og:title" content="ResidentOne — Residential Society & Community Management System" />
+    <meta
+      property="og:description"
+      content="Simplify maintenance billing, digital visitor logs, complaints, and community engagement with ResidentOne."
+    />
+    <meta property="og:image" content="%PUBLIC_URL%/logo512.png" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://residentone.app/" />
+    <meta property="twitter:title" content="ResidentOne — Residential Society Management" />
+    <meta
+      property="twitter:description"
+      content="Automate maintenance, gate security, and resident communications in one unified platform."
+    />
+    <meta property="twitter:image" content="%PUBLIC_URL%/logo512.png" />
+
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <title>ResidentOne — Residential Society Management</title>
+
+    <!-- Structured Data / JSON-LD Schema -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://residentone.app/#organization",
+            "name": "ResidentOne",
+            "url": "https://residentone.app/",
+            "logo": "https://residentone.app/logo512.png",
+            "description": "Next-generation residential society and apartment management platform."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://residentone.app/#website",
+            "url": "https://residentone.app/",
+            "name": "ResidentOne",
+            "publisher": {
+              "@id": "https://residentone.app/#organization"
+            }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "ResidentOne Society OS",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web, Android, iOS",
+            "description": "Comprehensive residential management suite for maintenance billing, gate security, complaints, and community engagement.",
+            "offers": {
+              "@type": "AggregateOffer",
+              "priceCurrency": "INR",
+              "lowPrice": "6",
+              "highPrice": "15",
+              "offerCount": "3"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

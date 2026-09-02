@@ -30,12 +30,15 @@ import ComplaintsPage from "./features/complaints/ComplaintsPage";
 import CreateComplaintPage from "./features/complaints/CreateComplaintPage";
 import ComplaintDetailPage from "./features/complaints/ComplaintDetailPage";
 import VisitorsPage from "./features/visitors/VisitorsPage";
+import GateTerminalPage from "./features/visitors/GateTerminalPage";
+import PublicVisitorPassPage from "./features/visitors/PublicVisitorPassPage";
 import NoticesPage from "./features/notices/NoticesPage";
 import CreateNoticePage from "./features/notices/CreateNoticePage";
 import AmenitiesPage from "./features/amenities/AmenitiesPage";
 import ManageAmenitiesPage from "./features/amenities/ManageAmenitiesPage";
 import AmenityHistoryPage from "./features/amenities/AmenityHistoryPage";
 import ManageCommitteePage from "./features/committee/ManageCommitteePage";
+import ManageStaffPage from "./features/staff/ManageStaffPage";
 import FamilyMembersPage from "./features/family-members/FamilyMembersPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
@@ -90,6 +93,7 @@ function App() {
               }
             />
             <Route path="/house-invite/:token" element={<PublicLayout><HouseInvitePage /></PublicLayout>} />
+            <Route path="/visitor-pass/:id" element={<PublicVisitorPassPage />} />
             <Route
               element={
                 <ProtectedRoute>
@@ -111,12 +115,16 @@ function App() {
               <Route path="/complaints/new" element={<CreateComplaintPage />} />
               <Route path="/complaints/:id" element={<ComplaintDetailPage />} />
               <Route path="/visitors" element={<VisitorsPage />} />
+              <Route path="/visitors/terminal" element={<GateTerminalPage />} />
+              <Route path="/guard" element={<GateTerminalPage />} />
               <Route path="/notices" element={<NoticesPage />} />
               <Route path="/notices/new" element={<CreateNoticePage />} />
               <Route path="/amenities" element={<AmenitiesPage />} />
               <Route path="/amenities/manage" element={<ManageAmenitiesPage />} />
               <Route path="/amenities/history" element={<AmenityHistoryPage />} />
               <Route path="/committee" element={<ManageCommitteePage />} />
+              <Route path="/staff" element={<ManageStaffPage />} />
+              <Route path="/staff/manage" element={<ManageStaffPage />} />
               <Route path="/family-members" element={<FamilyMembersPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />

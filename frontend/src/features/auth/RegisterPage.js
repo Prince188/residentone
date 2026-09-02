@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuthStore from "../../stores/auth.store";
+import SEO from "../../components/SEO";
 
 function getPasswordStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "", width: "0%" };
@@ -65,6 +66,11 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full bg-surface-container-lowest pt-16 md:pt-24">
+      <SEO
+        title="Create Society Account — 30 Days Free Trial"
+        description="Register your housing society or apartment complex with ResidentOne. Get started in 5 minutes with a 30-day free trial, no credit card required."
+        canonicalPath="/register"
+      />
       <div className="w-full flex flex-col lg:flex-row min-h-[calc(100vh-64px)] md:min-h-[calc(100vh-96px)] max-w-[1680px] mx-auto">
           {/* Left - Editorial */}
           <div className="hidden lg:flex lg:w-[54%] xl:w-[56%] relative bg-inverse-surface overflow-hidden flex-col justify-between">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuthStore from "../../stores/auth.store";
+import SEO from "../../components/SEO";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -28,6 +29,11 @@ export default function LoginPage() {
 
   return (
     <div className="w-full bg-surface-container-lowest pt-16 md:pt-24">
+      <SEO
+        title="Member Sign In"
+        description="Sign in to your ResidentOne account to manage society dues, approve visitors, lodge complaints, and view notices."
+        canonicalPath="/login"
+      />
       <div className="w-full flex flex-col lg:flex-row min-h-[calc(100vh-64px)] md:min-h-[calc(100vh-96px)] max-w-[1680px] mx-auto">
           {/* Left - Brand / Editorial */}
           <div className="hidden lg:flex lg:w-[54%] xl:w-[56%] relative bg-inverse-surface overflow-hidden flex-col justify-between">

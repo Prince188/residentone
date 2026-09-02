@@ -4,6 +4,7 @@ import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import SEO from "../SEO";
 import NotificationToastContainer, { showNotificationToast } from "../notifications/NotificationToastContainer";
 import { getAccessToken, getSocketUrl } from "../../lib/api";
 import useSocietyStore from "../../stores/society.store";
@@ -180,6 +181,30 @@ export default function AppLayout() {
       }
     });
 
+    socket.on("visitor:approval_request", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      if (data) {
+        showNotificationToast({
+          title: `🚪 Gate Alert: ${data.name} at Gate`,
+          message: `${data.name} (${data.visitorType?.toUpperCase()}${data.company ? ` · ${data.company}` : ""}) is requesting entry to House ${data.unitId?.label || ""}.`,
+          link: "/visitors",
+        });
+      }
+    });
+
+    socket.on("visitor:checked_in", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      if (data) {
+        showNotificationToast({
+          title: `✅ Visitor Entered Gate: ${data.name}`,
+          message: `${data.name} has passed security and is heading to House ${data.unitId?.label || ""}.`,
+          link: "/visitors",
+        });
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -187,6 +212,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-surface">
+      <SEO title="Resident Portal" noindex={true} />
       <NotificationToastContainer />
       <Sidebar
         isCollapsed={isCollapsed}

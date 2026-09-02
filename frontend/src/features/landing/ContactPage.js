@@ -1,4 +1,25 @@
 import { useState } from "react";
+import SEO from "../../components/SEO";
+
+const contactSchema = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "name": "Contact ResidentOne",
+  "description": "Reach out to the ResidentOne team for sales, support, inquiries, or custom society demonstrations.",
+  "url": "https://residentone.app/contact",
+  "mainEntity": {
+    "@type": "Organization",
+    "name": "ResidentOne",
+    "email": "hello@residentone.in",
+    "telephone": "+91-98765-43210",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Mumbai",
+      "addressRegion": "Maharashtra",
+      "addressCountry": "IN"
+    }
+  }
+};
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -15,6 +36,18 @@ export default function ContactPage() {
 
   return (
     <div className="flex flex-col">
+      <SEO
+        title="Contact Us & Request a Free Demo"
+        description="Get in touch with ResidentOne. Contact our sales and support team or request a live demonstration for your residential society management committee."
+        keywords={[
+          "contact residentone",
+          "society app support",
+          "request society software demo",
+          "apartment management sales inquiry",
+        ]}
+        canonicalPath="/contact"
+        schema={contactSchema}
+      />
       {/* Hero */}
       <section className="w-full bg-on-surface pt-24 pb-16 md:pt-32 md:pb-24 px-margin-mobile md:px-margin-desktop text-center">
         <div className="max-w-[800px] mx-auto">

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 
 const values = [
   { icon: "touch_app", title: "Simplicity", desc: "We believe managing a society shouldn't require a computer science degree. Our tools are intuitive and easy to use." },
@@ -19,9 +20,29 @@ const stats = [
   { num: "4.8/5", label: "Average Rating" },
 ];
 
+const aboutSchema = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "name": "About ResidentOne",
+  "description": "Building modern software to simplify residential society management, accounting, security, and community living.",
+  "url": "https://residentone.app/about"
+};
+
 export default function AboutPage() {
   return (
     <main className="flex-grow">
+      <SEO
+        title="About Us — Empowering Residential Communities"
+        description="Learn about ResidentOne's mission to modernize housing societies through intuitive technology, transparent accounting, and secure community management."
+        keywords={[
+          "about residentone",
+          "society management mission",
+          "residential tech company",
+          "apartment community software",
+        ]}
+        canonicalPath="/about"
+        schema={aboutSchema}
+      />
       {/* Hero */}
       <header className="relative bg-on-primary-fixed overflow-hidden min-h-[400px] md:min-h-[500px] flex items-center pt-10">
         <div className="absolute inset-0 z-0">

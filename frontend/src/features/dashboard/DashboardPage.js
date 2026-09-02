@@ -9,6 +9,7 @@ import useSocietyStore, {
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 import { getSocietyStats, listSocieties, SOCIETY_TYPE_LABELS } from "../../lib/societies";
+import { getVisitorStats, getVisitors } from "../../lib/visitors";
 import StatusBadge from "../../components/ui/StatusBadge";
 import api from "../../lib/api";
 import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
@@ -31,6 +32,7 @@ const adminCards = [
   { icon: "how_to_vote", label: "Create Poll", to: "/polls/new" },
   { icon: "assignment", label: "Create Survey", to: "/surveys/new" },
   { icon: "groups", label: "Manage Committee", to: "/committee" },
+  { icon: "shield_person", label: "Manage Staff", to: "/staff" },
 ];
 
 const generalCards = [
@@ -630,6 +632,219 @@ function SuperAdminDashboardView({ user }) {
   );
 }
 
+/**
+ * Security Guard Main Station Dashboard View
+ */
+function SecurityGuardDashboardView({ user, activeSociety, noticesQuery, recentNotices }) {
+  const firstName = user?.name?.split(" ")[0] || "Security Officer";
+
+  const statsQuery = useQuery({
+    queryKey: ["visitor-stats", activeSociety?.id],
+    queryFn: async () => (await getVisitorStats()).data.data,
+    enabled: Boolean(activeSociety?.id),
+    refetchInterval: 10000,
+  });
+  const stats = statsQuery.data || { inside: 0, expected: 0, pending: 0, todayTotal: 0 };
+
+  const recentInsideQuery = useQuery({
+    queryKey: ["visitors", activeSociety?.id, "inside"],
+    queryFn: async () => (await getVisitors({ status: "inside", limit: 6 })).data.data,
+    enabled: Boolean(activeSociety?.id),
+    refetchInterval: 10000,
+  });
+  const recentInside = recentInsideQuery.data || [];
+
+  const guardActionCards = [
+    { icon: "shield", label: "Gate Terminal", to: "/visitors/terminal", desc: "Open full touch PIN numpad & scanner", primary: true },
+    { icon: "badge", label: "Visitor Hub", to: "/visitors", desc: "Gate pass history, approvals & logbook" },
+    { icon: "groups", label: "Resident Directory", to: "/directory", desc: "Search flat numbers & call residents" },
+    { icon: "directions_car", label: "Vehicle Lookup", to: "/vehicles", desc: "Verify registered resident number plates" },
+    { icon: "emergency", label: "Emergency & SOS", to: "/emergency-contacts", desc: "Police, Fire, Ambulance & Society Desk" },
+    { icon: "campaign", label: "Gate Notices", to: "/notices", desc: "Important instructions from committee" },
+    { icon: "chat", label: "Intercom & Chat", to: "/chat", desc: "Message society admins or residents" },
+  ];
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Guard Hero Station */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 px-6 py-8 text-white shadow-xl">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-label-sm font-bold text-emerald-300 backdrop-blur-md">
+              <span className="material-symbols-outlined text-[16px]">shield</span>
+              <span>Main Security Gate Station</span>
+            </div>
+            <h1 className="text-headline-sm sm:text-headline-md font-extrabold tracking-tight">
+              {getGreeting()}, {firstName}
+            </h1>
+            <p className="text-body-sm text-white/80">
+              {activeSociety?.name || "Society Gate"} · Digital Visitor & Gatekeeping Desk
+            </p>
+          </div>
+
+          <Link
+            to="/visitors/terminal"
+            className="inline-flex items-center gap-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-6 py-4 text-title-sm font-extrabold text-slate-950 shadow-lg transition-transform active:scale-95 no-underline"
+          >
+            <span className="material-symbols-outlined text-[24px]">dialpad</span>
+            <span>OPEN GATE TERMINAL</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* 4-KPI Live Status Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <Link
+          to="/visitors/terminal"
+          className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm no-underline hover:border-emerald-400 transition-all hover:shadow-md block"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-outline">Inside Society</span>
+            <span className="material-symbols-outlined text-emerald-600 text-[20px]">sensor_door</span>
+          </div>
+          <p className="mt-2 text-[32px] font-black tracking-tight text-emerald-600">{stats.inside}</p>
+          <p className="text-[11px] text-on-surface-variant mt-0.5">Visitors currently inside</p>
+        </Link>
+
+        <Link
+          to="/visitors/terminal"
+          className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm no-underline hover:border-primary/50 transition-all hover:shadow-md block"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-outline">Expected Today</span>
+            <span className="material-symbols-outlined text-primary text-[20px]">event_upcoming</span>
+          </div>
+          <p className="mt-2 text-[32px] font-black tracking-tight text-primary">{stats.expected}</p>
+          <p className="text-[11px] text-on-surface-variant mt-0.5">Pre-approved guest passes</p>
+        </Link>
+
+        <Link
+          to="/visitors"
+          className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm no-underline hover:border-amber-400 transition-all hover:shadow-md block"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-outline">Gate Approvals</span>
+            <span className="material-symbols-outlined text-amber-600 text-[20px]">pending</span>
+          </div>
+          <p className="mt-2 text-[32px] font-black tracking-tight text-amber-600">{stats.pending}</p>
+          <p className="text-[11px] text-on-surface-variant mt-0.5">Walk-ins awaiting resident</p>
+        </Link>
+
+        <Link
+          to="/visitors"
+          className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm no-underline hover:border-outline transition-all hover:shadow-md block"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-outline">Today's Total</span>
+            <span className="material-symbols-outlined text-on-surface text-[20px]">history</span>
+          </div>
+          <p className="mt-2 text-[32px] font-black tracking-tight text-on-surface">{stats.todayTotal}</p>
+          <p className="text-[11px] text-on-surface-variant mt-0.5">Total gate check-ins today</p>
+        </Link>
+      </div>
+
+      {/* Main Guard Actions Grid & Live Feed */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+        {/* Left: Security Tools */}
+        <div className="lg:col-span-7 space-y-4">
+          <SectionTitle subtitle="Security desk controls & tools">Security Guard Tools</SectionTitle>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {guardActionCards.map((card) => (
+              <Link
+                key={card.label}
+                to={card.to}
+                className={`group flex items-start gap-3.5 rounded-2xl border p-4 no-underline transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                  card.primary
+                    ? "border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50"
+                    : "border-outline-variant bg-surface-container-lowest hover:border-primary/40 hover:bg-surface-container-low"
+                }`}
+              >
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-transform group-hover:scale-105 ${
+                    card.primary
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[24px]">{card.icon}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-body-md font-extrabold text-on-surface">{card.label}</h4>
+                  <p className="text-label-sm text-on-surface-variant mt-0.5">{card.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Visitors Currently Inside & Gate Notices */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Visitors Currently Inside Widget */}
+          <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <h3 className="text-title-sm font-extrabold text-on-surface flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-emerald-600 text-[20px]">sensor_door</span>
+                Currently Inside ({stats.inside})
+              </h3>
+              <Link to="/visitors/terminal" className="text-label-sm font-bold text-primary hover:underline no-underline">
+                View All
+              </Link>
+            </div>
+
+            {recentInside.length > 0 ? (
+              <div className="space-y-2">
+                {recentInside.slice(0, 4).map((v) => (
+                  <div
+                    key={v._id || v.id}
+                    className="flex items-center justify-between rounded-xl bg-surface-container-low p-2.5 text-body-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-extrabold text-on-surface truncate">{v.name}</p>
+                      <p className="text-[11px] text-outline">
+                        House {v.unitId?.label} · {v.visitorType?.toUpperCase()}
+                      </p>
+                    </div>
+                    <span className="font-mono text-[12px] font-bold text-primary shrink-0">
+                      #{v.passcode}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-body-sm text-outline py-4">No visitors inside premises.</p>
+            )}
+          </div>
+
+          {/* Recent Gate Notices */}
+          <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <h3 className="text-title-sm font-extrabold text-on-surface flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-primary text-[20px]">campaign</span>
+                Gate Announcements
+              </h3>
+              <Link to="/notices" className="text-label-sm font-bold text-primary hover:underline no-underline">
+                View all
+              </Link>
+            </div>
+
+            <div className="space-y-2">
+              {recentNotices.slice(0, 2).map((notice) => (
+                <div key={notice.id} className="rounded-xl border border-outline-variant/50 p-2.5">
+                  <p className="text-body-sm font-bold text-on-surface truncate">{notice.title}</p>
+                  <p className="text-[11px] text-on-surface-variant line-clamp-1 mt-0.5">{notice.body}</p>
+                </div>
+              ))}
+              {recentNotices.length === 0 && (
+                <p className="text-center text-body-sm text-outline py-3">No active announcements.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const activeSociety = useSocietyStore(selectActiveSociety);
@@ -640,6 +855,7 @@ export default function DashboardPage() {
 
   const activeRoles = getMembershipRoles(activeMembership);
   const isAdmin = activeRoles.includes("society_admin") || activeRoles.includes("super_admin");
+  const isSecurityGuard = activeRoles.includes("security_guard") && !isAdmin;
   const isWingOnly = activeRoles.includes("wing_admin") && !isAdmin;
   const activeRole = activeMembership?.role;
   const committeeRoles = ["manager","treasurer","accountant","helpdesk_manager","auditor","committee_member"];
@@ -666,6 +882,7 @@ export default function DashboardPage() {
     "Create Poll": "create_poll",
     "Create Survey": "create_survey",
     "Manage Committee": "manage_committee",
+    "Manage Staff": "manage_staff",
   };
 
   const isPureAdmin = isAdmin && !activeRoles.includes("wing_admin");
@@ -735,6 +952,18 @@ export default function DashboardPage() {
   // If user is platform Super Admin and NOT currently managing a specific society, render the Super Admin Platform Dashboard View
   if (isSuperAdmin && !isSuperAdminManaging) {
     return <SuperAdminDashboardView user={user} />;
+  }
+
+  // If user is on-duty Security Guard, render dedicated Security Gate Station Dashboard
+  if (isSecurityGuard) {
+    return (
+      <SecurityGuardDashboardView
+        user={user}
+        activeSociety={activeSociety}
+        noticesQuery={noticesQuery}
+        recentNotices={recentNotices}
+      />
+    );
   }
 
   const latestCycle = maintenanceQuery.data;
