@@ -68,6 +68,7 @@ import ManageSocietyPage from "./features/society/ManageSocietyPage";
 import ManageWingPage from "./features/wing/ManageWingPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
+import NotificationToastContainer from "./components/notifications/NotificationToastContainer";
 
 function App() {
   return (
@@ -170,6 +171,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <CreateSocietyModal />
+          <NotificationToastContainer />
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

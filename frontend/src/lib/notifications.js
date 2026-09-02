@@ -35,6 +35,30 @@ export async function clearAllNotifications(readOnly = false) {
 }
 
 export const NOTIFICATION_TYPE_CONFIG = {
+  success: {
+    label: "Success",
+    icon: "check_circle",
+    colorClass: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    iconBg: "bg-emerald-600 text-white",
+  },
+  error: {
+    label: "Error",
+    icon: "error",
+    colorClass: "bg-red-100 text-red-800 border-red-300",
+    iconBg: "bg-error text-white",
+  },
+  info: {
+    label: "Info",
+    icon: "info",
+    colorClass: "bg-sky-100 text-sky-800 border-sky-300",
+    iconBg: "bg-sky-600 text-white",
+  },
+  warning: {
+    label: "Warning",
+    icon: "warning",
+    colorClass: "bg-amber-100 text-amber-900 border-amber-300",
+    iconBg: "bg-amber-600 text-white",
+  },
   notice: {
     label: "Notice",
     icon: "campaign",

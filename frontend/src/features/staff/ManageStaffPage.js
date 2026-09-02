@@ -14,6 +14,7 @@ import {
 } from "../../lib/staff";
 import { hasPermission } from "../../lib/permissions";
 import api from "../../lib/api";
+import toast from "../../lib/toast";
 
 const STAFF_ROLE_OPTIONS = [
   { value: "security_guard", label: "Security Guard / Gatekeeper", icon: "shield", desc: "Has full access to the Gate Terminal (PIN entry & walk-in logging)" },
@@ -51,8 +52,6 @@ export default function ManageStaffPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
-  const [successBanner, setSuccessBanner] = useState("");
-  const [errorBanner, setErrorBanner] = useState("");
   const [foundUser, setFoundUser] = useState(null);
   const [isSearchingPhone, setIsSearchingPhone] = useState(false);
 
@@ -139,7 +138,7 @@ export default function ManageStaffPage() {
     mutationFn: async (payload) => (await addStaffMember(payload)).data.data,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["staff-list"] });
-      setSuccessBanner(`Staff member ${data.userId?.name || form.name} added successfully!`);
+      toast.success(`Staff member ${data.userId?.name || form.name} added successfully!`);
       setIsAddModalOpen(false);
       setForm({
         name: "",
@@ -149,11 +148,9 @@ export default function ManageStaffPage() {
         gate: GATE_OPTIONS[0],
         notes: "",
       });
-      setTimeout(() => setSuccessBanner(""), 4000);
     },
     onError: (err) => {
-      setErrorBanner(err?.response?.data?.error?.message || "Failed to add staff member");
-      setTimeout(() => setErrorBanner(""), 4000);
+      toast.error(err?.response?.data?.error?.message || "Failed to add staff member");
     },
   });
 
@@ -162,13 +159,11 @@ export default function ManageStaffPage() {
     mutationFn: async ({ id, data }) => (await updateStaffMember(id, data)).data.data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-list"] });
-      setSuccessBanner("Staff details updated!");
+      toast.success("Staff details updated!");
       setEditingStaff(null);
-      setTimeout(() => setSuccessBanner(""), 3500);
     },
     onError: (err) => {
-      setErrorBanner(err?.response?.data?.error?.message || "Failed to update staff member");
-      setTimeout(() => setErrorBanner(""), 4000);
+      toast.error(err?.response?.data?.error?.message || "Failed to update staff member");
     },
   });
 
@@ -177,26 +172,23 @@ export default function ManageStaffPage() {
     mutationFn: async (id) => (await removeStaffMember(id)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-list"] });
-      setSuccessBanner("Staff member removed from society.");
-      setTimeout(() => setSuccessBanner(""), 3500);
+      toast.success("Staff member removed from society.");
     },
     onError: (err) => {
-      setErrorBanner(err?.response?.data?.error?.message || "Failed to remove staff member");
-      setTimeout(() => setErrorBanner(""), 4000);
+      toast.error(err?.response?.data?.error?.message || "Failed to remove staff member");
     },
   });
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      setErrorBanner("Staff name is required.");
+      toast.error("Staff name is required.");
       return;
     }
     if (!form.phone.trim()) {
-      setErrorBanner("Staff phone number is required.");
+      toast.error("Staff phone number is required.");
       return;
     }
-    setErrorBanner("");
     addMutation.mutate(form);
   };
 
@@ -258,20 +250,6 @@ export default function ManageStaffPage() {
           </p>
         </div>
       </div>
-
-      {successBanner && (
-        <div className="flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-body-md font-bold text-emerald-900 shadow-sm animate-in fade-in">
-          <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-          <span>{successBanner}</span>
-        </div>
-      )}
-
-      {errorBanner && (
-        <div className="flex items-center gap-2 rounded-2xl border border-error/30 bg-error/5 p-4 text-body-md font-bold text-error shadow-sm animate-in fade-in">
-          <span className="material-symbols-outlined text-[20px]">error</span>
-          <span>{errorBanner}</span>
-        </div>
-      )}
 
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">

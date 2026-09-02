@@ -15,6 +15,7 @@ import {
 import { hasPermission } from "../../lib/permissions";
 import { getSocket } from "../../lib/socket";
 import api from "../../lib/api";
+import toast from "../../lib/toast";
 import PreApproveModal from "./PreApproveModal";
 
 export default function VisitorsPage() {
@@ -27,8 +28,6 @@ export default function VisitorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [page, setPage] = useState(1);
-  const [actionSuccess, setActionSuccess] = useState("");
-  const [actionError, setActionError] = useState("");
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
@@ -116,11 +115,13 @@ export default function VisitorsPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
-      setActionSuccess(`Visitor ${data.name} marked as ${data.status.replace(/_/g, " ")}`);
-      setTimeout(() => setActionSuccess(""), 4000);
+      toast.success(
+        `Visitor ${data.name} ${data.status === "approved" ? "Approved" : data.status === "rejected" ? "Denied" : "Left at Gate"}`,
+        `Gate updated for House ${data.unitId?.label || ""}`
+      );
     },
     onError: (err) => {
-      setActionError(extractApiError(err, "Failed to update visitor approval"));
+      toast.error(extractApiError(err, "Failed to update visitor approval"));
     },
   });
 
@@ -133,11 +134,10 @@ export default function VisitorsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
-      setActionSuccess("Pass cancelled.");
-      setTimeout(() => setActionSuccess(""), 3000);
+      toast.info("Pass Cancelled", "Visitor pass has been revoked.");
     },
     onError: (err) => {
-      setActionError(extractApiError(err, "Failed to cancel pass"));
+      toast.error(extractApiError(err, "Failed to cancel pass"));
     },
   });
 
@@ -185,20 +185,6 @@ export default function VisitorsPage() {
           )}
         </div>
       </div>
-
-      {actionSuccess && (
-        <div className="flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-body-sm font-bold text-emerald-900 shadow-sm animate-in fade-in">
-          <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-          <span>{actionSuccess}</span>
-        </div>
-      )}
-
-      {actionError && (
-        <div className="flex items-center gap-2 rounded-2xl border border-error/30 bg-error/5 p-4 text-body-sm font-bold text-error shadow-sm animate-in fade-in">
-          <span className="material-symbols-outlined text-[20px]">error</span>
-          <span>{actionError}</span>
-        </div>
-      )}
 
       {/* STATS OVERVIEW CARDS */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">

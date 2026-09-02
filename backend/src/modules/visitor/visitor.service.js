@@ -241,7 +241,7 @@ class VisitorService {
     const visitor = await Visitor.findOne({
       societyId,
       passcode: code,
-      status: { $in: ["approved", "pending_approval", "inside"] },
+      status: { $in: ["approved", "pending_approval", "inside", "checked_out", "rejected"] },
     })
       .populate("unitId", "label doorNo block floor")
       .populate("hostUserId", "name phone")
@@ -249,16 +249,22 @@ class VisitorService {
       .lean();
 
     if (!visitor) {
-      throw new AppError("Invalid passcode or no active pass found for this code", 404);
+      throw new AppError("Invalid passcode or no pass found for this code", 404);
     }
 
     const now = new Date();
     const isExpired = new Date(visitor.validUntil) < now;
+    const isInside = visitor.status === "inside";
+    const isApproved = visitor.status === "approved";
+    const isCheckedOut = visitor.status === "checked_out";
 
     return {
       visitor,
       isExpired,
-      isValid: !isExpired && ["approved", "inside"].includes(visitor.status),
+      isInside,
+      isApproved,
+      isCheckedOut,
+      isValid: !isExpired && isApproved,
     };
   }
 
@@ -270,6 +276,14 @@ class VisitorService {
 
     const visitor = await Visitor.findOne({ _id: visitorId, societyId });
     if (!visitor) throw new AppError("Visitor not found", 404);
+
+    if (visitor.status === "inside") {
+      throw new AppError("This visitor is already checked in and inside the society", 400);
+    }
+
+    if (visitor.status === "checked_out") {
+      throw new AppError("This pass has already been used and checked out", 400);
+    }
 
     if (visitor.status === "rejected") {
       throw new AppError("This visitor was rejected by the resident", 400);

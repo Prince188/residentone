@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { preApproveVisitor, extractApiError } from "../../lib/visitors";
+import toast from "../../lib/toast";
 
 const CATEGORIES = [
   { id: "guest", label: "Guest", icon: "group", desc: "Friends & Family" },
@@ -49,12 +50,15 @@ export default function PreApproveModal({ myHouses = [], activeSociety, onClose,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      toast.success("Visitor Pass Created!", `Entry PIN: ${data.passcode} for ${data.name}`);
       setCreatedPass(data);
       setStep(2);
       onCreated?.(data);
     },
     onError: (err) => {
-      setErrorMsg(extractApiError(err, "Failed to pre-approve visitor."));
+      const msg = extractApiError(err, "Failed to pre-approve visitor.");
+      setErrorMsg(msg);
+      toast.error(msg);
     },
   });
 
@@ -126,6 +130,7 @@ export default function PreApproveModal({ myHouses = [], activeSociety, onClose,
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareText);
       setCopied(true);
+      toast.info("Pass Details Copied!", "Copied visitor invitation & PIN to clipboard.");
       setTimeout(() => setCopied(false), 2500);
     }
   };

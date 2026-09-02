@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import SEO from "../SEO";
-import NotificationToastContainer, { showNotificationToast } from "../notifications/NotificationToastContainer";
+import { showNotificationToast } from "../notifications/NotificationToastContainer";
 import { getAccessToken, getSocketUrl } from "../../lib/api";
 import useSocietyStore from "../../stores/society.store";
 
@@ -213,7 +213,6 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-surface">
       <SEO title="Resident Portal" noindex={true} />
-      <NotificationToastContainer />
       <Sidebar
         isCollapsed={isCollapsed}
         onToggleCollapse={toggleCollapse}

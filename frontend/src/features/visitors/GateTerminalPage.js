@@ -18,6 +18,7 @@ import { getHouseCards } from "../../lib/houses";
 import { getSocket } from "../../lib/socket";
 import { hasPermission } from "../../lib/permissions";
 import api from "../../lib/api";
+import toast from "../../lib/toast";
 
 const CATEGORIES = [
   { id: "guest", label: "Guest", icon: "group" },
@@ -49,8 +50,6 @@ export default function GateTerminalPage() {
   const [passcodeInput, setPasscodeInput] = useState("");
   const [verifiedPass, setVerifiedPass] = useState(null);
   const [verifyError, setVerifyError] = useState("");
-  const [successBanner, setSuccessBanner] = useState("");
-  const [errorBanner, setErrorBanner] = useState("");
 
   // Walk-In Form State
   const [walkInForm, setWalkInForm] = useState({
@@ -153,15 +152,14 @@ export default function GateTerminalPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
-      setSuccessBanner(`Checked IN: ${data.name} for House ${data.unitId?.label || ""}`);
+      toast.success(`Checked IN: ${data.name}`, `Heading to House ${data.unitId?.label || ""}`);
       setVerifiedPass(null);
       setPasscodeInput("");
       setPendingWalkIn(null);
       setWalkInStatus(null);
-      setTimeout(() => setSuccessBanner(""), 4000);
     },
     onError: (err) => {
-      setErrorBanner(extractApiError(err, "Failed to check in visitor"));
+      toast.error(extractApiError(err, "Failed to check in visitor"));
     },
   });
 
@@ -174,11 +172,12 @@ export default function GateTerminalPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
-      setSuccessBanner(`Checked OUT: ${data.name} departed`);
-      setTimeout(() => setSuccessBanner(""), 3500);
+      toast.success(`Checked OUT: ${data.name}`, "Visitor departure logged");
+      setVerifiedPass(null);
+      setPasscodeInput("");
     },
     onError: (err) => {
-      setErrorBanner(extractApiError(err, "Failed to check out visitor"));
+      toast.error(extractApiError(err, "Failed to check out visitor"));
     },
   });
 
@@ -191,6 +190,7 @@ export default function GateTerminalPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      toast.info(`Approval Sent for ${data.name}`, "Waiting for host resident approval");
       setPendingWalkIn(data);
       setWalkInStatus("waiting");
       setWalkInForm({
@@ -205,7 +205,7 @@ export default function GateTerminalPage() {
       });
     },
     onError: (err) => {
-      setErrorBanner(extractApiError(err, "Failed to send approval request"));
+      toast.error(extractApiError(err, "Failed to send approval request"));
     },
   });
 
@@ -232,18 +232,17 @@ export default function GateTerminalPage() {
   const handleWalkInSubmit = (e) => {
     e.preventDefault();
     if (!walkInForm.unitId) {
-      setErrorBanner("Please select destination house.");
+      toast.error("Please select destination house.");
       return;
     }
     if (!walkInForm.name.trim()) {
-      setErrorBanner("Visitor name is required.");
+      toast.error("Visitor name is required.");
       return;
     }
     if (!walkInForm.phone.trim()) {
-      setErrorBanner("Visitor phone number is required.");
+      toast.error("Visitor phone number is required.");
       return;
     }
-    setErrorBanner("");
     walkInMutation.mutate(walkInForm);
   };
 
@@ -307,21 +306,6 @@ export default function GateTerminalPage() {
           </div>
         </div>
       </div>
-
-      {/* Notifications / Banners */}
-      {successBanner && (
-        <div className="flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-body-md font-bold text-emerald-900 shadow-sm animate-in fade-in">
-          <span className="material-symbols-outlined text-[24px] text-emerald-600">check_circle</span>
-          <span>{successBanner}</span>
-        </div>
-      )}
-
-      {errorBanner && (
-        <div className="flex items-center gap-2 rounded-2xl border border-error/30 bg-error/5 p-4 text-body-md font-bold text-error shadow-sm animate-in fade-in">
-          <span className="material-symbols-outlined text-[24px]">error</span>
-          <span>{errorBanner}</span>
-        </div>
-      )}
 
       {/* Mode Navigation Tabs */}
       <div className="grid grid-cols-3 gap-3 rounded-2xl bg-surface-container-high p-1.5 shadow-inner">
@@ -433,76 +417,174 @@ export default function GateTerminalPage() {
 
           {/* Right Column: Pass Result Card */}
           <div className="lg:col-span-6 space-y-4">
-            {verifiedPass ? (
-              <div className="rounded-3xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 via-surface-container-lowest to-surface-container-low p-6 shadow-lg space-y-5 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-label-sm font-bold text-white uppercase tracking-wider">
-                    <span className="material-symbols-outlined text-[16px]">verified</span>
-                    Passcode Verified
-                  </span>
-                  <span className="font-mono text-title-md font-extrabold text-primary">
-                    #{verifiedPass.passcode}
-                  </span>
-                </div>
+            {verifiedPass ? (() => {
+              const isInside = verifiedPass.status === "inside";
+              const isApproved = verifiedPass.status === "approved";
+              const isCheckedOut = verifiedPass.status === "checked_out";
+              const isPending = verifiedPass.status === "pending_approval";
 
-                <div>
-                  <span className="text-[11px] font-bold uppercase text-outline">Visitor Details</span>
-                  <h3 className="text-title-lg font-extrabold text-on-surface">{verifiedPass.name}</h3>
-                  <p className="text-body-sm text-on-surface-variant flex items-center gap-2 mt-0.5">
-                    <span className="font-semibold text-primary capitalize">{verifiedPass.visitorType}</span>
-                    {verifiedPass.company && <span>· {verifiedPass.company}</span>}
-                    <span>· {verifiedPass.phone}</span>
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 border border-emerald-100 shadow-sm text-body-sm">
-                  <div>
-                    <span className="text-outline text-[11px] uppercase font-semibold">Destination:</span>
-                    <p className="font-extrabold text-on-surface text-title-sm">
-                      House {verifiedPass.unitId?.label || "—"}
-                    </p>
-                    {verifiedPass.unitId?.block && (
-                      <p className="text-label-sm text-on-surface-variant">Block {verifiedPass.unitId.block}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <span className="text-outline text-[11px] uppercase font-semibold">Resident Host:</span>
-                    <p className="font-bold text-on-surface truncate">{verifiedPass.hostUserId?.name || "Resident"}</p>
-                    <p className="text-label-sm text-on-surface-variant">{verifiedPass.hostUserId?.phone || ""}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-outline text-[11px] uppercase font-semibold">Vehicle:</span>
-                    <p className="font-mono font-bold text-on-surface">
-                      {verifiedPass.vehicleNumber || "None"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-outline text-[11px] uppercase font-semibold">Valid Until:</span>
-                    <p className="font-bold text-on-surface">
-                      {new Date(verifiedPass.validUntil).toLocaleTimeString("en-IN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Big Allow Entry Button */}
-                <button
-                  type="button"
-                  onClick={() => checkInMutation.mutate(verifiedPass._id || verifiedPass.id)}
-                  disabled={checkInMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-title-md font-extrabold text-white shadow-lg hover:bg-emerald-700 transition-colors cursor-pointer"
+              return (
+                <div
+                  className={`rounded-3xl border-2 p-6 shadow-lg space-y-5 animate-in fade-in zoom-in-95 duration-200 ${
+                    isInside
+                      ? "border-sky-500 bg-gradient-to-br from-sky-50 via-surface-container-lowest to-surface-container-low"
+                      : isApproved
+                      ? "border-emerald-500 bg-gradient-to-br from-emerald-50 via-surface-container-lowest to-surface-container-low"
+                      : isCheckedOut
+                      ? "border-outline-variant bg-surface-container-low"
+                      : isPending
+                      ? "border-amber-400 bg-amber-50/50"
+                      : "border-error/40 bg-error/5"
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-[24px]">door_open</span>
-                  <span>{checkInMutation.isPending ? "Logging Entry..." : "ALLOW ENTRY & CHECK IN"}</span>
-                </button>
-              </div>
-            ) : (
+                  <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-label-sm font-bold uppercase tracking-wider ${
+                        isInside
+                          ? "bg-sky-600 text-white"
+                          : isApproved
+                          ? "bg-emerald-600 text-white"
+                          : isCheckedOut
+                          ? "bg-slate-700 text-white"
+                          : isPending
+                          ? "bg-amber-500 text-white"
+                          : "bg-error text-white"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        {isInside
+                          ? "sensor_door"
+                          : isApproved
+                          ? "verified"
+                          : isCheckedOut
+                          ? "logout"
+                          : isPending
+                          ? "pending"
+                          : "cancel"}
+                      </span>
+                      <span>
+                        {isInside
+                          ? "Already Inside Society"
+                          : isApproved
+                          ? "Pass Verified · Ready"
+                          : isCheckedOut
+                          ? "Already Checked Out"
+                          : isPending
+                          ? "Awaiting Resident Approval"
+                          : "Entry Denied"}
+                      </span>
+                    </span>
+                    <span className="font-mono text-title-md font-extrabold text-primary">
+                      #{verifiedPass.passcode}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] font-bold uppercase text-outline">Visitor Details</span>
+                    <h3 className="text-title-lg font-extrabold text-on-surface">{verifiedPass.name}</h3>
+                    <p className="text-body-sm text-on-surface-variant flex items-center gap-2 mt-0.5">
+                      <span className="font-semibold text-primary capitalize">{verifiedPass.visitorType}</span>
+                      {verifiedPass.company && <span>· {verifiedPass.company}</span>}
+                      <span>· {verifiedPass.phone}</span>
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 border border-outline-variant/50 shadow-sm text-body-sm">
+                    <div>
+                      <span className="text-outline text-[11px] uppercase font-semibold">Destination:</span>
+                      <p className="font-extrabold text-on-surface text-title-sm">
+                        House {verifiedPass.unitId?.label || "—"}
+                      </p>
+                      {verifiedPass.unitId?.block && (
+                        <p className="text-label-sm text-on-surface-variant">Block {verifiedPass.unitId.block}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="text-outline text-[11px] uppercase font-semibold">Resident Host:</span>
+                      <p className="font-bold text-on-surface truncate">{verifiedPass.hostUserId?.name || "Resident"}</p>
+                      <p className="text-label-sm text-on-surface-variant">{verifiedPass.hostUserId?.phone || ""}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-outline text-[11px] uppercase font-semibold">Vehicle:</span>
+                      <p className="font-mono font-bold text-on-surface">
+                        {verifiedPass.vehicleNumber || "None"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-outline text-[11px] uppercase font-semibold">
+                        {isInside ? "Checked In At:" : isCheckedOut ? "Checked Out At:" : "Valid Until:"}
+                      </span>
+                      <p className="font-bold text-on-surface">
+                        {isInside && verifiedPass.checkInTime
+                          ? new Date(verifiedPass.checkInTime).toLocaleTimeString("en-IN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : isCheckedOut && verifiedPass.checkOutTime
+                          ? new Date(verifiedPass.checkOutTime).toLocaleTimeString("en-IN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : new Date(verifiedPass.validUntil).toLocaleTimeString("en-IN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Contextual Action Buttons */}
+                  {isInside ? (
+                    <div className="space-y-2">
+                      <div className="rounded-2xl border border-sky-300 bg-sky-100/60 p-3 text-body-sm text-sky-950 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sky-700 text-[20px]">info</span>
+                        <span>This visitor is already inside the premises. Tap below to log departure.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => checkOutMutation.mutate(verifiedPass._id || verifiedPass.id)}
+                        disabled={checkOutMutation.isPending}
+                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-sky-700 px-6 py-4 text-title-md font-extrabold text-white shadow-lg hover:bg-sky-800 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[24px]">logout</span>
+                        <span>{checkOutMutation.isPending ? "Logging Exit..." : "CHECK OUT VISITOR (LOG EXIT)"}</span>
+                      </button>
+                    </div>
+                  ) : isApproved ? (
+                    <button
+                      type="button"
+                      onClick={() => checkInMutation.mutate(verifiedPass._id || verifiedPass.id)}
+                      disabled={checkInMutation.isPending}
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-title-md font-extrabold text-white shadow-lg hover:bg-emerald-700 transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[24px]">door_open</span>
+                      <span>{checkInMutation.isPending ? "Logging Entry..." : "ALLOW ENTRY & CHECK IN"}</span>
+                    </button>
+                  ) : isCheckedOut ? (
+                    <div className="rounded-2xl border border-outline-variant bg-surface-container-high p-4 text-center text-body-sm text-on-surface-variant">
+                      <p className="font-bold text-on-surface">Pass Expired / Completed</p>
+                      <p className="text-[12px] text-outline mt-0.5">This pass has already been used and checked out.</p>
+                    </div>
+                  ) : isPending ? (
+                    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-center text-body-sm text-amber-900">
+                      <p className="font-bold">Pending Host Approval</p>
+                      <p className="text-[12px] text-amber-800 mt-0.5">The resident has not yet confirmed entry for this walk-in.</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-error/30 bg-error/5 p-4 text-center text-body-sm text-error">
+                      <p className="font-bold">Entry Denied</p>
+                      <p className="text-[12px] mt-0.5">This visitor was rejected by the resident host.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
               <div className="rounded-3xl border-2 border-dashed border-outline-variant/60 bg-surface-container-lowest p-10 text-center text-on-surface-variant space-y-3">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container-high text-outline">
                   <span className="material-symbols-outlined text-[32px]">dialpad</span>
