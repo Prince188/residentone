@@ -12,6 +12,10 @@ import {
   checkInVisitor,
   checkOutVisitor,
   logWalkInVisitor,
+  getGateParcels,
+  logGateParcel,
+  verifyParcelPickupCode,
+  collectGateParcel,
   extractApiError,
 } from "../../lib/visitors";
 import { getHouseCards } from "../../lib/houses";
@@ -26,6 +30,17 @@ const CATEGORIES = [
   { id: "cab", label: "Cab / Taxi", icon: "local_taxi" },
   { id: "service", label: "Service", icon: "handyman" },
   { id: "other", label: "Other", icon: "badge" },
+];
+
+const COURIER_PRESETS = [
+  { id: "Amazon", label: "Amazon", color: "bg-amber-500/10 text-amber-700 border-amber-300" },
+  { id: "Flipkart", label: "Flipkart", color: "bg-blue-500/10 text-blue-700 border-blue-300" },
+  { id: "Swiggy", label: "Swiggy / Instamart", color: "bg-orange-500/10 text-orange-700 border-orange-300" },
+  { id: "Zomato", label: "Zomato / Blinkit", color: "bg-rose-500/10 text-rose-700 border-rose-300" },
+  { id: "Zepto", label: "Zepto", color: "bg-purple-500/10 text-purple-700 border-purple-300" },
+  { id: "BlueDart", label: "BlueDart / DHL", color: "bg-cyan-500/10 text-cyan-700 border-cyan-300" },
+  { id: "DTDC", label: "DTDC", color: "bg-emerald-500/10 text-emerald-700 border-emerald-300" },
+  { id: "Other", label: "Other", color: "bg-surface-container-high text-on-surface border-outline-variant" },
 ];
 
 export default function GateTerminalPage() {
@@ -46,7 +61,7 @@ export default function GateTerminalPage() {
         activeMembership.role
       ));
 
-  const [activeTab, setActiveTab] = useState("passcode"); // 'passcode' | 'walkin' | 'inside'
+  const [activeTab, setActiveTab] = useState("passcode"); // 'passcode' | 'walkin' | 'parcels' | 'inside'
   const [passcodeInput, setPasscodeInput] = useState("");
   const [verifiedPass, setVerifiedPass] = useState(null);
   const [verifyError, setVerifyError] = useState("");
@@ -70,11 +85,33 @@ export default function GateTerminalPage() {
   const [isHouseDropdownOpen, setIsHouseDropdownOpen] = useState(false);
   const houseDropdownRef = useRef(null);
 
-  // Close house suggestion dropdown on outside click
+  // Parcel Hub State
+  const [isLogParcelModalOpen, setIsLogParcelModalOpen] = useState(false);
+  const [parcelForm, setParcelForm] = useState({
+    unitId: "",
+    company: "Amazon",
+    name: "Amazon Delivery",
+    phone: "",
+    packageCount: 1,
+    notes: "",
+  });
+  const [parcelHouseSearch, setParcelHouseSearch] = useState("");
+  const [isParcelHouseDropdownOpen, setIsParcelHouseDropdownOpen] = useState(false);
+  const parcelHouseDropdownRef = useRef(null);
+
+  const [parcelPickupInput, setParcelPickupInput] = useState("");
+  const [verifiedParcel, setVerifiedParcel] = useState(null);
+  const [parcelVerifyError, setParcelVerifyError] = useState("");
+  const [parcelListSearch, setParcelListSearch] = useState("");
+
+  // Close suggestion dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (houseDropdownRef.current && !houseDropdownRef.current.contains(e.target)) {
         setIsHouseDropdownOpen(false);
+      }
+      if (parcelHouseDropdownRef.current && !parcelHouseDropdownRef.current.contains(e.target)) {
+        setIsParcelHouseDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -113,11 +150,41 @@ export default function GateTerminalPage() {
     });
   }, [houses, houseSearchQuery]);
 
-  // Selected house details
+  // Filter houses for parcel modal
+  const filteredParcelHouses = useMemo(() => {
+    if (!parcelHouseSearch.trim()) return houses.slice(0, 15);
+    const q = parcelHouseSearch.toLowerCase().trim();
+    return houses.filter((h) => {
+      const labelMatch = String(h.label || "").toLowerCase().includes(q);
+      const doorMatch = String(h.doorNo || "").toLowerCase().includes(q);
+      const blockMatch = String(h.block || "").toLowerCase().includes(q);
+      const ownerNameMatch = String(h.owner?.name || "").toLowerCase().includes(q);
+      const ownerPhoneMatch = String(h.owner?.phone || "").toLowerCase().includes(q);
+      const tenantNameMatch = String(h.tenant?.name || "").toLowerCase().includes(q);
+      const tenantPhoneMatch = String(h.tenant?.phone || "").toLowerCase().includes(q);
+      return (
+        labelMatch ||
+        doorMatch ||
+        blockMatch ||
+        ownerNameMatch ||
+        ownerPhoneMatch ||
+        tenantNameMatch ||
+        tenantPhoneMatch
+      );
+    });
+  }, [houses, parcelHouseSearch]);
+
+  // Selected house details for walk-in
   const selectedHouse = useMemo(() => {
     if (!walkInForm.unitId) return null;
     return houses.find((h) => String(h.id || h._id) === String(walkInForm.unitId));
   }, [houses, walkInForm.unitId]);
+
+  // Selected house details for parcel
+  const selectedParcelHouse = useMemo(() => {
+    if (!parcelForm.unitId) return null;
+    return houses.find((h) => String(h.id || h._id) === String(parcelForm.unitId));
+  }, [houses, parcelForm.unitId]);
 
   // Query Visitors Inside
   const insideQuery = useQuery({
@@ -127,6 +194,29 @@ export default function GateTerminalPage() {
     refetchInterval: 10000,
   });
   const insideVisitors = insideQuery.data || [];
+
+  // Query Gate Parcels (Uncollected at Gate)
+  const parcelsQuery = useQuery({
+    queryKey: ["gate-parcels", activeSociety?.id],
+    queryFn: async () => (await getGateParcels({ status: "left_at_gate" })).data.data,
+    enabled: Boolean(activeSociety?.id),
+    refetchInterval: 8000,
+  });
+  const gateParcels = useMemo(() => parcelsQuery.data || [], [parcelsQuery.data]);
+
+  // Filtered parcels for list search
+  const filteredParcels = useMemo(() => {
+    if (!parcelListSearch.trim()) return gateParcels;
+    const q = parcelListSearch.toLowerCase().trim();
+    return gateParcels.filter((p) => {
+      const houseMatch = String(p.unitId?.label || "").toLowerCase().includes(q);
+      const blockMatch = String(p.unitId?.block || "").toLowerCase().includes(q);
+      const companyMatch = String(p.company || "").toLowerCase().includes(q);
+      const hostNameMatch = String(p.hostUserId?.name || "").toLowerCase().includes(q);
+      const pinMatch = String(p.parcelDetails?.parcelCode || p.passcode || "").includes(q);
+      return houseMatch || blockMatch || companyMatch || hostNameMatch || pinMatch;
+    });
+  }, [gateParcels, parcelListSearch]);
 
   // Query Stats
   const statsQuery = useQuery({
@@ -146,6 +236,7 @@ export default function GateTerminalPage() {
     const handleApprovalResponse = (updatedVisitor) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["gate-parcels"] });
 
       if (
         pendingWalkIn &&
@@ -162,14 +253,25 @@ export default function GateTerminalPage() {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
     };
 
+    const handleParcelChange = () => {
+      queryClient.invalidateQueries({ queryKey: ["gate-parcels"] });
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+    };
+
     socket.on("visitor:approval_response", handleApprovalResponse);
     socket.on("visitor:pre_approved", handleNewPreApproved);
     socket.on("visitor:change", handleApprovalResponse);
+    socket.on("parcel:new", handleParcelChange);
+    socket.on("parcel:collected", handleParcelChange);
+    socket.on("parcel:change", handleParcelChange);
 
     return () => {
       socket.off("visitor:approval_response", handleApprovalResponse);
       socket.off("visitor:pre_approved", handleNewPreApproved);
       socket.off("visitor:change", handleApprovalResponse);
+      socket.off("parcel:new", handleParcelChange);
+      socket.off("parcel:collected", handleParcelChange);
+      socket.off("parcel:change", handleParcelChange);
     };
   }, [activeSociety?.id, pendingWalkIn, queryClient]);
 
@@ -277,6 +379,100 @@ export default function GateTerminalPage() {
     }
   };
 
+  // Mutation: Log Parcel
+  const logParcelMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await logGateParcel(payload);
+      return res.data.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["gate-parcels"] });
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      toast.success(
+        `📦 Package Logged: ${data.company || "Delivery"}`,
+        `Pickup PIN: ${data.parcelDetails?.parcelCode || data.passcode} · House ${data.unitId?.label || ""}`
+      );
+      setIsLogParcelModalOpen(false);
+      setParcelForm({
+        unitId: "",
+        company: "Amazon",
+        name: "Amazon Delivery",
+        phone: "",
+        packageCount: 1,
+        notes: "",
+      });
+      setParcelHouseSearch("");
+    },
+    onError: (err) => {
+      toast.error(extractApiError(err, "Failed to log parcel delivery"));
+    },
+  });
+
+  // Mutation: Verify Parcel Pickup PIN
+  const verifyParcelPickupMutation = useMutation({
+    mutationFn: async (code) => {
+      const res = await verifyParcelPickupCode(code);
+      return res.data.data;
+    },
+    onSuccess: (data) => {
+      setVerifiedParcel(data);
+      setParcelVerifyError("");
+      toast.info(`Parcel Found: House ${data.unitId?.label}`, "Ready for handover");
+    },
+    onError: (err) => {
+      setVerifiedParcel(null);
+      setParcelVerifyError(extractApiError(err, "Invalid 4-digit pickup PIN"));
+    },
+  });
+
+  // Mutation: Collect / Hand Over Parcel
+  const collectParcelMutation = useMutation({
+    mutationFn: async (parcelId) => {
+      const res = await collectGateParcel(parcelId);
+      return res.data.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["gate-parcels"] });
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      toast.success(`Handed Over: ${data.company || "Parcel"}`, `Collected for House ${data.unitId?.label}`);
+      setVerifiedParcel(null);
+      setParcelPickupInput("");
+    },
+    onError: (err) => {
+      toast.error(extractApiError(err, "Failed to hand over parcel"));
+    },
+  });
+
+  const handleParcelNumpadPress = (char) => {
+    if (char === "clear") {
+      setParcelPickupInput("");
+      setVerifiedParcel(null);
+      setParcelVerifyError("");
+      return;
+    }
+    if (char === "back") {
+      setParcelPickupInput((p) => p.slice(0, -1));
+      return;
+    }
+    if (parcelPickupInput.length < 4) {
+      const next = parcelPickupInput + char;
+      setParcelPickupInput(next);
+      if (next.length === 4) {
+        verifyParcelPickupMutation.mutate(next);
+      }
+    }
+  };
+
+  const handleLogParcelSubmit = (e) => {
+    e.preventDefault();
+    if (!parcelForm.unitId) {
+      toast.error("Please select destination house for the package.");
+      return;
+    }
+    logParcelMutation.mutate(parcelForm);
+  };
+
   const handleWalkInSubmit = (e) => {
     e.preventDefault();
     if (!walkInForm.unitId) {
@@ -356,7 +552,7 @@ export default function GateTerminalPage() {
       </div>
 
       {/* Mode Navigation Tabs */}
-      <div className="grid grid-cols-3 gap-3 rounded-2xl bg-surface-container-high p-1.5 shadow-inner">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 rounded-2xl bg-surface-container-high p-1.5 shadow-inner">
         <button
           type="button"
           onClick={() => {
@@ -364,40 +560,60 @@ export default function GateTerminalPage() {
             setVerifiedPass(null);
             setVerifyError("");
           }}
-          className={`flex items-center justify-center gap-2 rounded-xl py-3 text-label-md font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 rounded-xl py-3 px-2 text-label-md font-bold transition-all cursor-pointer ${
             activeTab === "passcode"
               ? "bg-primary text-on-primary shadow-sm"
               : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/40"
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">pin</span>
-          <span>6-Digit PIN Check-In</span>
+          <span className="truncate">6-Digit PIN</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("walkin")}
-          className={`flex items-center justify-center gap-2 rounded-xl py-3 text-label-md font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 rounded-xl py-3 px-2 text-label-md font-bold transition-all cursor-pointer ${
             activeTab === "walkin"
               ? "bg-primary text-on-primary shadow-sm"
               : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/40"
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">person_add</span>
-          <span>Walk-In Visitor Entry</span>
+          <span className="truncate">Walk-In Entry</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("parcels");
+            setVerifiedParcel(null);
+            setParcelVerifyError("");
+          }}
+          className={`flex items-center justify-center gap-2 rounded-xl py-3 px-2 text-label-md font-bold transition-all cursor-pointer relative ${
+            activeTab === "parcels"
+              ? "bg-primary text-on-primary shadow-sm"
+              : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/40"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[20px]">package_2</span>
+          <span className="truncate">Gate Parcels ({gateParcels.length})</span>
+          {gateParcels.length > 0 && activeTab !== "parcels" && (
+            <span className="h-2 w-2 rounded-full bg-amber-500 ring-2 ring-surface animate-pulse" />
+          )}
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("inside")}
-          className={`flex items-center justify-center gap-2 rounded-xl py-3 text-label-md font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 rounded-xl py-3 px-2 text-label-md font-bold transition-all cursor-pointer ${
             activeTab === "inside"
               ? "bg-primary text-on-primary shadow-sm"
               : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/40"
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">sensor_door</span>
-          <span>Inside Society ({stats.inside})</span>
+          <span className="truncate">Inside ({stats.inside})</span>
         </button>
       </div>
 
@@ -1118,6 +1334,443 @@ export default function GateTerminalPage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODE 4: GATE PARCEL & COURIER HUB */}
+      {activeTab === "parcels" && (
+        <div className="space-y-6">
+          {/* Action & Stats Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-primary/20 bg-gradient-to-r from-primary/10 via-surface-container-lowest to-surface-container-lowest p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-on-primary shadow-sm">
+                <span className="material-symbols-outlined text-[28px]">package_2</span>
+              </div>
+              <div>
+                <h3 className="text-title-lg font-extrabold text-on-surface">
+                  Gate Delivery & Parcel Hub
+                </h3>
+                <p className="text-body-sm text-on-surface-variant">
+                  {gateParcels.length} package(s) currently held at the main gate security desk
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsLogParcelModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-label-md font-bold text-on-primary shadow-md hover:bg-primary/90 transition-all cursor-pointer scale-100 hover:scale-[1.02]"
+            >
+              <span className="material-symbols-outlined text-[20px]">add_box</span>
+              <span>Log Dropped Package</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+            {/* Left Column: 4-Digit Pickup PIN Verification Keypad */}
+            <div className="lg:col-span-5 rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">dialpad</span>
+                  Handover Parcel by PIN
+                </h3>
+                <span className="text-[11px] font-bold text-outline uppercase bg-surface-container-high px-2 py-0.5 rounded-full">
+                  4-Digit Code
+                </span>
+              </div>
+              <p className="text-body-xs text-on-surface-variant">
+                Enter the 4-digit pickup code shown on resident's screen to release package.
+              </p>
+
+              {/* PIN Display */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={parcelPickupInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    setParcelPickupInput(val);
+                    if (val.length === 4) verifyParcelPickupMutation.mutate(val);
+                  }}
+                  maxLength={4}
+                  placeholder="• • • •"
+                  className="w-full rounded-2xl border-2 border-outline-variant bg-surface py-3.5 text-center font-mono text-[28px] font-black tracking-[0.4em] text-primary focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 shadow-inner"
+                />
+                {parcelPickupInput && (
+                  <button
+                    type="button"
+                    onClick={() => handleParcelNumpadPress("clear")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-error cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[22px]">cancel</span>
+                  </button>
+                )}
+              </div>
+
+              {parcelVerifyError && (
+                <div className="rounded-xl border border-error/30 bg-error/5 p-3 text-center text-body-sm font-bold text-error">
+                  {parcelVerifyError}
+                </div>
+              )}
+
+              {/* Touch Numpad Grid */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"].map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => handleParcelNumpadPress(k)}
+                    className={`flex h-12 items-center justify-center rounded-xl text-title-sm font-bold transition-all active:scale-95 cursor-pointer ${
+                      k === "clear"
+                        ? "bg-surface-container-highest text-error font-semibold text-label-md"
+                        : k === "back"
+                        ? "bg-surface-container-highest text-on-surface"
+                        : "bg-surface-container-low text-on-surface hover:bg-surface-container-high border border-outline-variant/50"
+                    }`}
+                  >
+                    {k === "back" ? (
+                      <span className="material-symbols-outlined text-[20px]">backspace</span>
+                    ) : k === "clear" ? (
+                      "Clear"
+                    ) : (
+                      k
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Verified Parcel Handover Card */}
+              {verifiedParcel && (
+                <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/5 p-4 shadow-sm space-y-3 animate-in fade-in zoom-in-95 duration-150 mt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-800">
+                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      Code Verified
+                    </span>
+                    <span className="font-mono text-title-sm font-black text-primary">
+                      PIN: {verifiedParcel.parcelDetails?.parcelCode || verifiedParcel.passcode}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-on-primary font-black text-title-md shadow-xs">
+                      {verifiedParcel.unitId?.label}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-on-surface text-body-md">
+                        House {verifiedParcel.unitId?.label} {verifiedParcel.unitId?.block ? `(Block ${verifiedParcel.unitId.block})` : ""}
+                      </h4>
+                      <p className="text-label-sm text-on-surface-variant truncate">
+                        Resident: <strong>{verifiedParcel.hostUserId?.name || "Resident"}</strong>
+                      </p>
+                      <p className="text-label-xs text-outline mt-0.5">
+                        Courier: <strong>{verifiedParcel.company || "Delivery"}</strong> · {verifiedParcel.notes || "1 package"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => collectParcelMutation.mutate(verifiedParcel._id || verifiedParcel.id)}
+                    disabled={collectParcelMutation.isPending}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-label-md font-extrabold text-white shadow-md hover:bg-emerald-700 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">how_to_reg</span>
+                    <span>{collectParcelMutation.isPending ? "HANDING OVER..." : "HAND OVER PARCEL (CONFIRM)"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Live Parcels Waiting at Gate List */}
+            <div className="lg:col-span-7 rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/60 pb-3">
+                <div>
+                  <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">inventory_2</span>
+                    Packages Waiting at Gate ({gateParcels.length})
+                  </h3>
+                  <p className="text-label-sm text-on-surface-variant">
+                    Packages ready for resident pickup
+                  </p>
+                </div>
+
+                {/* Quick Search */}
+                <div className="relative w-full sm:w-56">
+                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-outline pointer-events-none">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    value={parcelListSearch}
+                    onChange={(e) => setParcelListSearch(e.target.value)}
+                    placeholder="Search flat, courier, PIN..."
+                    className="w-full rounded-xl border border-outline-variant bg-surface py-1.5 pl-8 pr-2.5 text-[12px] text-on-surface focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {filteredParcels.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {filteredParcels.map((p) => {
+                    const pin = p.parcelDetails?.parcelCode || p.passcode || "—";
+                    return (
+                      <div
+                        key={p._id || p.id}
+                        className="rounded-2xl border border-outline-variant/80 bg-surface-container-low p-4 shadow-xs space-y-3 flex flex-col justify-between hover:border-primary/50 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary font-black text-body-md shadow-xs">
+                              {p.unitId?.label}
+                            </span>
+                            <div className="min-w-0">
+                              <h4 className="font-extrabold text-on-surface text-body-md truncate">
+                                House {p.unitId?.label}
+                              </h4>
+                              <p className="text-label-xs text-on-surface-variant truncate">
+                                👤 {p.hostUserId?.name || "Resident"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="rounded-lg bg-surface-container-highest px-2 py-1 font-mono text-[11px] font-black text-primary border border-primary/20 shrink-0">
+                            PIN: {pin}
+                          </span>
+                        </div>
+
+                        <div className="rounded-xl bg-surface-container-lowest p-2.5 text-[12px] space-y-1 border border-outline-variant/40">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-on-surface flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[15px] text-primary">local_shipping</span>
+                              {p.company || "Delivery"}
+                            </span>
+                            <span className="text-outline text-[11px]">
+                              {p.createdAt
+                                ? new Date(p.createdAt).toLocaleTimeString("en-IN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })
+                                : "—"}
+                            </span>
+                          </div>
+                          {p.notes && (
+                            <p className="text-on-surface-variant text-[11px] truncate italic">
+                              {p.notes}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => collectParcelMutation.mutate(p._id || p.id)}
+                          disabled={collectParcelMutation.isPending}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 py-2 text-label-sm font-bold text-primary hover:bg-primary hover:text-on-primary transition-all cursor-pointer shadow-xs"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
+                          <span>Hand Over (Release)</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-outline-variant p-8 text-center text-on-surface-variant">
+                  <span className="material-symbols-outlined text-[36px] text-outline/60 mb-1 block">
+                    inventory_2
+                  </span>
+                  <p className="text-body-md font-bold text-on-surface">No Waiting Packages</p>
+                  <p className="text-label-sm text-outline mt-0.5">
+                    When delivery packages are left at the gate, they will appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: LOG DROPPED PARCEL */}
+      {isLogParcelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined text-[22px]">add_box</span>
+                </div>
+                <div>
+                  <h3 className="text-title-md font-bold text-on-surface">Log Dropped Package</h3>
+                  <p className="text-label-sm text-on-surface-variant">
+                    Security Gate Desk Parcel Intake
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLogParcelModalOpen(false)}
+                className="p-1 rounded-full text-on-surface-variant hover:text-on-surface cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleLogParcelSubmit} className="space-y-4">
+              {/* Destination House Search */}
+              <div>
+                <label className="block text-label-md font-semibold text-on-surface mb-1">
+                  Destination Flat / House *
+                </label>
+                {selectedParcelHouse ? (
+                  <div className="flex items-center justify-between p-3 rounded-2xl border-2 border-primary/50 bg-primary/5 shadow-xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary font-black text-body-md shadow-xs">
+                        {selectedParcelHouse.label}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-extrabold text-on-surface text-body-sm block truncate">
+                          House {selectedParcelHouse.label} {selectedParcelHouse.block ? `(Block ${selectedParcelHouse.block})` : ""}
+                        </span>
+                        <span className="text-[12px] text-on-surface-variant block truncate">
+                          👤 {selectedParcelHouse.owner?.name || selectedParcelHouse.tenant?.name || "Resident"}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setParcelForm({ ...parcelForm, unitId: "" });
+                        setParcelHouseSearch("");
+                        setIsParcelHouseDropdownOpen(true);
+                      }}
+                      className="px-2.5 py-1 text-label-xs font-bold text-primary hover:bg-primary/10 rounded-lg cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative" ref={parcelHouseDropdownRef}>
+                    <input
+                      type="text"
+                      value={parcelHouseSearch}
+                      onChange={(e) => {
+                        setParcelHouseSearch(e.target.value);
+                        setIsParcelHouseDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsParcelHouseDropdownOpen(true)}
+                      placeholder="Type house number (e.g. 101, A-204) or resident name..."
+                      className="w-full rounded-2xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+
+                    {isParcelHouseDropdownOpen && (
+                      <div className="absolute z-50 mt-1 w-full max-h-52 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-2xl divide-y divide-outline-variant/40">
+                        {filteredParcelHouses.map((h) => (
+                          <button
+                            key={h.id || h._id}
+                            type="button"
+                            onClick={() => {
+                              setParcelForm({ ...parcelForm, unitId: h.id || h._id });
+                              setIsParcelHouseDropdownOpen(false);
+                              setParcelHouseSearch("");
+                            }}
+                            className="w-full text-left p-2.5 hover:bg-primary/5 flex items-center justify-between cursor-pointer"
+                          >
+                            <span className="font-bold text-on-surface text-body-sm">
+                              House {h.label} {h.block ? `(${h.block})` : ""} · {h.owner?.name || h.tenant?.name || "Resident"}
+                            </span>
+                            <span className="material-symbols-outlined text-[16px] text-outline">check</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Courier Company Preset Badges */}
+              <div>
+                <label className="block text-label-md font-semibold text-on-surface mb-1.5">
+                  Courier / Delivery Service *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {COURIER_PRESETS.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setParcelForm({ ...parcelForm, company: c.id, name: `${c.label} Delivery` })}
+                      className={`p-2 rounded-xl border text-center text-[12px] font-bold transition-all cursor-pointer ${
+                        parcelForm.company === c.id
+                          ? "border-primary bg-primary text-on-primary shadow-xs"
+                          : "border-outline-variant bg-surface-container-low text-on-surface hover:border-primary/50"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Package Count & Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-label-md font-semibold text-on-surface mb-1">
+                    Number of Packages
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setParcelForm({ ...parcelForm, packageCount: Math.max(1, (parcelForm.packageCount || 1) - 1) })}
+                      className="h-10 w-10 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-title-sm hover:bg-surface-container-high cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="flex-1 text-center font-bold text-title-sm text-on-surface">
+                      {parcelForm.packageCount || 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setParcelForm({ ...parcelForm, packageCount: (parcelForm.packageCount || 1) + 1 })}
+                      className="h-10 w-10 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-title-sm hover:bg-surface-container-high cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-label-md font-semibold text-on-surface mb-1">
+                    Storage Note (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={parcelForm.notes}
+                    onChange={(e) => setParcelForm({ ...parcelForm, notes: e.target.value })}
+                    placeholder="e.g. Box on Shelf A"
+                    className="w-full rounded-xl border border-outline-variant bg-surface py-2 px-3 text-body-sm text-on-surface focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLogParcelModalOpen(false)}
+                  className="px-4 py-2 text-label-md font-bold text-on-surface-variant hover:bg-surface-container-low rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={logParcelMutation.isPending}
+                  className="flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-label-md font-bold text-on-primary shadow-sm hover:bg-primary/90 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add_task</span>
+                  <span>{logParcelMutation.isPending ? "Logging..." : "Log & Generate PIN"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

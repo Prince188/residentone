@@ -170,6 +170,75 @@ class VisitorController {
       next(err);
     }
   }
+
+  async listParcels(req, res, next) {
+    try {
+      const result = await visitorService.getParcels(
+        req.societyId,
+        req.userId,
+        req.membership,
+        req.query
+      );
+      res.status(200).json({
+        success: true,
+        data: result.parcels,
+        countWaiting: result.countWaiting,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async logParcel(req, res, next) {
+    try {
+      const result = await visitorService.logParcel(
+        req.societyId,
+        req.userId,
+        req.membership,
+        req.body
+      );
+      res.status(201).json({
+        success: true,
+        message: "Parcel delivery logged at gate desk successfully",
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async verifyParcelPickup(req, res, next) {
+    try {
+      const result = await visitorService.verifyParcelPickup(
+        req.societyId,
+        req.body.parcelCode
+      );
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async collectParcel(req, res, next) {
+    try {
+      const result = await visitorService.collectParcel(
+        req.societyId,
+        req.params.id,
+        req.userId,
+        req.membership
+      );
+      res.status(200).json({
+        success: true,
+        message: "Parcel marked as collected / handed over",
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new VisitorController();

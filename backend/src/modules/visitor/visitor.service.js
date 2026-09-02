@@ -564,6 +564,239 @@ class VisitorService {
       },
     };
   }
+
+  /**
+   * Guard directly logs an incoming parcel delivery left at gate
+   */
+  async logParcel(societyId, guardUserId, membership, data) {
+    const canManage = await this.canManageVisitors(societyId, membership);
+    if (!canManage) {
+      throw new AppError("Only security guards or society admins can log parcels", 403);
+    }
+
+    const targetUnitId = String(data.unitId).trim();
+    const unit = await Unit.findOne({ _id: targetUnitId, societyId, isActive: true })
+      .populate("ownerId", "name phone")
+      .populate("tenantId", "name phone")
+      .lean();
+
+    if (!unit) throw new AppError("Destination house not found", 404);
+
+    const hostUserId = unit.tenantId?._id || unit.ownerId?._id;
+    if (!hostUserId) {
+      throw new AppError("No resident registered to this house. Please assign an owner/tenant first.", 400);
+    }
+
+    const parcelCode = generateParcelCode();
+    const validUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days storage
+
+    const parcel = await Visitor.create({
+      societyId,
+      unitId: targetUnitId,
+      hostUserId,
+      name: data.name?.trim() || `${data.company || "Courier"} Delivery`,
+      phone: data.phone?.trim() || "0000000000",
+      visitorType: "delivery",
+      company: data.company?.trim() || "Delivery",
+      vehicleNumber: "",
+      passcode: parcelCode,
+      passType: "walk_in",
+      status: "left_at_gate",
+      validFrom: new Date(),
+      validUntil,
+      notes: data.notes?.trim() || (data.packageCount ? `${data.packageCount} package(s)` : "Parcel left at security gate"),
+      parcelDetails: {
+        isParcel: true,
+        parcelCode,
+        collectedAt: null,
+        collectedBy: null,
+      },
+    });
+
+    const populated = await Visitor.findById(parcel._id)
+      .populate("unitId", "label doorNo block floor")
+      .populate("hostUserId", "name phone")
+      .populate("societyId", "name address city")
+      .lean();
+
+    // Find all residents of this house
+    const unitMemberships = await Membership.find({
+      societyId,
+      units: targetUnitId,
+      status: "active",
+    }).select("userId").lean();
+
+    const targetUserIds = new Set();
+    if (hostUserId) targetUserIds.add(String(hostUserId));
+    unitMemberships.forEach((m) => {
+      if (m.userId) targetUserIds.add(String(m.userId));
+    });
+
+    // Broadcast real-time socket events
+    try {
+      targetUserIds.forEach((uid) => {
+        emitToUser(uid, "parcel:new", populated);
+        emitToUser(uid, "visitor:change", populated);
+      });
+      emitToSociety(societyId, "parcel:change", populated);
+      emitToSociety(societyId, "visitor:change", populated);
+    } catch (_) {}
+
+    // Send in-app notification with Pickup PIN to all residents of this flat
+    try {
+      const companyLabel = data.company ? data.company.toUpperCase() : "COURIER";
+      for (const uid of targetUserIds) {
+        await notificationService.createNotification({
+          societyId,
+          userId: uid,
+          type: "visitor",
+          title: `📦 Package Arrived from ${companyLabel} at Main Gate`,
+          message: `Your package (${companyLabel}) was received at the security gate. Show Pickup PIN [ ${parcelCode} ] to collect.`,
+          link: "/visitors",
+          metadata: {
+            visitorId: String(populated._id),
+            parcelId: String(populated._id),
+            parcelCode,
+            status: "left_at_gate",
+            company: populated.company,
+          },
+        });
+      }
+    } catch (_) {}
+
+    return populated;
+  }
+
+  /**
+   * Get parcels at gate (guards see all active in society; residents see their flat's packages)
+   */
+  async getParcels(societyId, userId, membership, params = {}) {
+    const canManage = await this.canManageVisitors(societyId, membership);
+    const myUnitIds = await this.getMyUnitIds(membership);
+
+    const filter = { societyId };
+
+    if (!canManage) {
+      // Regular resident: only see parcels for their assigned units or hosted by them
+      filter.$or = [
+        { hostUserId: userId },
+        { unitId: { $in: myUnitIds } },
+      ];
+    } else if (params.unitId) {
+      filter.unitId = params.unitId;
+    }
+
+    if (params.status === "collected") {
+      filter["parcelDetails.collectedAt"] = { $ne: null };
+    } else if (params.status === "all") {
+      filter.$or = [
+        { "parcelDetails.isParcel": true },
+        { status: "left_at_gate" },
+      ];
+    } else {
+      // Default: uncollected waiting at gate
+      filter.status = "left_at_gate";
+      filter["parcelDetails.collectedAt"] = null;
+    }
+
+    const parcels = await Visitor.find(filter)
+      .populate("unitId", "label doorNo block floor")
+      .populate("hostUserId", "name phone")
+      .populate("checkedInBy", "name")
+      .populate("parcelDetails.collectedBy", "name")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const countWaiting = await Visitor.countDocuments({
+      societyId,
+      status: "left_at_gate",
+      "parcelDetails.collectedAt": null,
+      ...(!canManage ? { $or: [{ hostUserId: userId }, { unitId: { $in: myUnitIds } }] } : {}),
+    });
+
+    return {
+      parcels,
+      countWaiting,
+    };
+  }
+
+  /**
+   * Verify a 4-digit pickup code entered by guard
+   */
+  async verifyParcelPickup(societyId, parcelCode) {
+    const code = String(parcelCode || "").trim();
+    if (!code) throw new AppError("Enter valid 4-digit pickup PIN", 400);
+
+    const parcel = await Visitor.findOne({
+      societyId,
+      status: "left_at_gate",
+      $or: [
+        { "parcelDetails.parcelCode": code },
+        { passcode: code },
+      ],
+      "parcelDetails.collectedAt": null,
+    })
+      .populate("unitId", "label doorNo block floor")
+      .populate("hostUserId", "name phone")
+      .lean();
+
+    if (!parcel) {
+      throw new AppError("No waiting parcel found with this pickup PIN. Please check the code.", 404);
+    }
+
+    return parcel;
+  }
+
+  /**
+   * Mark parcel as collected / handed over
+   */
+  async collectParcel(societyId, parcelId, guardUserId, membership) {
+    const canManage = await this.canManageVisitors(societyId, membership);
+    const myUnitIds = await this.getMyUnitIds(membership);
+
+    const parcel = await Visitor.findOne({ _id: parcelId, societyId });
+    if (!parcel) throw new AppError("Parcel not found", 404);
+
+    const isHost = String(parcel.hostUserId) === String(guardUserId);
+    const isUnitResident = myUnitIds.includes(String(parcel.unitId));
+
+    if (!canManage && !isHost && !isUnitResident) {
+      throw new AppError("You do not have permission to mark this parcel collected", 403);
+    }
+
+    if (parcel.parcelDetails?.collectedAt) {
+      throw new AppError("This parcel has already been collected", 400);
+    }
+
+    parcel.status = "checked_out";
+    parcel.checkOutTime = new Date();
+    parcel.checkedOutBy = guardUserId;
+    if (!parcel.parcelDetails) {
+      parcel.parcelDetails = { isParcel: true, parcelCode: parcel.passcode || "" };
+    }
+    parcel.parcelDetails.collectedAt = new Date();
+    parcel.parcelDetails.collectedBy = guardUserId;
+
+    await parcel.save();
+
+    const populated = await Visitor.findById(parcel._id)
+      .populate("unitId", "label doorNo block floor")
+      .populate("hostUserId", "name phone")
+      .populate("parcelDetails.collectedBy", "name")
+      .lean();
+
+    // Broadcast real-time handover events
+    try {
+      emitToSociety(societyId, "parcel:collected", populated);
+      emitToSociety(societyId, "parcel:change", populated);
+      emitToSociety(societyId, "visitor:change", populated);
+      if (parcel.hostUserId) {
+        emitToUser(String(parcel.hostUserId), "parcel:collected", populated);
+      }
+    } catch (_) {}
+
+    return populated;
+  }
 }
 
 module.exports = new VisitorService();

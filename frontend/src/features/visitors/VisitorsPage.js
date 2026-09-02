@@ -8,6 +8,7 @@ import useSocietyStore, {
 import {
   getVisitors,
   getVisitorStats,
+  getGateParcels,
   respondVisitorApproval,
   cancelVisitorPass,
   extractApiError,
@@ -23,7 +24,7 @@ export default function VisitorsPage() {
   const activeMembership = useSocietyStore(selectActiveMembership);
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState("inside"); // 'inside' | 'expected' | 'pending' | 'history'
+  const [activeTab, setActiveTab] = useState("inside"); // 'inside' | 'expected' | 'pending' | 'parcels' | 'history'
   const [isPreApproveOpen, setIsPreApproveOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
@@ -53,6 +54,18 @@ export default function VisitorsPage() {
   });
   const stats = statsQuery.data || { inside: 0, expected: 0, pending: 0, todayTotal: 0 };
 
+  // Query Resident Gate Parcels
+  const parcelsQuery = useQuery({
+    queryKey: ["resident-parcels", activeSociety?.id],
+    queryFn: async () => (await getGateParcels({ status: "all" })).data.data,
+    enabled: Boolean(activeSociety?.id),
+    refetchInterval: 10000,
+  });
+  const residentParcels = parcelsQuery.data || [];
+  const waitingParcels = residentParcels.filter(
+    (p) => p.status === "left_at_gate" && !p.parcelDetails?.collectedAt
+  );
+
   // Query Visitors List
   const visitorsQuery = useQuery({
     queryKey: [
@@ -73,7 +86,7 @@ export default function VisitorsPage() {
           limit: 15,
         })
       ).data,
-    enabled: Boolean(activeSociety?.id),
+    enabled: Boolean(activeSociety?.id) && activeTab !== "parcels",
     refetchInterval: 10000,
   });
 
@@ -89,6 +102,7 @@ export default function VisitorsPage() {
     const handleVisitorEvent = () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["resident-parcels"] });
     };
 
     socket.on("visitor:approval_request", handleVisitorEvent);
@@ -96,6 +110,9 @@ export default function VisitorsPage() {
     socket.on("visitor:checked_in", handleVisitorEvent);
     socket.on("visitor:checked_out", handleVisitorEvent);
     socket.on("visitor:pre_approved", handleVisitorEvent);
+    socket.on("parcel:new", handleVisitorEvent);
+    socket.on("parcel:collected", handleVisitorEvent);
+    socket.on("parcel:change", handleVisitorEvent);
 
     return () => {
       socket.off("visitor:approval_request", handleVisitorEvent);
@@ -103,6 +120,9 @@ export default function VisitorsPage() {
       socket.off("visitor:checked_in", handleVisitorEvent);
       socket.off("visitor:checked_out", handleVisitorEvent);
       socket.off("visitor:pre_approved", handleVisitorEvent);
+      socket.off("parcel:new", handleVisitorEvent);
+      socket.off("parcel:collected", handleVisitorEvent);
+      socket.off("parcel:change", handleVisitorEvent);
     };
   }, [activeSociety?.id, queryClient]);
 
@@ -308,6 +328,7 @@ export default function VisitorsPage() {
               { id: "inside", label: `Inside (${stats.inside})`, icon: "sensor_door" },
               { id: "expected", label: `Expected (${stats.expected})`, icon: "event_upcoming" },
               { id: "pending", label: `Pending (${stats.pending})`, icon: "pending" },
+              { id: "parcels", label: `Gate Parcels (${waitingParcels.length})`, icon: "package_2" },
               { id: "history", label: "History & Logs", icon: "history" },
             ].map((t) => (
               <button
@@ -317,7 +338,7 @@ export default function VisitorsPage() {
                   setActiveTab(t.id);
                   setPage(1);
                 }}
-                className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-label-md font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-label-md font-bold transition-all cursor-pointer relative ${
                   activeTab === t.id
                     ? "bg-primary text-on-primary shadow-xs"
                     : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"
@@ -325,6 +346,9 @@ export default function VisitorsPage() {
               >
                 <span className="material-symbols-outlined text-[18px]">{t.icon}</span>
                 <span>{t.label}</span>
+                {t.id === "parcels" && waitingParcels.length > 0 && activeTab !== "parcels" && (
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                )}
               </button>
             ))}
           </div>
@@ -365,8 +389,120 @@ export default function VisitorsPage() {
           </div>
         </div>
 
-        {/* VISITOR CARDS GRID */}
-        {visitorsQuery.isLoading ? (
+        {/* PARCEL VIEW vs REGULAR VISITOR CARDS GRID */}
+        {activeTab === "parcels" ? (
+          <div className="space-y-6">
+            {/* Waiting for pickup section */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-title-sm font-extrabold text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[20px]">package_2</span>
+                  <span>Packages Waiting at Security Gate ({waitingParcels.length})</span>
+                </h3>
+                <span className="text-[11px] text-on-surface-variant font-medium">
+                  Show PIN to security guard to collect
+                </span>
+              </div>
+
+              {waitingParcels.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {waitingParcels.map((p) => {
+                    const pin = p.parcelDetails?.parcelCode || p.passcode || "—";
+                    return (
+                      <div
+                        key={p._id || p.id}
+                        className="rounded-2xl border-2 border-primary/40 bg-surface-container-low p-4 shadow-sm flex flex-col justify-between space-y-3 relative overflow-hidden"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold text-primary uppercase tracking-wider">
+                              {p.company || "Courier"}
+                            </span>
+                            <h4 className="text-body-md font-extrabold text-on-surface mt-1.5 truncate">
+                              {p.name || `${p.company || "Courier"} Delivery`}
+                            </h4>
+                            <p className="text-label-sm text-on-surface-variant">
+                              House <strong>{p.unitId?.label}</strong>
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-surface-container-lowest border-2 border-primary/40 px-3 py-1.5 text-center shadow-inner shrink-0">
+                            <span className="block text-[9px] font-bold uppercase text-outline">Pickup PIN</span>
+                            <span className="font-mono text-title-sm font-black text-primary tracking-wider">{pin}</span>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl bg-surface-container-lowest p-2.5 text-[12px] space-y-1 border border-outline-variant/40">
+                          <div className="flex justify-between items-center text-outline">
+                            <span>Received at Gate:</span>
+                            <span className="font-semibold text-on-surface">
+                              {p.createdAt
+                                ? new Date(p.createdAt).toLocaleTimeString("en-IN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })
+                                : "Today"}
+                            </span>
+                          </div>
+                          {p.notes && (
+                            <p className="text-on-surface-variant text-[11px] truncate italic">
+                              {p.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-outline-variant p-8 text-center text-on-surface-variant">
+                  <span className="material-symbols-outlined text-[36px] text-outline/60 mb-1 block">
+                    inventory_2
+                  </span>
+                  <p className="text-body-md font-bold text-on-surface">No Packages Currently Waiting at Gate</p>
+                  <p className="text-label-sm text-outline mt-0.5">
+                    When delivery persons leave packages with security, they will appear here with your pickup PIN.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Collected parcels history */}
+            {residentParcels.filter((p) => p.parcelDetails?.collectedAt || p.status === "checked_out").length > 0 && (
+              <div className="border-t border-outline-variant/60 pt-5">
+                <h4 className="text-title-sm font-bold text-on-surface mb-3 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-outline text-[18px]">history</span>
+                  <span>Past Collected Deliveries</span>
+                </h4>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {residentParcels
+                    .filter((p) => p.parcelDetails?.collectedAt || p.status === "checked_out")
+                    .slice(0, 6)
+                    .map((p) => (
+                      <div
+                        key={p._id || p.id}
+                        className="rounded-xl border border-outline-variant/50 bg-surface-container-lowest p-3 flex items-center justify-between text-body-sm opacity-85"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-on-surface truncate">
+                            {p.company || "Delivery"} · House {p.unitId?.label}
+                          </p>
+                          <p className="text-[11px] text-outline">
+                            Collected: {p.parcelDetails?.collectedAt ? new Date(p.parcelDetails.collectedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Collected"}
+                          </p>
+                        </div>
+                        <span className="material-symbols-outlined text-emerald-600 text-[20px] shrink-0">
+                          task_alt
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : visitorsQuery.isLoading ? (
           <div className="p-12 text-center text-on-surface-variant">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             <p className="mt-3 text-body-sm font-medium">Loading visitor logs...</p>

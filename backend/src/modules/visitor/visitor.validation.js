@@ -54,6 +54,19 @@ const queryVisitorsSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+const logParcelSchema = z.object({
+  unitId: z.string().min(1, "Destination house is required"),
+  company: z.string().max(100).optional().default("Delivery"),
+  name: z.string().max(100).optional().default("Courier Delivery"),
+  phone: z.string().max(20).optional().default(""),
+  notes: z.string().max(500).optional().default(""),
+  packageCount: z.coerce.number().int().min(1).max(50).optional().default(1),
+});
+
+const verifyPickupSchema = z.object({
+  parcelCode: z.string().min(3, "Enter valid pickup PIN").max(10),
+});
+
 module.exports = {
   preApproveVisitorSchema,
   walkInVisitorSchema,
@@ -61,4 +74,6 @@ module.exports = {
   respondApprovalSchema,
   checkOutSchema,
   queryVisitorsSchema,
+  logParcelSchema,
+  verifyPickupSchema,
 };

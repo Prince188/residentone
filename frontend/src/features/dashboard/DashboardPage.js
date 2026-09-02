@@ -9,7 +9,7 @@ import useSocietyStore, {
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
 import { getSocietyStats, listSocieties, SOCIETY_TYPE_LABELS } from "../../lib/societies";
-import { getVisitorStats, getVisitors } from "../../lib/visitors";
+import { getVisitorStats, getVisitors, getGateParcels } from "../../lib/visitors";
 import StatusBadge from "../../components/ui/StatusBadge";
 import api from "../../lib/api";
 import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
@@ -949,6 +949,14 @@ export default function DashboardPage() {
     enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
   });
 
+  const parcelsQuery = useQuery({
+    queryKey: ["resident-gate-parcels", activeSociety?.id],
+    queryFn: async () => (await getGateParcels({ status: "left_at_gate" })).data.data,
+    enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
+    refetchInterval: 8000,
+  });
+  const waitingParcels = parcelsQuery.data || [];
+
   // If user is platform Super Admin and NOT currently managing a specific society, render the Super Admin Platform Dashboard View
   if (isSuperAdmin && !isSuperAdminManaging) {
     return <SuperAdminDashboardView user={user} />;
@@ -1086,6 +1094,69 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+
+      {/* 📦 Resident Parcel Waiting at Gate Banner */}
+      {!isSocietySuspended && waitingParcels.length > 0 && (
+        <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/10 via-surface-container-lowest to-surface-container-lowest p-4 sm:p-5 shadow-sm space-y-3 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-on-primary shadow-xs">
+                <span className="material-symbols-outlined text-[24px]">package_2</span>
+              </div>
+              <div>
+                <h3 className="text-title-sm font-extrabold text-on-surface flex items-center gap-2">
+                  <span>{waitingParcels.length} Package{waitingParcels.length > 1 ? "s" : ""} Waiting at Main Gate</span>
+                  <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-black text-amber-800 uppercase tracking-wider">
+                    Ready for Pickup
+                  </span>
+                </h3>
+                <p className="text-[12px] text-on-surface-variant">
+                  Show your 4-digit pickup PIN to security at the gate desk to collect.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/visitors"
+              className="text-label-sm font-bold text-primary hover:underline flex items-center gap-1 no-underline"
+            >
+              <span>View All Visitors & Parcels</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {waitingParcels.map((p) => {
+              const pin = p.parcelDetails?.parcelCode || p.passcode || "—";
+              return (
+                <div
+                  key={p._id || p.id}
+                  className="rounded-xl border border-outline-variant/80 bg-surface-container-low p-3.5 shadow-xs flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-primary">
+                        local_shipping
+                      </span>
+                      <span className="font-extrabold text-on-surface text-body-sm truncate">
+                        {p.company || "Delivery Package"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant mt-0.5">
+                      House {p.unitId?.label} · {p.createdAt ? timeAgo(p.createdAt) : "Today"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-surface-container-lowest border border-primary/30 px-3 py-1.5 text-center shadow-inner shrink-0">
+                    <span className="block text-[9px] font-bold uppercase text-outline">Pickup PIN</span>
+                    <span className="font-mono text-title-sm font-black text-primary tracking-wider">{pin}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {!isSocietySuspended && maintenanceAlert && (
         <Link

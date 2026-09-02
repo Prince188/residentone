@@ -18,6 +18,13 @@ export const respondVisitorApproval = (id, action) => {
 export const cancelVisitorPass = (id) => api.delete(`/visitors/${id}`);
 export const getPublicVisitorPass = (id) => api.get(`/visitors/pass/${id}/public`);
 
+// Parcel Hub APIs
+export const getGateParcels = (params) => api.get("/visitors/parcels", { params });
+export const logGateParcel = (payload) => api.post("/visitors/parcels/log", payload);
+export const verifyParcelPickupCode = (parcelCode) =>
+  api.post("/visitors/parcels/verify-pickup", { parcelCode });
+export const collectGateParcel = (id) => api.post(`/visitors/parcels/${id}/collect`);
+
 export function extractApiError(err, fallback = "Operation failed") {
   return (
     err?.response?.data?.error?.message ||
