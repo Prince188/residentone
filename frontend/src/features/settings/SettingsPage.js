@@ -2,11 +2,10 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import useAuthStore from "../../stores/auth.store";
-import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { changePassword, extractApiError } from "../../lib/userSettings";
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("security"); // "security" | "account" | "session"
+  const [activeTab, setActiveTab] = useState("security"); // "security" | "notifications" | "session"
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -16,11 +15,39 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const user = useAuthStore((state) => state.user);
+  // Notification Preferences (stored in localStorage or user settings)
+  const [preferences, setPreferences] = useState(() => {
+    const saved = localStorage.getItem("residentone_notification_prefs");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return {
+      notices: true,
+      maintenance: true,
+      complaints: true,
+      amenities: true,
+      polls: true,
+      visitors: true,
+      chat: true,
+    };
+  });
+
+  const [prefSavedMsg, setPrefSavedMsg] = useState("");
+
   const logout = useAuthStore((state) => state.logout);
-  const activeSociety = useSocietyStore(selectActiveSociety);
-  const activeMembership = useSocietyStore(selectActiveMembership);
   const navigate = useNavigate();
+
+  const handleTogglePref = (key) => {
+    setPreferences((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      localStorage.setItem("residentone_notification_prefs", JSON.stringify(updated));
+      setPrefSavedMsg("Preferences saved");
+      setTimeout(() => setPrefSavedMsg(""), 2500);
+      return updated;
+    });
+  };
 
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
@@ -44,7 +71,7 @@ export default function SettingsPage() {
     },
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmitPassword = (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -91,16 +118,16 @@ export default function SettingsPage() {
           Settings & Security
         </h1>
         <p className="page-subtitle">
-          Manage your account security, password, and active session
+          Manage your password, alert preferences, and active sessions
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-outline-variant/60 gap-4 sm:gap-6">
+      <div className="flex border-b border-outline-variant/60 gap-4 sm:gap-6 overflow-x-auto pb-0.5 scrollbar-thin">
         <button
           type="button"
           onClick={() => setActiveTab("security")}
-          className={`flex items-center gap-2 pb-3 text-body-md font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 pb-3 text-body-md font-semibold transition-colors cursor-pointer shrink-0 ${
             activeTab === "security"
               ? "border-b-2 border-primary text-primary"
               : "text-on-surface-variant hover:text-on-surface"
@@ -112,21 +139,21 @@ export default function SettingsPage() {
 
         <button
           type="button"
-          onClick={() => setActiveTab("account")}
-          className={`flex items-center gap-2 pb-3 text-body-md font-semibold transition-colors cursor-pointer ${
-            activeTab === "account"
+          onClick={() => setActiveTab("notifications")}
+          className={`flex items-center gap-2 pb-3 text-body-md font-semibold transition-colors cursor-pointer shrink-0 ${
+            activeTab === "notifications"
               ? "border-b-2 border-primary text-primary"
               : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
-          <span className="material-symbols-outlined text-[20px]">badge</span>
-          <span>Account Overview</span>
+          <span className="material-symbols-outlined text-[20px]">notifications_active</span>
+          <span>Notification Preferences</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("session")}
-          className={`flex items-center gap-2 pb-3 text-body-md font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 pb-3 text-body-md font-semibold transition-colors cursor-pointer shrink-0 ${
             activeTab === "session"
               ? "border-b-2 border-primary text-primary"
               : "text-on-surface-variant hover:text-on-surface"
@@ -181,7 +208,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4 max-w-lg">
+            <form onSubmit={handleSubmitPassword} className="mt-6 space-y-4 max-w-lg">
               {/* Current Password */}
               <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">
@@ -315,67 +342,168 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* TAB 2: Account Overview */}
-      {activeTab === "account" && (
+      {/* TAB 2: Notification Preferences */}
+      {activeTab === "notifications" && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-7 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-title-md font-bold text-on-surface">Personal Information</h2>
+                <h2 className="text-title-md font-bold text-on-surface">Notification & Alert Channels</h2>
                 <p className="mt-0.5 text-body-sm text-on-surface-variant">
-                  Basic details linked to your ResidentOne account
+                  Choose which types of alerts you receive via real-time banners and notifications
                 </p>
               </div>
-              <Link
-                to="/profile"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2 text-label-md font-semibold text-primary hover:bg-primary/10 transition-colors no-underline"
-              >
-                <span className="material-symbols-outlined text-[18px]">edit</span>
-                <span>Edit Profile</span>
-              </Link>
+              {prefSavedMsg && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-label-sm font-semibold text-emerald-800 border border-emerald-200 animate-in fade-in">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-600">check</span>
+                  {prefSavedMsg}
+                </span>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2 border-t border-outline-variant/60">
-              <div className="rounded-xl border border-outline-variant/50 bg-surface-container-low p-4">
-                <span className="text-label-sm text-outline">Full Name</span>
-                <p className="mt-0.5 text-body-md font-bold text-on-surface">
-                  {user?.name || "—"}
-                </p>
+            <div className="divide-y divide-outline-variant/60">
+              {/* Notice Announcements */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-start gap-3.5 pr-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                    <span className="material-symbols-outlined text-[22px]">campaign</span>
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-semibold text-on-surface">Society Announcements & Notices</h3>
+                    <p className="text-body-xs text-on-surface-variant mt-0.5">
+                      Get notified whenever the committee publishes emergency updates or general circulars
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={preferences.notices}
+                    onChange={() => handleTogglePref("notices")}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
 
-              <div className="rounded-xl border border-outline-variant/50 bg-surface-container-low p-4">
-                <span className="text-label-sm text-outline">Email Address</span>
-                <p className="mt-0.5 text-body-md font-bold text-on-surface">
-                  {user?.email || "—"}
-                </p>
+              {/* Maintenance & Dues */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-start gap-3.5 pr-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <span className="material-symbols-outlined text-[22px]">receipt_long</span>
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-semibold text-on-surface">Maintenance & Payment Dues</h3>
+                    <p className="text-body-xs text-on-surface-variant mt-0.5">
+                      Receive reminders when new billing cycles are generated or payments are confirmed
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={preferences.maintenance}
+                    onChange={() => handleTogglePref("maintenance")}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
 
-              <div className="rounded-xl border border-outline-variant/50 bg-surface-container-low p-4">
-                <span className="text-label-sm text-outline">Phone Number</span>
-                <p className="mt-0.5 text-body-md font-bold text-on-surface">
-                  {user?.phone || "—"}
-                </p>
+              {/* Complaints & Tickets */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-start gap-3.5 pr-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
+                    <span className="material-symbols-outlined text-[22px]">handyman</span>
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-semibold text-on-surface">Complaints & Helpdesk Tickets</h3>
+                    <p className="text-body-xs text-on-surface-variant mt-0.5">
+                      Instant alerts when your complaint is assigned, updated to In Progress, or Resolved
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={preferences.complaints}
+                    onChange={() => handleTogglePref("complaints")}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
 
-              <div className="rounded-xl border border-outline-variant/50 bg-surface-container-low p-4">
-                <span className="text-label-sm text-outline">Current Society</span>
-                <p className="mt-0.5 text-body-md font-bold text-on-surface truncate">
-                  {activeSociety?.name || "None Selected"}
-                </p>
+              {/* Amenity Bookings */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-start gap-3.5 pr-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                    <span className="material-symbols-outlined text-[22px]">pool</span>
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-semibold text-on-surface">Facility & Amenity Bookings</h3>
+                    <p className="text-body-xs text-on-surface-variant mt-0.5">
+                      Confirmations and reminders for Clubhouse, Swimming Pool, or Tennis Court slots
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={preferences.amenities}
+                    onChange={() => handleTogglePref("amenities")}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
 
-              <div className="rounded-xl border border-outline-variant/50 bg-surface-container-low p-4">
-                <span className="text-label-sm text-outline">Society Role</span>
-                <p className="mt-0.5 text-body-md font-bold text-primary capitalize">
-                  {activeMembership?.role?.replace("_", " ") || "Resident"}
-                </p>
+              {/* Polls & Surveys */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-start gap-3.5 pr-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                    <span className="material-symbols-outlined text-[22px]">how_to_vote</span>
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-semibold text-on-surface">Community Polls & Surveys</h3>
+                    <p className="text-body-xs text-on-surface-variant mt-0.5">
+                      Alerts when new community ballots or feedback surveys are opened for your flat
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={preferences.polls}
+                    onChange={() => handleTogglePref("polls")}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
 
-              <div className="rounded-xl border border-outline-variant/50 bg-surface-container-low p-4">
-                <span className="text-label-sm text-outline">Account Role</span>
-                <p className="mt-0.5 text-body-md font-bold text-on-surface">
-                  {Array.isArray(user?.role) ? user.role.join(", ") : user?.role || "Resident"}
-                </p>
+              {/* Visitor Gate Alerts */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-start gap-3.5 pr-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                    <span className="material-symbols-outlined text-[22px]">badge</span>
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-semibold text-on-surface">Visitor & Gate Entry Alerts</h3>
+                    <p className="text-body-xs text-on-surface-variant mt-0.5">
+                      Instant notifications when deliveries, cabs, or guests arrive at the security gate
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={preferences.visitors}
+                    onChange={() => handleTogglePref("visitors")}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
             </div>
           </div>
