@@ -2,7 +2,7 @@ const express = require("express");
 const userController = require("./user.controller");
 const { authenticate } = require("../../middlewares/auth.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
-const { updateProfileSchema } = require("./user.validation");
+const { updateProfileSchema, changePasswordSchema } = require("./user.validation");
 
 const router = express.Router();
 
@@ -12,6 +12,12 @@ router.patch(
   authenticate,
   validate(updateProfileSchema),
   (req, res, next) => userController.updateProfile(req, res, next)
+);
+router.post(
+  "/change-password",
+  authenticate,
+  validate(changePasswordSchema),
+  (req, res, next) => userController.changePassword(req, res, next)
 );
 
 module.exports = router;

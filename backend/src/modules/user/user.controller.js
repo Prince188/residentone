@@ -33,6 +33,16 @@ class UserController {
       next(error);
     }
   }
+
+  async changePassword(req, res, next) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const result = await userService.changePassword(req.userId, currentPassword, newPassword);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UserController();
