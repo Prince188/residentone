@@ -10,7 +10,14 @@ class UserController {
           error: { code: "NOT_FOUND", message: "User not found" },
         });
       }
-      res.json({ success: true, data: user });
+      const userObj = user.toObject ? user.toObject() : { ...user };
+      try {
+        const { FamilyMember } = require("../family-member/family-member.model");
+        const familyCount = await FamilyMember.countDocuments({ addedBy: user._id, isActive: true });
+        userObj.familyMembers = familyCount;
+      } catch (_) {}
+
+      res.json({ success: true, data: userObj });
     } catch (error) {
       next(error);
     }

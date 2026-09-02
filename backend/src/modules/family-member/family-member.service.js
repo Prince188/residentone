@@ -57,6 +57,13 @@ class FamilyMemberService {
       relation: data.relation || "other",
       phone: data.phone || "",
     });
+
+    try {
+      const { User } = require("../user/user.model");
+      const count = await FamilyMember.countDocuments({ addedBy: userId, isActive: true });
+      await User.findByIdAndUpdate(userId, { familyMembers: count });
+    } catch (_) {}
+
     return member;
   }
 
@@ -83,6 +90,13 @@ class FamilyMemberService {
     }
     doc.isActive = false;
     await doc.save();
+
+    try {
+      const { User } = require("../user/user.model");
+      const count = await FamilyMember.countDocuments({ addedBy: userId, isActive: true });
+      await User.findByIdAndUpdate(userId, { familyMembers: count });
+    } catch (_) {}
+
     return doc;
   }
 
