@@ -15,7 +15,6 @@ class NoticeService {
       const { notificationService } = require("../notification/notification.service");
       notificationService.broadcastNotification({
         societyId,
-        excludeUserId: userId,
         title: "New Notice Published",
         body: notice.title,
         type: "notice",

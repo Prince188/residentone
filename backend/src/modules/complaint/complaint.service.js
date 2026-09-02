@@ -81,7 +81,6 @@ class ComplaintService {
       const { notificationService } = require("../notification/notification.service");
       notificationService.broadcastNotification({
         societyId,
-        excludeUserId: userId,
         targetRoles: ["society_admin", "super_admin", "helpdesk_manager", "manager", "committee_member"],
         title: "New Complaint Ticket Raised",
         body: `${complaint.raisedBy?.name || "A resident"} raised: "${complaint.title}"`,

@@ -81,7 +81,10 @@ class NotificationService {
     if (!recipients || !recipients.length) {
       const query = { societyId, isActive: true };
       if (targetRoles && targetRoles.length) {
-        query.role = { $in: targetRoles };
+        query.$or = [
+          { role: { $in: targetRoles } },
+          { additionalRoles: { $in: targetRoles } },
+        ];
       }
       const memberships = await Membership.find(query).select("userId").lean();
       recipients = memberships.map((m) => String(m.userId));

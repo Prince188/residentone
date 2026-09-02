@@ -66,7 +66,6 @@ class SurveyService {
       const { notificationService } = require("../notification/notification.service");
       notificationService.broadcastNotification({
         societyId,
-        excludeUserId: userId,
         title: "New Community Survey",
         body: survey.title,
         type: "survey",

@@ -126,7 +126,6 @@ class MaintenanceService {
       const mName = monthNames[(created.month - 1) % 12] || `Month ${created.month}`;
       notificationService.broadcastNotification({
         societyId,
-        excludeUserId: userId,
         title: `Maintenance Dues: ${mName} ${created.year}`,
         body: `New maintenance bill generated. Due date: ${new Date(created.dueDate).toLocaleDateString()}.`,
         type: "maintenance",

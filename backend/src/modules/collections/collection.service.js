@@ -33,7 +33,6 @@ class CollectionService {
       const { notificationService } = require("../notification/notification.service");
       notificationService.broadcastNotification({
         societyId,
-        excludeUserId: userId,
         title: `New Collection Fund: ${collection.title}`,
         body: `Target per unit: ₹${collection.amount}. Due: ${new Date(collection.dueDate).toLocaleDateString()}.`,
         type: "collection",
