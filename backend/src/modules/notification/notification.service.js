@@ -152,7 +152,7 @@ class NotificationService {
       userId,
     };
 
-    if (unreadOnly) {
+    if (unreadOnly === true || unreadOnly === "true") {
       query.isRead = false;
     }
 
