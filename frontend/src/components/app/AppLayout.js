@@ -4,6 +4,7 @@ import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import NotificationToastContainer, { showNotificationToast } from "../notifications/NotificationToastContainer";
 import { getAccessToken, getSocketUrl } from "../../lib/api";
 import useSocietyStore from "../../stores/society.store";
 
@@ -161,6 +162,24 @@ export default function AppLayout() {
       queryClient.invalidateQueries({ queryKey: ["society-permissions"] });
     });
 
+    socket.on("notification:new", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-dropdown"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-list"] });
+      if (data) {
+        showNotificationToast(data);
+      }
+    });
+
+    socket.on("notification:broadcast", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-dropdown"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-list"] });
+      if (data) {
+        showNotificationToast(data);
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -168,6 +187,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-surface">
+      <NotificationToastContainer />
       <Sidebar
         isCollapsed={isCollapsed}
         onToggleCollapse={toggleCollapse}

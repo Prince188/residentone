@@ -120,6 +120,21 @@ class MaintenanceService {
       console.error("Auto-apply advance on createCycle failed", e?.message);
     }
 
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mName = monthNames[(created.month - 1) % 12] || `Month ${created.month}`;
+      notificationService.broadcastNotification({
+        societyId,
+        excludeUserId: userId,
+        title: `Maintenance Dues: ${mName} ${created.year}`,
+        body: `New maintenance bill generated. Due date: ${new Date(created.dueDate).toLocaleDateString()}.`,
+        type: "maintenance",
+        link: "/maintenance",
+        metadata: { cycleId: String(created._id), month: created.month, year: created.year },
+      }).catch(() => {});
+    } catch (_) {}
+
     return created;
   }
 
@@ -367,7 +382,7 @@ class MaintenanceService {
     const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
     const finalAmount = baseAmount + appliedLateCharge;
 
-    return MaintenancePayment.findOneAndUpdate(
+    const paymentRecord = await MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
       {
         societyId,
@@ -387,6 +402,24 @@ class MaintenanceService {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
+
+    try {
+      const targetUser = unit.tenantId || unit.ownerId;
+      if (targetUser) {
+        const { notificationService } = require("../notification/notification.service");
+        notificationService.createNotification({
+          societyId,
+          userId: targetUser,
+          title: "Maintenance Payment Recorded",
+          body: `Payment of ₹${finalAmount} recorded for Flat ${unit.label} (${receiptNo}).`,
+          type: "maintenance",
+          link: `/maintenance/${unitId}`,
+          metadata: { cycleId: String(cycle._id), unitId: String(unitId), receiptNo },
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
+    return paymentRecord;
   }
 
   // Razorpay: create order for online payment (fee passed to resident) - supports advance months
@@ -550,6 +583,19 @@ class MaintenanceService {
         console.error("Advance auto-apply failed", e?.message);
       }
     }
+
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.createNotification({
+        societyId,
+        userId,
+        title: "Maintenance Payment Successful",
+        body: `Payment of ₹${updated.totalAmount || updated.amount} for Flat ${unit.label} has been confirmed. Receipt: ${updated.receiptNo}.`,
+        type: "maintenance",
+        link: `/maintenance/${unitId}`,
+        metadata: { cycleId: String(cycle._id), unitId: String(unitId), receiptNo: updated.receiptNo },
+      }).catch(() => {});
+    } catch (_) {}
 
     return updated;
   }

@@ -60,7 +60,20 @@ class SurveyService {
       scope,
       wing,
     });
-    try { const s = require("../../socket"); s.emitToSociety(String(societyId), "survey:change", { id: survey._id, action: "create" }); } catch (_) {}
+    try {
+      const s = require("../../socket");
+      s.emitToSociety(String(societyId), "survey:change", { id: survey._id, action: "create" });
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.broadcastNotification({
+        societyId,
+        excludeUserId: userId,
+        title: "New Community Survey",
+        body: survey.title,
+        type: "survey",
+        link: `/surveys/${survey._id}`,
+        metadata: { surveyId: String(survey._id) },
+      }).catch(() => {});
+    } catch (_) {}
     return survey;
   }
 

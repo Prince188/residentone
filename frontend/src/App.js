@@ -63,6 +63,7 @@ import CollectionsHistoryPage from "./features/collections/CollectionsHistoryPag
 import PayCollectionsPage from "./features/collections/PayCollectionsPage";
 import ManageSocietyPage from "./features/society/ManageSocietyPage";
 import ManageWingPage from "./features/wing/ManageWingPage";
+import NotificationsPage from "./features/notifications/NotificationsPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
 
 function App() {
@@ -138,6 +139,7 @@ function App() {
               <Route path="/my-unit" element={<MyUnitPage />} />
               <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/help" element={<HelpPage />} />
               <Route

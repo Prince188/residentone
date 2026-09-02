@@ -64,6 +64,20 @@ class PollService {
       scope,
       wing,
     });
+
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.broadcastNotification({
+        societyId,
+        excludeUserId: userId,
+        title: "New Community Poll",
+        body: poll.question,
+        type: "poll",
+        link: `/polls/${poll._id}`,
+        metadata: { pollId: String(poll._id) },
+      }).catch(() => {});
+    } catch (_) {}
+
     return poll;
   }
 

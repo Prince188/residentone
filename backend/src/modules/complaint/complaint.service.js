@@ -77,6 +77,20 @@ class ComplaintService {
       { path: "unitId", select: "label block" },
     ]);
 
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.broadcastNotification({
+        societyId,
+        excludeUserId: userId,
+        targetRoles: ["society_admin", "super_admin", "helpdesk_manager", "manager", "committee_member"],
+        title: "New Complaint Ticket Raised",
+        body: `${complaint.raisedBy?.name || "A resident"} raised: "${complaint.title}"`,
+        type: "complaint",
+        link: `/complaints/${complaint._id}`,
+        metadata: { complaintId: String(complaint._id) },
+      }).catch(() => {});
+    } catch (_) {}
+
     return complaint;
   }
 
@@ -219,6 +233,22 @@ class ComplaintService {
       { path: "assignedTo", select: "name phone" },
       { path: "unitId", select: "label block" },
     ]);
+
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      if (complaint.raisedBy?._id && String(complaint.raisedBy._id) !== String(userId)) {
+        notificationService.createNotification({
+          societyId,
+          userId: complaint.raisedBy._id,
+          title: `Complaint Status: ${newStatus.replace("_", " ").toUpperCase()}`,
+          body: `Your ticket "${complaint.title}" is now ${newStatus.replace("_", " ")}.`,
+          type: "complaint",
+          link: `/complaints/${complaint._id}`,
+          metadata: { complaintId: String(complaint._id), status: newStatus },
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
     return this.mapComplaint(complaint);
   }
 
@@ -245,6 +275,33 @@ class ComplaintService {
       { path: "assignedTo", select: "name phone" },
       { path: "unitId", select: "label block" },
     ]);
+
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      if (assignedTo) {
+        notificationService.createNotification({
+          societyId,
+          userId: assignedTo,
+          title: "Complaint Ticket Assigned",
+          body: `You have been assigned complaint: "${complaint.title}"`,
+          type: "complaint",
+          link: `/complaints/${complaint._id}`,
+          metadata: { complaintId: String(complaint._id) },
+        }).catch(() => {});
+      }
+      if (complaint.raisedBy?._id) {
+        notificationService.createNotification({
+          societyId,
+          userId: complaint.raisedBy._id,
+          title: "Complaint Assigned to Staff",
+          body: `Your ticket "${complaint.title}" was assigned to ${complaint.assignedTo?.name || "staff"}.`,
+          type: "complaint",
+          link: `/complaints/${complaint._id}`,
+          metadata: { complaintId: String(complaint._id) },
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
     return this.mapComplaint(complaint);
   }
 

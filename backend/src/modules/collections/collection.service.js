@@ -30,6 +30,16 @@ class CollectionService {
     try {
       const socketHelper = require("../../socket");
       socketHelper.emitToSociety(String(societyId), "collection:change", { id: collection._id, action: "create" });
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.broadcastNotification({
+        societyId,
+        excludeUserId: userId,
+        title: `New Collection Fund: ${collection.title}`,
+        body: `Target per unit: ₹${collection.amount}. Due: ${new Date(collection.dueDate).toLocaleDateString()}.`,
+        type: "collection",
+        link: `/collections/${collection._id}`,
+        metadata: { collectionId: String(collection._id) },
+      }).catch(() => {});
     } catch (_) {}
     return collection;
   }
@@ -364,6 +374,20 @@ class CollectionService {
     ).lean();
     if (!updated) throw new AppError("Failed to record payment", 500);
     await this.checkAndAutoCloseCollection(societyId, collection._id);
+
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.createNotification({
+        societyId,
+        userId,
+        title: "Collection Contribution Received",
+        body: `Payment of ₹${updated.totalAmount || updated.amount} for "${collection.title}" confirmed. Receipt: ${receiptNo}.`,
+        type: "collection",
+        link: `/collections/${collection._id}`,
+        metadata: { collectionId: String(collection._id), receiptNo },
+      }).catch(() => {});
+    } catch (_) {}
+
     return updated;
   }
 

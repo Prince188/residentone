@@ -89,6 +89,18 @@ export default function UserMenu() {
               role="menuitem"
               onClick={() => {
                 setIsOpen(false);
+                navigate("/notifications");
+              }}
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-body-sm text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              Notifications
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setIsOpen(false);
                 navigate("/settings");
               }}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-body-sm text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer"

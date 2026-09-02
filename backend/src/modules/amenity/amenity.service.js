@@ -121,6 +121,19 @@ class AmenityService {
       amount: amenity.type === "paid" ? amenity.price : 0,
     });
 
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.createNotification({
+        societyId,
+        userId,
+        title: "Amenity Booking Confirmed",
+        body: `Booking confirmed for ${amenity.name} on ${data.date} (${slot === "full_day" ? "Full Day" : slot}).`,
+        type: "amenity",
+        link: "/amenities/history",
+        metadata: { bookingId: String(booking._id), amenityId: String(amenityId) },
+      }).catch(() => {});
+    } catch (_) {}
+
     return booking;
   }
 
@@ -138,8 +151,23 @@ class AmenityService {
       throw new AppError("You can only cancel your own bookings", 403);
     }
     if (booking.status === "cancelled") throw new AppError("Already cancelled", 400);
+
     booking.status = "cancelled";
     await booking.save();
+
+    try {
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.createNotification({
+        societyId,
+        userId: booking.userId,
+        title: "Amenity Booking Cancelled",
+        body: `Your booking for ${booking.date} (${booking.slot}) has been cancelled.`,
+        type: "amenity",
+        link: "/amenities/history",
+        metadata: { bookingId: String(booking._id) },
+      }).catch(() => {});
+    } catch (_) {}
+
     return booking;
   }
 

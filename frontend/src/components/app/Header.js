@@ -3,6 +3,7 @@ import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
 import SocietySelector from "./SocietySelector";
 import UserMenu from "./UserMenu";
+import NotificationBell from "../notifications/NotificationBell";
 
 export default function Header({ onMenuClick }) {
   const navigate = useNavigate();
@@ -82,14 +83,7 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="shrink-0 flex items-center gap-1 md:gap-2">
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[22px]">notifications</span>
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-error" />
-        </button>
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

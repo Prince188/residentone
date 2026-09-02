@@ -12,6 +12,16 @@ class NoticeService {
     try {
       const s = require("../../socket");
       if (s.emitToSociety) s.emitToSociety(String(societyId), "notice:change", { action: "create", id: notice._id });
+      const { notificationService } = require("../notification/notification.service");
+      notificationService.broadcastNotification({
+        societyId,
+        excludeUserId: userId,
+        title: "New Notice Published",
+        body: notice.title,
+        type: "notice",
+        link: "/notices",
+        metadata: { noticeId: String(notice._id) },
+      }).catch(() => {});
     } catch (_) {}
     return notice;
   }

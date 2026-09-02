@@ -224,12 +224,11 @@ The tenant plugin needs societyId from the request. Mongoose hooks don't have ac
 
 ### 0.14 Notification Abstraction
 
-- [ ] Create `backend/src/shared/services/notification/` directory
-- [ ] Define interface: sendInApp(userId, notification), sendPush(userId), sendEmail(userId)
-- [ ] Create `backend/src/modules/notification/notification.model.js`
-  - Fields: userId, societyId, title, body, type, isRead, metadata, timestamps
-- [ ] Implement in-app notification service (stores in MongoDB)
-- [ ] Stub push and email providers (log only)
+- [x] Create `backend/src/modules/notification/notification.model.js`
+  - Fields: userId, societyId, title, body, type, isRead, readAt, metadata, timestamps
+- [x] Implement in-app notification service (stores in MongoDB + Socket.IO real-time emission)
+- [x] Create notification endpoints: GET /notifications, GET /unread-count, PATCH /:id/read, PATCH /read-all, DELETE /:id, DELETE /clear-all
+- [x] Broadcast notification hooks in notices, maintenance, collections, complaints, amenities, polls, surveys
 
 ### 0.15 Socket.IO Room Strategy
 
@@ -340,8 +339,9 @@ The tenant plugin needs societyId from the request. Mongoose hooks don't have ac
 
 ### 2.6 Notifications
 
-- [ ] Connect notification model to UI
-- [ ] Frontend: notification bell, list page
+- [x] Connect notification model to UI
+- [x] Frontend: notification bell with interactive dropdown, live badge counter, and toast alerts
+- [x] Frontend: dedicated Notification Center page (`/notifications`) with filters, search, and bulk management
 
 ---
 
