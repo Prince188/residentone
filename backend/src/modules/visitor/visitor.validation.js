@@ -29,7 +29,16 @@ const verifyPasscodeSchema = z.object({
 });
 
 const respondApprovalSchema = z.object({
-  action: z.enum(["approve", "reject", "leave_at_gate"]),
+  action: z.enum([
+    "approve",
+    "approved",
+    "reject",
+    "rejected",
+    "deny",
+    "denied",
+    "leave_at_gate",
+    "gate",
+  ]),
 });
 
 const checkOutSchema = z.object({

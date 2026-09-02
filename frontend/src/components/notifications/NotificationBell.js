@@ -11,6 +11,9 @@ import {
   getNotificationTypeConfig,
   formatTimeAgo,
 } from "../../lib/notifications";
+import { respondVisitorApproval } from "../../lib/visitors";
+import sound from "../../lib/sound";
+import toast from "../../lib/toast";
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
@@ -101,6 +104,30 @@ export default function NotificationBell() {
     setIsOpen(false);
     if (notification.link) {
       navigate(notification.link);
+    }
+  };
+
+  const handleVisitorAction = async (e, n, visitorId, action) => {
+    e.stopPropagation();
+    if (!n.isRead) {
+      markReadMutation.mutate(n.id);
+    }
+    try {
+      await respondVisitorApproval(visitorId, action);
+      if (action === "approved" || action === "approve") {
+        sound.playSuccess();
+        toast.success("Entry Approved", "Security gate informed.");
+      } else if (action === "leave_at_gate") {
+        sound.playSuccess();
+        toast.success("Marked: Leave at Gate", "Security guard will hold parcel.");
+      } else {
+        sound.playAlert();
+        toast.error("Entry Denied", "Security gate informed.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || "Failed to update visitor status");
     }
   };
 
@@ -261,6 +288,42 @@ export default function NotificationBell() {
                           </span>
                         )}
                       </div>
+
+                      {/* 1-Tap Quick Action Buttons for Visitor Requests */}
+                      {(() => {
+                        const visitorId = n.metadata?.visitorId || n.data?.visitorId || n.visitorId;
+                        if (!visitorId) return null;
+                        return (
+                          <div className="mt-2.5 flex items-center gap-1.5 pt-1.5 border-t border-outline-variant/40">
+                            <button
+                              type="button"
+                              onClick={(e) => handleVisitorAction(e, n, visitorId, "approved")}
+                              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700 shadow-xs transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">check</span>
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleVisitorAction(e, n, visitorId, "leave_at_gate")}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-300 bg-sky-50 px-2 py-1 text-[11px] font-bold text-sky-900 hover:bg-sky-100 transition-colors cursor-pointer"
+                              title="Leave at Gate"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">inventory_2</span>
+                              <span>Gate</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleVisitorAction(e, n, visitorId, "rejected")}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-error/30 bg-error/10 px-2 py-1 text-[11px] font-bold text-error hover:bg-error/20 transition-colors cursor-pointer"
+                              title="Deny Entry"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">close</span>
+                              <span>Deny</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Unread indicator & Delete */}

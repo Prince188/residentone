@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
 import SocietySelector from "./SocietySelector";
 import UserMenu from "./UserMenu";
 import NotificationBell from "../notifications/NotificationBell";
+import sound from "../../lib/sound";
 
 export default function Header({ onMenuClick }) {
   const navigate = useNavigate();
@@ -12,6 +14,19 @@ export default function Header({ onMenuClick }) {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const isSuperAdminManaging = useSocietyStore((state) => state.isSuperAdminManaging);
   const exitSuperAdminSocietyMode = useSocietyStore((state) => state.exitSuperAdminSocietyMode);
+
+  const [isMuted, setIsMuted] = useState(sound.isMuted());
+
+  useEffect(() => {
+    return sound.subscribeMute((muted) => setIsMuted(muted));
+  }, []);
+
+  const handleToggleSound = () => {
+    const next = sound.toggleMute();
+    if (!next) {
+      sound.playNotification();
+    }
+  };
 
   const handleExitSocietyMode = () => {
     exitSuperAdminSocietyMode();
@@ -83,6 +98,20 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="shrink-0 flex items-center gap-1 md:gap-2">
+        <button
+          type="button"
+          onClick={handleToggleSound}
+          title={isMuted ? "Audio Muted - Click to Unmute" : "Audio Alerts Active - Click to Mute"}
+          className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            isMuted
+              ? "text-outline hover:text-on-surface hover:bg-surface-container-high"
+              : "text-primary hover:bg-primary/10"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[22px]">
+            {isMuted ? "volume_off" : "volume_up"}
+          </span>
+        </button>
         <NotificationBell />
         <UserMenu />
       </div>

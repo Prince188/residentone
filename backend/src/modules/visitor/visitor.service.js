@@ -2,6 +2,7 @@ const { Visitor } = require("./visitor.model");
 const { Unit } = require("../unit/unit.model");
 const { Society } = require("../society/society.model");
 const { User } = require("../user/user.model");
+const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
 const { hasPermission } = require("../../shared/permissions");
 const { notificationService } = require("../notification/notification.service");
@@ -159,25 +160,48 @@ class VisitorService {
       .populate("societyId", "name address city")
       .lean();
 
-    // Broadcast real-time approval request to society & resident
+    // Find all residents/family members attached to this specific house
+    const unitMemberships = await Membership.find({
+      societyId,
+      units: targetUnitId,
+      status: "active",
+    }).select("userId").lean();
+
+    const targetUserIds = new Set();
+    if (hostUserId) targetUserIds.add(String(hostUserId));
+    unitMemberships.forEach((m) => {
+      if (m.userId) targetUserIds.add(String(m.userId));
+    });
+
+    // Targeted socket emission ONLY to residents of this specific house
     try {
-      emitToSociety(societyId, "visitor:approval_request", populated);
+      targetUserIds.forEach((uid) => {
+        emitToUser(uid, "visitor:approval_request", populated);
+        emitToUser(uid, "visitor:change", populated);
+      });
+      // General update for list query invalidation across society (without ringing modal)
       emitToSociety(societyId, "visitor:change", populated);
-      emitToUser(String(hostUserId), "visitor:approval_request", populated);
-      emitToUser(String(hostUserId), "visitor:change", populated);
     } catch (_) {}
 
-    // Send in-app notification to host resident
+    // Send in-app notification to all house residents
     try {
       const typeLabel = data.visitorType ? data.visitorType.toUpperCase() : "VISITOR";
-      await notificationService.createNotification({
-        societyId,
-        userId: hostUserId,
-        type: "general",
-        title: `Gate Alert: ${populated.name} at Main Gate`,
-        message: `${populated.name} (${typeLabel}${populated.company ? ` · ${populated.company}` : ""}) is requesting entry to House ${unit.label}.`,
-        link: "/visitors",
-      });
+      for (const uid of targetUserIds) {
+        await notificationService.createNotification({
+          societyId,
+          userId: uid,
+          type: "visitor",
+          title: `Gate Alert: ${populated.name} at Main Gate`,
+          message: `${populated.name} (${typeLabel}${populated.company ? ` · ${populated.company}` : ""}) is requesting entry to House ${unit.label}.`,
+          link: "/visitors",
+          metadata: {
+            visitorId: String(populated._id),
+            status: populated.status,
+            visitorType: populated.visitorType,
+            name: populated.name,
+          },
+        });
+      }
     } catch (_) {}
 
     return populated;
@@ -196,12 +220,13 @@ class VisitorService {
       throw new AppError("You do not have permission to approve/deny visitors for this house", 403);
     }
 
-    if (action === "approve") {
+    const normAction = String(action || "").toLowerCase().trim();
+    if (normAction === "approve" || normAction === "approved") {
       visitor.status = "approved";
       visitor.approvedBy = residentUserId;
-    } else if (action === "reject") {
+    } else if (normAction === "reject" || normAction === "rejected" || normAction === "deny" || normAction === "denied") {
       visitor.status = "rejected";
-    } else if (action === "leave_at_gate") {
+    } else if (normAction === "leave_at_gate" || normAction === "gate") {
       visitor.status = "left_at_gate";
       if (!visitor.parcelDetails?.parcelCode) {
         visitor.parcelDetails = {
@@ -222,7 +247,7 @@ class VisitorService {
       .populate("approvedBy", "name")
       .lean();
 
-    // Broadcast real-time response to Gate Guards & Resident
+    // Broadcast real-time response to Gate Guards & Residents
     try {
       emitToSociety(societyId, "visitor:approval_response", populated);
       emitToSociety(societyId, "visitor:change", populated);

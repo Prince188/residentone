@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getNotificationTypeConfig } from "../../lib/notifications";
+import { respondVisitorApproval } from "../../lib/visitors";
+import sound from "../../lib/sound";
 
 // Global lightweight event emitter for toasts
 const toastListeners = new Set();
@@ -58,12 +60,55 @@ export default function NotificationToastContainer() {
     }
   };
 
+  const handleVisitorAction = async (e, toast, visitorId, action) => {
+    e.stopPropagation();
+    handleDismiss(toast.toastId);
+    try {
+      await respondVisitorApproval(visitorId, action);
+      if (action === "approved" || action === "approve") {
+        sound.playSuccess();
+        showNotificationToast({
+          title: "Entry Approved",
+          body: "Security gate informed in real-time.",
+          type: "success",
+        });
+      } else if (action === "leave_at_gate") {
+        sound.playSuccess();
+        showNotificationToast({
+          title: "Marked: Leave at Gate",
+          body: "Guard instructed to hold parcel.",
+          type: "info",
+        });
+      } else {
+        sound.playAlert();
+        showNotificationToast({
+          title: "Entry Denied",
+          body: "Security gate informed.",
+          type: "error",
+        });
+      }
+    } catch (err) {
+      showNotificationToast({
+        title: "Action Failed",
+        body: err?.response?.data?.error?.message || "Failed to update visitor request",
+        type: "error",
+      });
+    }
+  };
+
   if (toasts.length === 0) return null;
 
   return (
     <div className="fixed top-4 right-4 sm:top-5 sm:right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3">
       {toasts.map((toast) => {
         const config = getNotificationTypeConfig(toast.type);
+        const visitorId =
+          toast.visitorId ||
+          toast.metadata?.visitorId ||
+          toast.data?.visitorId ||
+          toast.visitor?._id ||
+          toast.visitor?.id;
+
         return (
           <div
             key={toast.toastId}
@@ -97,6 +142,38 @@ export default function NotificationToastContainer() {
                   {toast.body}
                 </p>
               ) : null}
+
+              {/* 1-Tap Quick Actions for Visitor Approval */}
+              {visitorId && (
+                <div className="mt-2.5 flex items-center gap-1.5 pt-2 border-t border-outline-variant/50">
+                  <button
+                    type="button"
+                    onClick={(e) => handleVisitorAction(e, toast, visitorId, "approved")}
+                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">check</span>
+                    <span>Approve</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleVisitorAction(e, toast, visitorId, "leave_at_gate")}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-300 bg-sky-50 px-2 py-1.5 text-[11px] font-bold text-sky-900 hover:bg-sky-100 transition-colors cursor-pointer"
+                    title="Leave at Gate"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+                    <span>Gate</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleVisitorAction(e, toast, visitorId, "rejected")}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-error/30 bg-error/10 px-2 py-1.5 text-[11px] font-bold text-error hover:bg-error/20 transition-colors cursor-pointer"
+                    title="Deny Entry"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                    <span>Deny</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Close Button */}

@@ -12,6 +12,9 @@ import {
   formatTimeAgo,
   extractApiError,
 } from "../../lib/notifications";
+import { respondVisitorApproval } from "../../lib/visitors";
+import sound from "../../lib/sound";
+import toast from "../../lib/toast";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 const CATEGORIES = [
@@ -109,6 +112,30 @@ export default function NotificationsPage() {
     }
     if (notification.link) {
       navigate(notification.link);
+    }
+  };
+
+  const handleVisitorAction = async (e, notification, visitorId, action) => {
+    e.stopPropagation();
+    if (!notification.isRead) {
+      markReadMutation.mutate(notification.id);
+    }
+    try {
+      await respondVisitorApproval(visitorId, action);
+      if (action === "approved" || action === "approve") {
+        sound.playSuccess();
+        toast.success("Entry Approved", "Security gate informed.");
+      } else if (action === "leave_at_gate") {
+        sound.playSuccess();
+        toast.success("Marked: Leave at Gate", "Security guard will hold parcel.");
+      } else {
+        sound.playAlert();
+        toast.error("Entry Denied", "Security gate informed.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+    } catch (err) {
+      toast.error(extractApiError(err, "Failed to update visitor request"));
     }
   };
 
@@ -307,6 +334,40 @@ export default function NotificationsPage() {
                   <p className="mt-1 text-body-md text-on-surface-variant leading-relaxed">
                     {n.body}
                   </p>
+
+                  {/* 1-Tap Quick Action Buttons for Visitor Requests */}
+                  {(() => {
+                    const visitorId = n.metadata?.visitorId || n.data?.visitorId || n.visitorId;
+                    if (!visitorId) return null;
+                    return (
+                      <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-2.5 border-t border-outline-variant/40">
+                        <button
+                          type="button"
+                          onClick={(e) => handleVisitorAction(e, n, visitorId, "approved")}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-label-md font-bold text-white shadow-xs hover:bg-emerald-700 transition-all cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">check</span>
+                          <span>Approve Entry</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleVisitorAction(e, n, visitorId, "leave_at_gate")}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-sky-300 bg-sky-50 px-3.5 py-2 text-label-md font-bold text-sky-900 hover:bg-sky-100 transition-all cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px] text-sky-700">inventory_2</span>
+                          <span>Leave at Gate</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleVisitorAction(e, n, visitorId, "rejected")}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-error/30 bg-error/10 px-3.5 py-2 text-label-md font-bold text-error hover:bg-error/20 transition-all cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                          <span>Deny Entry</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   {n.link && (
                     <div className="mt-3">
