@@ -211,6 +211,7 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
   const [vehicles, setVehicles] = useState([]);
   const [occupation, setOccupation] = useState("");
   const [familyMembers, setFamilyMembers] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
 
   const [step, setStep] = useState(1);
   const [formError, setFormError] = useState("");
@@ -295,9 +296,17 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
   const occupied = house.isAssigned || house.isRented;
 
   const handleSelectUser = (user) => {
+    setSelectedUser(user);
     setPhone(user.phone);
     setName(user.name || "");
     setEmail(user.email && !user.email.endsWith("@residentone.local") ? user.email : "");
+    setOccupation(user.occupation || "");
+    if (Array.isArray(user.vehicles) && user.vehicles.length > 0) {
+      setVehicles(user.vehicles);
+    }
+    if (user.familyMembers !== undefined && user.familyMembers !== null) {
+      setFamilyMembers(String(user.familyMembers));
+    }
     setPickedUser(true);
     setFormError("");
   };
@@ -669,6 +678,34 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
                 <p className="text-body-sm text-on-surface-variant">
                   Adding <strong>{residentType === "owner" ? "owner" : "renter"}</strong> details.
                 </p>
+                {pickedUser && selectedUser && (
+                  <div className="flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-body-sm text-emerald-950 shadow-sm animate-in fade-in">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                      <span className="material-symbols-outlined text-[22px]">how_to_reg</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-bold text-emerald-950 text-body-sm">
+                          Existing Resident Profile Found & Autofilled
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickedUser(false);
+                            setSelectedUser(null);
+                          }}
+                          className="text-[12px] font-semibold text-emerald-800 hover:underline cursor-pointer"
+                        >
+                          Clear / Search Another
+                        </button>
+                      </div>
+                      <p className="mt-1 text-emerald-900 text-[13px] leading-relaxed">
+                        Loaded profile details for <strong>{selectedUser.name}</strong>. All associated details (Name, Phone, Email, Occupation, Vehicles, and Family Members) have been populated automatically.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="relative">
                   <FormField id="modal-phone" label="Phone Number" required>
                     <input
@@ -685,29 +722,51 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
                     />
                   </FormField>
                   {showDropdown && (
-                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-lg">
-                      <p className="border-b border-outline-variant bg-surface-container-low px-4 py-1.5 text-label-sm text-on-surface-variant">
-                        Matching accounts — click to autofill
+                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl max-h-72 overflow-y-auto">
+                      <p className="border-b border-outline-variant bg-surface-container-low px-4 py-2 text-label-sm font-semibold text-on-surface-variant">
+                        Matching accounts — click to autofill all details
                       </p>
                       {matches.map((user) => (
                         <button
                           key={user.id}
                           type="button"
                           onClick={() => handleSelectUser(user)}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-secondary-fixed"
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/5 border-b border-outline-variant/30 last:border-0 cursor-pointer"
                         >
-                          <span className="material-symbols-outlined text-[20px] text-primary">
-                            person
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-body-md text-on-surface">
-                              {user.name}
-                            </span>
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-[16px]">
+                            {user.name?.charAt(0)?.toUpperCase() || "U"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="block truncate text-body-md font-bold text-on-surface">
+                                {user.name}
+                              </span>
+                              <span className="shrink-0 text-label-sm font-semibold text-primary">
+                                Autofill ➔
+                              </span>
+                            </div>
                             <span className="block truncate text-body-sm text-on-surface-variant">
                               {user.phone}
                               {user.email ? ` · ${user.email}` : ""}
                             </span>
-                          </span>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {user.occupation && (
+                                <span className="rounded bg-surface-container-high px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">
+                                  💼 {user.occupation}
+                                </span>
+                              )}
+                              {user.vehicles?.length > 0 && (
+                                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                  🚗 {user.vehicles.join(", ")}
+                                </span>
+                              )}
+                              {user.familyMembers > 0 && (
+                                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                                  👥 {user.familyMembers} Family
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -746,7 +805,14 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
             {step === 2 && (
               <div className="space-y-3">
                 <div>
-                  <p className="text-title-sm font-semibold text-on-surface">Vehicles</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-title-sm font-semibold text-on-surface">Vehicles</p>
+                    {selectedUser && selectedUser.vehicles?.length > 0 && (
+                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                        ✓ {selectedUser.vehicles.length} Loaded from Profile
+                      </span>
+                    )}
+                  </div>
                   <p className="text-body-sm text-on-surface-variant">
                     Add vehicle numbers registered under this resident (optional).
                   </p>
@@ -780,11 +846,18 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
             {step === 3 && (
               <div className="space-y-stack-md">
                 <div>
-                  <p className="text-title-sm font-semibold text-on-surface">
-                    Additional info <span className="font-normal">(optional)</span>
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-title-sm font-semibold text-on-surface">
+                      Additional info <span className="font-normal">(optional)</span>
+                    </p>
+                    {selectedUser && (selectedUser.occupation || selectedUser.familyMembers > 0) && (
+                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                        ✓ Autofilled from Profile
+                      </span>
+                    )}
+                  </div>
                   <p className="text-body-sm text-on-surface-variant">
-                    You can skip this step and finish now.
+                    Occupation and household family members count.
                   </p>
                 </div>
                 <FormField id="modal-occupation" label="Occupation">

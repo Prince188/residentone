@@ -308,24 +308,60 @@ class UnitService {
     if (conditions.length === 0) return [];
 
     const users = await User.find({ $or: conditions })
-      .select("name email phone")
+      .select("name email phone occupation vehicles familyMembers createdAt")
       .limit(8)
       .lean();
-    return users.map((u) => ({
-      id: u._id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-    }));
+
+    const { FamilyMember } = require("../family-member/family-member.model");
+    const mapped = await Promise.all(
+      users.map(async (u) => {
+        let familyCount = u.familyMembers;
+        try {
+          const count = await FamilyMember.countDocuments({ addedBy: u._id, isActive: true });
+          if (count > 0 || familyCount === undefined || familyCount === null) {
+            familyCount = count;
+          }
+        } catch (_) {}
+
+        return {
+          id: u._id,
+          name: u.name,
+          email: u.email && !u.email.endsWith("@residentone.local") ? u.email : "",
+          phone: u.phone,
+          occupation: u.occupation || "",
+          vehicles: Array.isArray(u.vehicles) ? u.vehicles : [],
+          familyMembers: familyCount ?? 0,
+        };
+      })
+    );
+    return mapped;
   }
 
   async checkOwner(societyId, unitId, phone) {
     await this.findUnitInSociety(societyId, unitId);
     const user = await findUserByPhone(phone);
     if (!user) return { exists: false, user: null };
+
+    const { FamilyMember } = require("../family-member/family-member.model");
+    let familyCount = user.familyMembers;
+    try {
+      const count = await FamilyMember.countDocuments({ addedBy: user._id, isActive: true });
+      if (count > 0 || familyCount === undefined || familyCount === null) {
+        familyCount = count;
+      }
+    } catch (_) {}
+
     return {
       exists: true,
-      user: { name: user.name, email: user.email, phone: user.phone },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email && !user.email.endsWith("@residentone.local") ? user.email : "",
+        phone: user.phone,
+        occupation: user.occupation || "",
+        vehicles: Array.isArray(user.vehicles) ? user.vehicles : [],
+        familyMembers: familyCount ?? 0,
+      },
     };
   }
 
