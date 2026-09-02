@@ -111,9 +111,9 @@ export default function FamilyMembersPage() {
   const [err, setErr] = useState("");
 
   const listQuery = useQuery({
-    queryKey: ["family-members", activeSociety?.id],
+    queryKey: ["family-members", activeSociety?.id || "global"],
     queryFn: async () => (await getFamilyMembers()).data.data,
-    enabled: Boolean(activeSociety),
+    enabled: Boolean(user),
   });
 
   const addMut = useMutation({
@@ -150,16 +150,6 @@ export default function FamilyMembersPage() {
     },
     onError: (e) => setErr(extractApiError(e, "Failed to remove")),
   });
-
-  if (!myHouses.length) {
-    return (
-      <div className="mx-auto max-w-3xl p-10 text-center rounded-xl border border-dashed">
-        <span className="material-symbols-outlined text-[40px] text-outline">group_add</span>
-        <p className="mt-2 text-body-md">You have no house assigned. Contact admin to get a house.</p>
-        <Link to="/dashboard" className="mt-3 inline-block text-primary hover:underline">Back to Dashboard</Link>
-      </div>
-    );
-  }
 
   const rawMembers = listQuery.data || [];
   const members = rawMembers.filter((m) => {

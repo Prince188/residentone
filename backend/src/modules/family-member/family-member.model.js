@@ -1,10 +1,15 @@
 const mongoose = require("mongoose");
-const { tenantPlugin } = require("../../shared/plugins/tenant.plugin");
 
 const FAMILY_ROLES = ["spouse", "child", "parent", "sibling", "relative", "other"];
 
 const familyMemberSchema = new mongoose.Schema(
   {
+    societyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Society",
+      default: null,
+      index: true,
+    },
     unitId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Unit",
@@ -15,6 +20,7 @@ const familyMemberSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
     name: {
       type: String,
@@ -41,10 +47,9 @@ const familyMemberSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+familyMemberSchema.index({ addedBy: 1, isActive: 1 });
 familyMemberSchema.index({ societyId: 1, unitId: 1 });
 familyMemberSchema.index({ societyId: 1, addedBy: 1 });
-
-tenantPlugin(familyMemberSchema);
 
 const FamilyMember = mongoose.model("FamilyMember", familyMemberSchema);
 

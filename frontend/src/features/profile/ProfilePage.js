@@ -24,17 +24,18 @@ export default function ProfilePage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const queryClient = useQueryClient();
 
+  // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
+  const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [deletingMemberId, setDeletingMemberId] = useState(null);
 
+  // Form States
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     occupation: "",
-    vehicles: [],
-    newVehicleInput: "",
   });
 
   const [familyForm, setFamilyForm] = useState({
@@ -42,6 +43,8 @@ export default function ProfilePage() {
     relation: "spouse",
     phone: "",
   });
+
+  const [vehiclePlateInput, setVehiclePlateInput] = useState("");
 
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -59,14 +62,15 @@ export default function ProfilePage() {
     queryFn: async () => (await api.get("/memberships/my-societies")).data.data,
   });
 
+  const user = profileQuery.data || authUser;
+
   // Family Members Query
   const familyMembersQuery = useQuery({
-    queryKey: ["family-members", activeSociety?.id],
+    queryKey: ["family-members", activeSociety?.id || "global"],
     queryFn: async () => (await getFamilyMembers()).data.data,
-    enabled: Boolean(activeSociety),
+    enabled: Boolean(user),
   });
 
-  const user = profileQuery.data || authUser;
   const memberships = membershipsQuery.data || [];
   const familyMembersList = familyMembersQuery.data || [];
   const familyCount = familyMembersList.length;
@@ -105,7 +109,7 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       setIsAddFamilyModalOpen(false);
       setFamilyForm({ name: "", relation: "spouse", phone: "" });
-      setSuccessMsg("Family member added! They are now linked across all your society houses.");
+      setSuccessMsg("Family member added! They are now recognized across all your society houses.");
       setErrorMsg("");
       setTimeout(() => setSuccessMsg(""), 3500);
     },
@@ -140,40 +144,70 @@ export default function ProfilePage() {
     },
   });
 
+  // Mutation: Add Vehicle
+  const addVehicleMutation = useMutation({
+    mutationFn: async (plate) => {
+      const currentVehicles = Array.isArray(user.vehicles) ? [...user.vehicles] : [];
+      const formatted = plate.trim().toUpperCase();
+      if (!formatted) throw new Error("Please enter a vehicle license plate number.");
+      if (currentVehicles.includes(formatted)) {
+        throw new Error("This vehicle plate is already registered in your profile.");
+      }
+      const updated = [...currentVehicles, formatted];
+      const res = await api.patch("/users/profile", { vehicles: updated });
+      return res.data.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      useAuthStore.setState({ user: data });
+      setIsAddVehicleModalOpen(false);
+      setVehiclePlateInput("");
+      setSuccessMsg("Vehicle added successfully!");
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 3500);
+    },
+    onError: (err) => {
+      setErrorMsg(
+        err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to add vehicle."
+      );
+    },
+  });
+
+  // Mutation: Remove Vehicle
+  const removeVehicleMutation = useMutation({
+    mutationFn: async (plateToRemove) => {
+      const currentVehicles = Array.isArray(user.vehicles) ? [...user.vehicles] : [];
+      const updated = currentVehicles.filter((v) => v !== plateToRemove);
+      const res = await api.patch("/users/profile", { vehicles: updated });
+      return res.data.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      useAuthStore.setState({ user: data });
+      setSuccessMsg("Vehicle removed.");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    },
+    onError: (err) => {
+      setErrorMsg(
+        err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          "Failed to remove vehicle."
+      );
+    },
+  });
+
   const handleOpenEdit = () => {
     setForm({
       name: user.name || "",
       email: user.email || "",
       phone: user.phone || "",
       occupation: user.occupation || "",
-      vehicles: Array.isArray(user.vehicles) ? [...user.vehicles] : [],
-      newVehicleInput: "",
     });
     setErrorMsg("");
     setIsEditModalOpen(true);
-  };
-
-  const handleAddVehicle = (e) => {
-    e.preventDefault();
-    const val = form.newVehicleInput.trim().toUpperCase();
-    if (!val) return;
-    if (form.vehicles.includes(val)) {
-      setErrorMsg("Vehicle plate is already in your list.");
-      return;
-    }
-    setForm((prev) => ({
-      ...prev,
-      vehicles: [...prev.vehicles, val],
-      newVehicleInput: "",
-    }));
-    setErrorMsg("");
-  };
-
-  const handleRemoveVehicle = (indexToRemove) => {
-    setForm((prev) => ({
-      ...prev,
-      vehicles: prev.vehicles.filter((_, idx) => idx !== indexToRemove),
-    }));
   };
 
   const handleSaveProfile = (e) => {
@@ -187,7 +221,6 @@ export default function ProfilePage() {
       email: form.email.trim(),
       phone: form.phone.trim(),
       occupation: form.occupation.trim(),
-      vehicles: form.vehicles.map((v) => v.trim().toUpperCase()).filter(Boolean),
     };
     updateProfileMutation.mutate(payload);
   };
@@ -203,6 +236,12 @@ export default function ProfilePage() {
       relation: familyForm.relation,
       phone: familyForm.phone.trim(),
     });
+  };
+
+  const handleSaveVehicle = (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    addVehicleMutation.mutate(vehiclePlateInput);
   };
 
   if (profileQuery.isLoading) {
@@ -438,7 +477,7 @@ export default function ProfilePage() {
                   Family Members ({familyCount})
                 </h3>
                 <p className="text-label-sm text-on-surface-variant">
-                  Household members automatically authorized across all your linked society houses
+                  Household members recognized across your profile and all linked society houses
                 </p>
               </div>
               <button
@@ -496,7 +535,7 @@ export default function ProfilePage() {
                 </span>
                 <p className="text-body-sm font-medium">No family members added yet</p>
                 <p className="text-label-sm text-outline mt-0.5">
-                  Add your spouse, children, or parents. Once added, they are recognized in all your houses.
+                  Add your spouse, children, or parents to your household circle.
                 </p>
                 <button
                   type="button"
@@ -510,13 +549,13 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Registered Vehicles Card */}
+          {/* REGISTERED VEHICLES SECTION */}
           <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/60 pb-3">
               <div>
                 <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary">directions_car</span>
-                  Registered Vehicles
+                  Registered Vehicles ({user.vehicles?.length || 0})
                 </h3>
                 <p className="text-label-sm text-on-surface-variant">
                   Vehicle license plates registered for parking allocation & security gate passes
@@ -524,11 +563,15 @@ export default function ProfilePage() {
               </div>
               <button
                 type="button"
-                onClick={handleOpenEdit}
-                className="inline-flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-label-sm font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                onClick={() => {
+                  setErrorMsg("");
+                  setVehiclePlateInput("");
+                  setIsAddVehicleModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-label-sm font-semibold text-on-primary hover:opacity-90 shadow-sm transition-opacity cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Manage</span>
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                <span>Add Vehicle</span>
               </button>
             </div>
 
@@ -554,6 +597,16 @@ export default function ProfilePage() {
                         </span>
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeVehicleMutation.mutate(v)}
+                      disabled={removeVehicleMutation.isPending}
+                      className="rounded-xl p-1.5 text-outline hover:bg-error/10 hover:text-error transition-colors cursor-pointer"
+                      title="Remove Vehicle"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -564,8 +617,16 @@ export default function ProfilePage() {
                 </span>
                 <p className="text-body-sm font-medium">No vehicles registered</p>
                 <p className="text-label-sm text-outline mt-0.5">
-                  Add your vehicle license plates to register with society gate security.
+                  Add your car or two-wheeler license plate for gate security and parking pass.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddVehicleModalOpen(true)}
+                  className="mt-3 inline-flex items-center gap-1 rounded-xl bg-primary/10 px-3.5 py-1.5 text-label-sm font-semibold text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>Add First Vehicle</span>
+                </button>
               </div>
             )}
           </div>
@@ -705,7 +766,80 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* MODAL 1: Add Family Member */}
+      {/* POP-UP MODAL 1: ADD VEHICLE (Single Field Only) */}
+      {isAddVehicleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => !addVehicleMutation.isPending && setIsAddVehicleModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">directions_car</span>
+                Add Vehicle
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddVehicleModalOpen(false)}
+                disabled={addVehicleMutation.isPending}
+                className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div className="rounded-xl border border-error/30 bg-error/5 p-3 text-body-sm text-error">
+                {errorMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveVehicle} className="space-y-4">
+              <div>
+                <label className="block text-label-md font-semibold text-on-surface mb-1.5">
+                  Vehicle Number Plate *
+                </label>
+                <input
+                  type="text"
+                  value={vehiclePlateInput}
+                  onChange={(e) => setVehiclePlateInput(e.target.value.toUpperCase())}
+                  required
+                  autoFocus
+                  placeholder="e.g. MH02AB1234 or DL3CAF5678"
+                  className="w-full rounded-2xl border border-outline-variant bg-surface py-3 px-4 text-title-sm font-mono tracking-wider uppercase text-on-surface placeholder:normal-case placeholder:font-sans placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-inner"
+                />
+                <p className="mt-1.5 text-label-sm text-on-surface-variant">
+                  Enter your car or bike registration number for security gate and parking passes.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                <button
+                  type="button"
+                  onClick={() => setIsAddVehicleModalOpen(false)}
+                  disabled={addVehicleMutation.isPending}
+                  className="rounded-xl border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface hover:bg-surface-container-low cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addVehicleMutation.isPending || !vehiclePlateInput.trim()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {addVehicleMutation.isPending ? "hourglass_top" : "add"}
+                  </span>
+                  <span>{addVehicleMutation.isPending ? "Adding..." : "Add Vehicle"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL 2: ADD FAMILY MEMBER */}
       {isAddFamilyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -735,7 +869,6 @@ export default function ProfilePage() {
             )}
 
             <form onSubmit={handleSaveFamilyMember} className="space-y-4">
-              {/* Name */}
               <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">
                   Full Name *
@@ -750,7 +883,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Relationship */}
               <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">
                   Relationship *
@@ -768,7 +900,6 @@ export default function ProfilePage() {
                 </select>
               </div>
 
-              {/* Phone */}
               <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">
                   Phone Number (Optional)
@@ -783,7 +914,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-xl bg-primary/5 p-3 text-label-sm text-primary">
-                💡 This member will automatically be recognized across all your houses in {activeSociety?.name || "the society"}.
+                💡 This member will automatically be recognized across your profile and any linked houses.
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
@@ -811,7 +942,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* MODAL 2: Delete Family Member Confirmation */}
+      {/* POP-UP MODAL 3: DELETE FAMILY MEMBER */}
       {deletingMemberId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -853,7 +984,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* MODAL 3: Edit Personal Profile */}
+      {/* POP-UP MODAL 4: EDIT PERSONAL PROFILE */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -883,7 +1014,6 @@ export default function ProfilePage() {
             )}
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Name */}
               <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">
                   Full Name *
@@ -898,7 +1028,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Email & Phone */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-label-md font-medium text-on-surface mb-1">
@@ -926,7 +1055,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Occupation */}
               <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">
                   Occupation
@@ -940,53 +1068,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Vehicles Manager */}
-              <div>
-                <label className="block text-label-md font-medium text-on-surface mb-1">
-                  Registered Vehicles
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={form.newVehicleInput}
-                    onChange={(e) => setForm({ ...form, newVehicleInput: e.target.value })}
-                    placeholder="Enter license plate (e.g. MH02AB1234)"
-                    className="flex-1 rounded-xl border border-outline-variant bg-surface py-2 px-3.5 text-body-sm uppercase font-mono text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddVehicle}
-                    className="rounded-xl bg-surface-container-high px-4 py-2 text-label-md font-semibold text-on-surface hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
-                  >
-                    Add
-                  </button>
-                </div>
-
-                {form.vehicles.length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {form.vehicles.map((v, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-1 font-mono text-label-sm font-bold text-on-surface"
-                      >
-                        <span className="material-symbols-outlined text-[16px] text-primary">
-                          directions_car
-                        </span>
-                        {v}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVehicle(i)}
-                          className="ml-1 text-outline hover:text-error cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
                 <button
                   type="button"

@@ -1,12 +1,12 @@
 const express = require("express");
 const familyMemberController = require("./family-member.controller");
-const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
+const { authenticate } = require("../../middlewares/auth.middleware");
 const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const { validate } = require("../../middlewares/validate.middleware");
 const { createFamilyMemberSchema, updateFamilyMemberSchema } = require("./family-member.validation");
 
 const router = express.Router();
-router.use(authenticate, resolveSocietyContext, requireSociety);
+router.use(authenticate, resolveSocietyContext);
 
 router.get("/", (req, res, next) => familyMemberController.list(req, res, next));
 router.post("/", validate(createFamilyMemberSchema), (req, res, next) => familyMemberController.create(req, res, next));

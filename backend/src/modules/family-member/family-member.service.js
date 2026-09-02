@@ -4,12 +4,10 @@ const { AppError } = require("../../shared/utils/errors");
 
 class FamilyMemberService {
   async list(societyId, userId, membership) {
-    // For FamilyMembersPage (personal): non-admin sees only own; admin sees all.
-    // For ManageHousesPage (per-house view): those with manage_houses should see all to show per-house counts.
-    // We allow manage_houses permission to see all, others only own.
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+    const isAdmin = membership && ["super_admin", "society_admin"].includes(membership.role);
     let canManageHouses = isAdmin;
-    if (!canManageHouses) {
+
+    if (societyId && membership && !canManageHouses) {
       try {
         const { hasPermission } = require("../../shared/permissions");
         const { Society } = require("../society/society.model");
@@ -17,20 +15,30 @@ class FamilyMemberService {
         canManageHouses = hasPermission(membership.role, "manage_houses", society?.rolePermissions);
       } catch {}
     }
-    const filter = { societyId, isActive: true };
-    if (!canManageHouses) {
+
+    let filter = { isActive: true };
+
+    if (canManageHouses && societyId) {
+      // Admin seeing all society members
+      filter.societyId = societyId;
+    } else {
+      // User seeing their own family members
       filter.addedBy = userId;
     }
-    return FamilyMember.find(filter).populate("unitId", "label").populate("addedBy", "name").sort({ createdAt: -1 }).lean();
+
+    return FamilyMember.find(filter)
+      .populate("unitId", "label")
+      .populate("addedBy", "name")
+      .sort({ createdAt: -1 })
+      .lean();
   }
 
   async create(societyId, userId, membership, data) {
-    const myUnitIds = (membership.units || []).map((id) => String(id));
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
-    // For general family members, no specific house required — just need to be a member of the society
-    // If a unitId is provided (legacy), validate it; otherwise store as general (null)
+    const myUnitIds = (membership?.units || []).map((id) => String(id));
+    const isAdmin = membership && ["super_admin", "society_admin"].includes(membership.role);
+
     let unitId = null;
-    if (data.unitId) {
+    if (data.unitId && societyId) {
       const targetId = String(data.unitId).trim();
       if (targetId) {
         if (!isAdmin && !myUnitIds.includes(targetId)) {
@@ -40,17 +48,10 @@ class FamilyMemberService {
         if (!unit) throw new AppError("House not found", 404);
         unitId = targetId;
       }
-    } else {
-      // General family member: ensure user is part of society (has at least one unit or is admin)
-      if (!isAdmin && myUnitIds.length === 0) {
-        throw new AppError("You need a house in this society to add family members", 403);
-      }
-      // Use first house as fallback for legacy display, or keep null for truly general
-      unitId = null;
     }
 
     const member = await FamilyMember.create({
-      societyId,
+      societyId: societyId || null,
       unitId,
       addedBy: userId,
       name: data.name.trim(),
@@ -68,12 +69,14 @@ class FamilyMemberService {
   }
 
   async update(societyId, id, userId, membership, data) {
-    const doc = await FamilyMember.findOne({ _id: id, societyId, isActive: true });
+    const doc = await FamilyMember.findOne({ _id: id, isActive: true });
     if (!doc) throw new AppError("Family member not found", 404);
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+
+    const isAdmin = membership && ["super_admin", "society_admin"].includes(membership.role);
     if (!isAdmin && String(doc.addedBy) !== String(userId)) {
       throw new AppError("You can only edit members you added", 403);
     }
+
     if (data.name !== undefined) doc.name = data.name.trim();
     if (data.relation !== undefined) doc.relation = data.relation;
     if (data.phone !== undefined) doc.phone = data.phone.trim();
@@ -82,12 +85,14 @@ class FamilyMemberService {
   }
 
   async remove(societyId, id, userId, membership) {
-    const doc = await FamilyMember.findOne({ _id: id, societyId, isActive: true });
+    const doc = await FamilyMember.findOne({ _id: id, isActive: true });
     if (!doc) throw new AppError("Family member not found", 404);
-    const isAdmin = ["super_admin", "society_admin"].includes(membership.role);
+
+    const isAdmin = membership && ["super_admin", "society_admin"].includes(membership.role);
     if (!isAdmin && String(doc.addedBy) !== String(userId)) {
       throw new AppError("You can only remove members you added", 403);
     }
+
     doc.isActive = false;
     await doc.save();
 
@@ -103,7 +108,7 @@ class FamilyMemberService {
   map(doc) {
     return {
       id: doc._id,
-      unitId: doc.unitId?._id || doc.unitId,
+      unitId: doc.unitId?._id || doc.unitId || null,
       unitLabel: doc.unitId?.label || null,
       name: doc.name,
       relation: doc.relation,
