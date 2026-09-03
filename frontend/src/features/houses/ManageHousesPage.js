@@ -142,7 +142,7 @@ export default function ManageHousesPage() {
     enabled: Boolean(activeSociety && canManageHouses),
   });
 
-  const houses = housesQuery.data || [];
+  const houses = useMemo(() => housesQuery.data || [], [housesQuery.data]);
 
   const familyQuery = useQuery({
     queryKey: ["family-members", activeSociety?.id],
@@ -198,7 +198,7 @@ export default function ManageHousesPage() {
       );
     }
     return result;
-  }, [houses, search, statusFilter, familyByHouse]);
+  }, [houses, search, statusFilter, familyByHouse, activeMembership]);
 
   const displayedCount = filtered.length;
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;

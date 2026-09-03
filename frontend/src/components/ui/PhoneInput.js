@@ -52,7 +52,6 @@ export default function PhoneInput({
     }
   }, [countryCode]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const p = parsePhoneNumber(value, selectedCountry.code);
     if (p.nationalNumber !== nationalNumber) {
@@ -61,6 +60,7 @@ export default function PhoneInput({
     if (!countryCode && p.country && p.country.code !== selectedCountry.code) {
       setSelectedCountry(p.country);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   // Click outside listener to close country picker dropdown
