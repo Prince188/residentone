@@ -14,6 +14,7 @@ import {
 import FormField from "../../components/form/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import EditHouseModal from "./EditHouseModal";
+import PhoneInput from "../../components/ui/PhoneInput";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
@@ -154,16 +155,14 @@ function OwnerForm({ house }) {
         <form onSubmit={handleAssign} className="mt-5 space-y-4">
           <div className="relative">
             <FormField label="Phone Number" required>
-              <input
-                type="tel"
+              <PhoneInput
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
                   setPickedUser(false);
                 }}
-                placeholder="e.g. 9876543210"
-                className={inputClass}
                 disabled={assignMutation.isPending}
+                showDigitCounter={true}
               />
             </FormField>
 

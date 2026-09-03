@@ -8,6 +8,7 @@ import {
 } from "../../lib/houses";
 import FormField from "../../components/form/FormField";
 import useAuthStore from "../../stores/auth.store";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 const inputClass =
   "w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow";
@@ -258,14 +259,12 @@ export default function HouseInvitePage() {
                 required
                 hint="This becomes your login username and password."
               >
-                <input
+                <PhoneInput
                   id="invite-phone"
-                  type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="9876543210"
-                  className={inputClass}
                   required
+                  showDigitCounter={true}
                 />
               </FormField>
               <FormField

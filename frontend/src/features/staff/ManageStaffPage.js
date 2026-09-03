@@ -15,6 +15,7 @@ import {
 import { hasPermission } from "../../lib/permissions";
 import api from "../../lib/api";
 import toast from "../../lib/toast";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 const STAFF_ROLE_OPTIONS = [
   { value: "security_guard", label: "Security Guard / Gatekeeper", icon: "shield", desc: "Has full access to the Gate Terminal (PIN entry & walk-in logging)" },
@@ -535,25 +536,12 @@ export default function ManageStaffPage() {
                       {isSearchingPhone ? "Searching DB..." : "Auto-searches registered users"}
                     </span>
                   </div>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      required
-                      placeholder="e.g. 9876543210"
-                      className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 pl-3.5 pr-10 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      {isSearchingPhone ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      ) : foundUser ? (
-                        <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-                      ) : (
-                        <span className="material-symbols-outlined text-[20px] text-outline">search</span>
-                      )}
-                    </div>
-                  </div>
+                  <PhoneInput
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    required
+                    showDigitCounter={true}
+                  />
                 </div>
 
                 {/* Live Found User Card */}

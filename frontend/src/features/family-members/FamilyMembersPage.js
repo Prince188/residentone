@@ -5,6 +5,7 @@ import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
 import { getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember, extractApiError } from "../../lib/familyMembers";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 const RELATIONS = ["spouse", "child", "parent", "sibling", "relative", "other"];
 
@@ -56,13 +57,13 @@ function EditFamilyMemberModal({ member, open, onClose, onSave, isSaving, error 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-label-md font-medium text-on-surface">Relation *</label>
               <select
                 value={form.relation}
                 onChange={(e) => setForm({ ...form, relation: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm capitalize focus:border-primary focus:outline-none"
+                className="mt-1 w-full rounded-xl border border-outline-variant bg-white px-3 py-2 text-body-sm capitalize focus:border-primary focus:outline-none"
               >
                 {RELATIONS.map((r) => (
                   <option key={r} value={r} className="capitalize">{r}</option>
@@ -70,12 +71,12 @@ function EditFamilyMemberModal({ member, open, onClose, onSave, isSaving, error 
               </select>
             </div>
             <div>
-              <label className="text-label-md font-medium text-on-surface">Phone</label>
-              <input
+              <label className="text-label-md font-medium text-on-surface">Phone (Optional)</label>
+              <PhoneInput
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="Optional"
-                className="mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+                size="sm"
+                showDigitCounter={true}
               />
             </div>
           </div>
@@ -183,18 +184,23 @@ export default function FamilyMembersPage() {
           <label className="text-label-md font-medium text-on-surface">Family Member Name *</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sunita Patel" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-label-md font-medium text-on-surface">Role / Relation *</label>
-            <select value={form.relation} onChange={(e) => setForm({ ...form, relation: e.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm capitalize">
+            <select value={form.relation} onChange={(e) => setForm({ ...form, relation: e.target.value })} className="mt-1 w-full rounded-xl border border-outline-variant px-3 py-2 text-body-sm capitalize">
               {RELATIONS.map((r) => (
                 <option key={r} value={r} className="capitalize">{r}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-label-md font-medium text-on-surface">Phone (optional)</label>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Optional" className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm" />
+            <label className="text-label-md font-medium text-on-surface">Phone (Optional)</label>
+            <PhoneInput
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              size="sm"
+              showDigitCounter={true}
+            />
           </div>
         </div>
         <button type="submit" disabled={addMut.isPending} className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer">

@@ -10,6 +10,7 @@ import {
 import { getFamilyMembers } from "../../lib/familyMembers";
 import FormField from "../../components/form/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import PhoneInput from "../../components/ui/PhoneInput";
 import useSocietyStore, {
   selectActiveMembership,
   selectActiveSociety,
@@ -708,17 +709,15 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
 
                 <div className="relative">
                   <FormField id="modal-phone" label="Phone Number" required>
-                    <input
+                    <PhoneInput
                       id="modal-phone"
-                      type="tel"
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value);
                         setPickedUser(false);
                       }}
                       placeholder="Type to search existing accounts..."
-                      className={inputClass}
-                      autoComplete="off"
+                      showDigitCounter={true}
                     />
                   </FormField>
                   {showDropdown && (

@@ -9,6 +9,7 @@ import {
   addFamilyMember,
   removeFamilyMember,
 } from "../../lib/familyMembers";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 const RELATION_OPTIONS = [
   { value: "spouse", label: "Spouse", icon: "favorite" },
@@ -904,12 +905,10 @@ export default function ProfilePage() {
                 <label className="block text-label-md font-medium text-on-surface mb-1">
                   Phone Number (Optional)
                 </label>
-                <input
-                  type="text"
+                <PhoneInput
                   value={familyForm.phone}
                   onChange={(e) => setFamilyForm({ ...familyForm, phone: e.target.value })}
-                  placeholder="e.g. 9876543210"
-                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  showDigitCounter={true}
                 />
               </div>
 
@@ -1045,12 +1044,10 @@ export default function ProfilePage() {
                   <label className="block text-label-md font-medium text-on-surface mb-1">
                     Phone Number
                   </label>
-                  <input
-                    type="text"
+                  <PhoneInput
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="e.g. 9876543210"
-                    className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    showDigitCounter={true}
                   />
                 </div>
               </div>

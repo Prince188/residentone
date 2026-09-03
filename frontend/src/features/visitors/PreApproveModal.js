@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { preApproveVisitor, extractApiError } from "../../lib/visitors";
 import toast from "../../lib/toast";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 const CATEGORIES = [
   { id: "guest", label: "Guest", icon: "group", desc: "Friends & Family" },
@@ -267,13 +268,11 @@ export default function PreApproveModal({ myHouses = [], activeSociety, onClose,
                 <label className="block text-label-md font-semibold text-on-surface mb-1">
                   Visitor Phone *
                 </label>
-                <input
-                  type="tel"
+                <PhoneInput
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   required
-                  placeholder="e.g. 9876543210"
-                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  showDigitCounter={true}
                 />
               </div>
             </div>

@@ -10,11 +10,37 @@ class UserService {
   }
 
   async findByPhoneWithPassword(phone) {
-    return User.findOne({ phone }).select("+passwordHash");
+    const raw = String(phone || "").trim().replace(/\s+/g, "");
+    const cleanDigits = raw.replace(/\D/g, "");
+    const query = {
+      $or: [
+        { phone: raw },
+        { phone: `+${raw.replace(/^\+/, "")}` },
+        { phone: raw.replace(/^\+/, "") },
+      ],
+    };
+    if (cleanDigits.length === 10) {
+      query.$or.push({ phone: cleanDigits });
+      query.$or.push({ phone: `+91${cleanDigits}` });
+    }
+    return User.findOne(query).select("+passwordHash");
   }
 
   async findByPhone(phone) {
-    return User.findOne({ phone });
+    const raw = String(phone || "").trim().replace(/\s+/g, "");
+    const cleanDigits = raw.replace(/\D/g, "");
+    const query = {
+      $or: [
+        { phone: raw },
+        { phone: `+${raw.replace(/^\+/, "")}` },
+        { phone: raw.replace(/^\+/, "") },
+      ],
+    };
+    if (cleanDigits.length === 10) {
+      query.$or.push({ phone: cleanDigits });
+      query.$or.push({ phone: `+91${cleanDigits}` });
+    }
+    return User.findOne(query);
   }
 
   async findById(id) {

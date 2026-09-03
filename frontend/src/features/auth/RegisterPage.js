@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuthStore from "../../stores/auth.store";
 import SEO from "../../components/SEO";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 function getPasswordStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "", width: "0%" };
@@ -333,21 +334,15 @@ export default function RegisterPage() {
                           (optional)
                         </span>
                       </label>
-                      <div className="relative group">
-                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
-                          call
-                        </span>
-                        <input
-                          id="phone"
-                          name="phone"
-                          type="tel"
-                          autoComplete="tel"
-                          placeholder="+91 98765 43210"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl pl-11 pr-4 py-3.5 text-[15px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
-                        />
-                      </div>
+                      <PhoneInput
+                        id="phone"
+                        name="phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        size="lg"
+                        showDigitCounter={true}
+                        inputClassName="bg-surface-container-low border-outline-variant/40 py-3.5 text-[15px] focus:bg-white focus:ring-4 focus:ring-primary/10"
+                      />
                     </div>
 
                     <div>

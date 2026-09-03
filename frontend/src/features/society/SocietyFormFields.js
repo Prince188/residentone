@@ -1,4 +1,5 @@
 import FormField from "../../components/form/FormField";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 export const SOCIETY_TYPE_OPTIONS = [
   { value: "apartment", label: "Apartment" },
@@ -167,15 +168,12 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
           required
           error={errors.contactMobile}
         >
-          <input
+          <PhoneInput
             id="contactMobile"
-            type="tel"
-            className={inputClass}
-            placeholder="+91 98765 43210"
             value={values.contactMobile}
-            onChange={set("contactMobile")}
+            onChange={(e) => onChange("contactMobile", e.target.value)}
             disabled={disabled}
-            maxLength={16}
+            showDigitCounter={true}
           />
         </FormField>
         <FormField

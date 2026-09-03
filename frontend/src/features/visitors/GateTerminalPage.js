@@ -23,6 +23,7 @@ import { getSocket } from "../../lib/socket";
 import { hasPermission } from "../../lib/permissions";
 import api from "../../lib/api";
 import toast from "../../lib/toast";
+import PhoneInput from "../../components/ui/PhoneInput";
 
 const CATEGORIES = [
   { id: "guest", label: "Guest", icon: "group" },
@@ -1076,13 +1077,11 @@ export default function GateTerminalPage() {
                   <label className="block text-label-md font-semibold text-on-surface mb-1">
                     Visitor Phone *
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInput
                     value={walkInForm.phone}
                     onChange={(e) => setWalkInForm({ ...walkInForm, phone: e.target.value })}
                     required
-                    placeholder="e.g. 9876543210"
-                    className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    showDigitCounter={true}
                   />
                 </div>
               </div>

@@ -3,8 +3,8 @@ const { z } = require("zod");
 const phoneSchema = z
   .string()
   .trim()
-  .min(10, "Phone number must be at least 10 digits")
-  .max(15, "Phone number cannot exceed 15 digits")
+  .min(7, "Phone number must be at least 7 digits")
+  .max(20, "Phone number cannot exceed 20 digits")
   .regex(/^[0-9+\-\s]+$/, "Phone number can only contain digits");
 
 const checkOwnerSchema = z.object({
