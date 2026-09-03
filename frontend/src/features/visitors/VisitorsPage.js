@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, {
   selectActiveSociety,
@@ -20,15 +20,24 @@ import toast from "../../lib/toast";
 import PreApproveModal from "./PreApproveModal";
 
 export default function VisitorsPage() {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "inside";
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState("inside"); // 'inside' | 'expected' | 'pending' | 'parcels' | 'history'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'inside' | 'expected' | 'pending' | 'parcels' | 'history'
   const [isPreApproveOpen, setIsPreApproveOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["inside", "expected", "pending", "parcels", "history"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],

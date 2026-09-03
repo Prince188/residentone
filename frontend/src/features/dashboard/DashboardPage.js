@@ -42,6 +42,7 @@ const generalCards = [
   { icon: "group_add", label: "Add Members", to: "/family-members" },
   { icon: "campaign", label: "Notices", to: "/notices" },
   { icon: "badge", label: "Visitors", to: "/visitors" },
+  { icon: "package_2", label: "Gate Parcels", to: "/visitors?tab=parcels" },
   { icon: "report_problem", label: "Complaints", to: "/complaints", badgeKey: "complaints" },
   { icon: "pool", label: "Amenities", to: "/amenities" },
   { icon: "how_to_vote", label: "Polls", to: "/polls", badgeKey: "polls" },
