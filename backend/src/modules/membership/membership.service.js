@@ -26,45 +26,176 @@ class MembershipService {
     return masked;
   }
 
-  async getDirectory(societyId) {
+  async getDirectory(societyId, query = {}) {
     const members = await Membership.find({ societyId, isActive: true })
-      .populate("userId", "name phone")
+      .populate("userId", "name phone occupation")
       .populate("units", "label unitNumber")
       .lean();
 
     const NO_ORDER = Number.MAX_SAFE_INTEGER;
-    const entries = [];
+    let entries = [];
+    const seenUsers = new Map();
+
     for (const m of members) {
       if (!m.userId) continue;
+      const uId = String(m.userId._id);
       const houses = (m.units || [])
         .slice()
         .sort(
           (a, b) => (a.unitNumber ?? NO_ORDER) - (b.unitNumber ?? NO_ORDER)
         );
+      const houseLabels = houses.map((u) => u.label).filter(Boolean);
       const maskedPhone = this.maskPhone(m.userId.phone);
-      if (houses.length === 0) {
-        entries.push({
-          id: String(m._id),
-          userId: String(m.userId._id),
-          name: m.userId.name,
-          role: m.role,
-          phoneMasked: maskedPhone,
-          house: null,
-          unitNumber: NO_ORDER,
+      const occupation = (m.userId.occupation || "").trim();
+
+      if (seenUsers.has(uId)) {
+        // Merge houses and roles if user has multiple membership records
+        const existing = seenUsers.get(uId);
+        houseLabels.forEach((hl) => {
+          if (!existing.houses.includes(hl)) existing.houses.push(hl);
         });
+        if (["super_admin", "society_admin"].includes(m.role)) {
+          existing.role = m.role;
+        }
+        if (!existing.occupation && occupation) existing.occupation = occupation;
         continue;
       }
-      for (const u of houses) {
+
+      const entry = {
+        id: String(m._id),
+        userId: uId,
+        name: m.userId.name,
+        role: m.role,
+        roles: [m.role, ...(m.additionalRoles || [])].filter(Boolean),
+        phoneMasked: maskedPhone,
+        occupation,
+        house: houseLabels.length > 0 ? houseLabels[0] : null,
+        houses: houseLabels,
+        unitNumber: houses[0]?.unitNumber ?? NO_ORDER,
+      };
+
+      seenUsers.set(uId, entry);
+      entries.push(entry);
+    }
+
+    // Include Family Members (Universal Household)
+    try {
+      const { FamilyMember } = require("../family-member/family-member.model");
+      const memberUserIds = members.map((m) => m.userId?._id).filter(Boolean);
+      if (memberUserIds.length > 0 || societyId) {
+        const queryOr = [];
+        if (societyId) queryOr.push({ societyId });
+        if (memberUserIds.length > 0) queryOr.push({ addedBy: { $in: memberUserIds } });
+
+        const familyMembers = await FamilyMember.find({
+          isActive: true,
+          $or: queryOr,
+        })
+          .populate("unitId", "label unitNumber")
+          .populate("addedBy", "name")
+          .lean();
+
+        const userHouseMap = {};
+        for (const m of members) {
+          if (m.userId && m.units && m.units.length > 0) {
+            userHouseMap[String(m.userId._id)] = m.units.map((u) => ({
+              label: u.label,
+              unitNumber: u.unitNumber ?? NO_ORDER,
+            }));
+          }
+        }
+
+        for (const fm of familyMembers) {
+          const isSameSocietyUnit = fm.societyId && String(fm.societyId) === String(societyId) && fm.unitId;
+          const residentHouses = userHouseMap[String(fm.addedBy?._id || fm.addedBy)] || [];
+          const primaryHouse = isSameSocietyUnit
+            ? fm.unitId?.label
+            : (residentHouses[0]?.label || fm.unitId?.label || null);
+          const allHouseLabels = isSameSocietyUnit
+            ? [fm.unitId?.label].filter(Boolean)
+            : (residentHouses.length > 0 ? residentHouses.map((h) => h.label) : [fm.unitId?.label].filter(Boolean));
+          const primaryUnitNumber = isSameSocietyUnit
+            ? (fm.unitId?.unitNumber ?? NO_ORDER)
+            : (residentHouses[0]?.unitNumber ?? fm.unitId?.unitNumber ?? NO_ORDER);
+
+          entries.push({
+            id: `fm-${fm._id}`,
+            userId: String(fm.addedBy?._id || fm.addedBy || ""),
+            name: fm.name,
+            role: fm.relation ? `Family (${fm.relation})` : "Family Member",
+            isFamily: true,
+            relation: fm.relation || "other",
+            addedByName: fm.addedBy?.name || null,
+            phoneMasked: this.maskPhone(fm.phone),
+            occupation: (fm.occupation || "").trim(),
+            house: primaryHouse,
+            houses: allHouseLabels,
+            unitNumber: primaryUnitNumber,
+          });
+        }
+      }
+    } catch (_) {}
+
+    // Include Staff Data (Daily & Society Staff)
+    try {
+      const { Staff } = require("../staff/staff.model");
+      const staffList = await Staff.find({ societyId, isActive: true })
+        .populate("userId", "name phone occupation")
+        .lean();
+
+      const STAFF_TYPE_LABELS = {
+        security_guard: "Security Guard",
+        technician: "Technician / Maintenance",
+        housekeeping: "Housekeeping",
+        gardener: "Gardener",
+        office: "Facility / Office",
+        other: "Staff",
+      };
+
+      for (const s of staffList) {
+        if (!s.userId) continue;
+        const typeLabel = STAFF_TYPE_LABELS[s.staffType] || "Staff";
+        const staffOccupation = (s.userId.occupation || typeLabel).trim();
+        const maskedPhone = this.maskPhone(s.userId.phone);
+
         entries.push({
-          id: `${m._id}-${u._id}`,
-          userId: String(m.userId._id),
-          name: m.userId.name,
-          role: m.role,
+          id: `staff-${s._id}`,
+          userId: String(s.userId._id),
+          name: s.userId.name,
+          role: typeLabel,
+          isStaff: true,
+          staffType: s.staffType || "other",
+          department: s.department || "",
+          gate: s.gate || "",
+          shift: s.shift || "",
           phoneMasked: maskedPhone,
-          house: u.label,
-          unitNumber: u.unitNumber ?? NO_ORDER,
+          occupation: staffOccupation,
+          house: s.gate || s.department || "Society Staff",
+          houses: [s.gate || s.department || "Society Staff"],
+          unitNumber: NO_ORDER,
         });
       }
+    } catch (_) {}
+
+    if (query?.occupation) {
+      const occFilter = String(query.occupation).trim().toLowerCase();
+      entries = entries.filter(
+        (e) => e.occupation && e.occupation.toLowerCase().includes(occFilter)
+      );
+    }
+
+    if (query?.search) {
+      const searchFilter = String(query.search).trim().toLowerCase();
+      entries = entries.filter(
+        (e) =>
+          (e.name && e.name.toLowerCase().includes(searchFilter)) ||
+          (e.house && String(e.house).toLowerCase().includes(searchFilter)) ||
+          (Array.isArray(e.houses) && e.houses.some((h) => String(h).toLowerCase().includes(searchFilter))) ||
+          (e.occupation && e.occupation.toLowerCase().includes(searchFilter)) ||
+          (e.role && e.role.toLowerCase().includes(searchFilter)) ||
+          (e.department && e.department.toLowerCase().includes(searchFilter)) ||
+          (e.gate && e.gate.toLowerCase().includes(searchFilter))
+      );
     }
 
     return entries
@@ -73,7 +204,45 @@ class MembershipService {
           a.unitNumber - b.unitNumber ||
           String(a.name).localeCompare(String(b.name))
       )
-      .map(({ id, userId, name, role, house, phoneMasked }) => ({ id, userId, name, role, house, phoneMasked }));
+      .map(
+        ({
+          id,
+          userId,
+          name,
+          role,
+          roles,
+          house,
+          houses,
+          phoneMasked,
+          occupation,
+          isFamily,
+          relation,
+          addedByName,
+          isStaff,
+          staffType,
+          shift,
+          department,
+          gate,
+        }) => ({
+          id,
+          userId,
+          name,
+          role,
+          roles: roles || [role],
+          house,
+          houses: houses && houses.length > 0 ? houses : (house ? [house] : []),
+          phoneMasked,
+          occupation,
+          isFamily: Boolean(isFamily),
+          relation: relation || null,
+          addedByName: addedByName || null,
+          isStaff: Boolean(isStaff),
+          staffType: staffType || null,
+          shift: shift || null,
+          department: department || null,
+          gate: gate || null,
+        })
+      );
   }
 
   async findByUser(userId) {

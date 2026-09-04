@@ -400,6 +400,65 @@ class CollectionService {
     return result;
   }
 
+  async getReceipt(societyId, collection, unitId, membership) {
+    const isAdmin = await hasCollectionPermission(societyId, membership.role);
+    const myUnitIds = (membership.units || []).map((id) => String(id));
+    if (!isAdmin && !myUnitIds.includes(String(unitId))) {
+      throw new AppError("This house is not assigned to you", 403);
+    }
+
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true })
+      .populate("ownerId", "name phone email")
+      .populate("tenantId", "name phone email")
+      .lean();
+    if (!unit) throw new AppError("House not found", 404);
+
+    const payment = await CollectionPayment.findOne({
+      societyId,
+      collectionId: collection._id,
+      unitId,
+      isActive: true,
+    }).lean();
+    if (!payment) throw new AppError("No payment found for this house", 404);
+
+    const status = this.statusFor(payment, collection);
+    if (!["paid", "late_paid"].includes(status)) {
+      throw new AppError("Payment not completed yet", 400);
+    }
+
+    const { Society } = require("../society/society.model");
+    const society = await Society.findById(societyId).lean();
+
+    return {
+      receiptNo: payment.receiptNo,
+      society: {
+        name: society?.name || "Society",
+        address: society ? `${society.address}, ${society.city}, ${society.state} - ${society.pincode}` : "",
+      },
+      unit: {
+        id: unit._id,
+        label: unit.label,
+        block: unit.block,
+        floor: unit.floor,
+        doorNo: unit.doorNo,
+        ownerName: unit.tenantId?.name || unit.ownerId?.name || "Resident",
+        ownerPhone: unit.tenantId?.phone || unit.ownerId?.phone || "",
+      },
+      collection: this.mapCollection(collection),
+      payment: {
+        amount: payment.amount || collection.amount,
+        fee: payment.fee || 0,
+        totalAmount: payment.totalAmount || payment.amount || collection.amount,
+        method: payment.method,
+        paidOn: payment.paidOn,
+        receiptNo: payment.receiptNo,
+        razorpayPaymentId: payment.razorpayPaymentId || null,
+        razorpayOrderId: payment.razorpayOrderId || null,
+      },
+      status,
+    };
+  }
+
   async closeCollection(societyId, collectionId) {
     const col = await Collection.findOne({ _id: collectionId, societyId, isActive: true });
     if (!col) throw new AppError("Collection not found", 404);

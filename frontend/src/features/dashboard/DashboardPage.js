@@ -1595,7 +1595,7 @@ function SecurityGuardDashboardView({ user, activeSociety, noticesQuery, recentN
   const guardActionCards = [
     { icon: "shield", label: "Gate Terminal", to: "/visitors/terminal", desc: "Open full touch PIN numpad & scanner", primary: true },
     { icon: "badge", label: "Visitor Hub", to: "/visitors", desc: "Gate pass history, approvals & logbook" },
-    { icon: "groups", label: "Resident Directory", to: "/directory", desc: "Search flat numbers & call residents" },
+    { icon: "groups", label: "Resident Directory", to: "/directory", desc: "Find residents, flat numbers, doctors & electricians" },
     { icon: "directions_car", label: "Vehicle Lookup", to: "/vehicles", desc: "Verify registered resident number plates" },
     { icon: "emergency", label: "Emergency & SOS", to: "/emergency-contacts", desc: "Police, Fire, Ambulance & Society Desk" },
     { icon: "campaign", label: "Gate Notices", to: "/notices", desc: "Important instructions from committee" },

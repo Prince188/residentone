@@ -317,10 +317,13 @@ class UnitService {
     const mapped = await Promise.all(
       users.map(async (u) => {
         let familyCount = u.familyMembers;
+        let familyList = [];
         try {
-          const count = await FamilyMember.countDocuments({ addedBy: u._id, isActive: true });
-          if (count > 0 || familyCount === undefined || familyCount === null) {
-            familyCount = count;
+          familyList = await FamilyMember.find({ addedBy: u._id, isActive: true })
+            .select("name relation phone occupation")
+            .lean();
+          if (familyList.length > 0 || familyCount === undefined || familyCount === null) {
+            familyCount = familyList.length;
           }
         } catch (_) {}
 
@@ -332,6 +335,13 @@ class UnitService {
           occupation: u.occupation || "",
           vehicles: Array.isArray(u.vehicles) ? u.vehicles : [],
           familyMembers: familyCount ?? 0,
+          familyList: familyList.map((f) => ({
+            id: f._id,
+            name: f.name,
+            relation: f.relation,
+            phone: f.phone,
+            occupation: f.occupation || "",
+          })),
         };
       })
     );
@@ -345,10 +355,13 @@ class UnitService {
 
     const { FamilyMember } = require("../family-member/family-member.model");
     let familyCount = user.familyMembers;
+    let familyList = [];
     try {
-      const count = await FamilyMember.countDocuments({ addedBy: user._id, isActive: true });
-      if (count > 0 || familyCount === undefined || familyCount === null) {
-        familyCount = count;
+      familyList = await FamilyMember.find({ addedBy: user._id, isActive: true })
+        .select("name relation phone occupation")
+        .lean();
+      if (familyList.length > 0 || familyCount === undefined || familyCount === null) {
+        familyCount = familyList.length;
       }
     } catch (_) {}
 
@@ -362,6 +375,13 @@ class UnitService {
         occupation: user.occupation || "",
         vehicles: Array.isArray(user.vehicles) ? user.vehicles : [],
         familyMembers: familyCount ?? 0,
+        familyList: familyList.map((f) => ({
+          id: f._id,
+          name: f.name,
+          relation: f.relation,
+          phone: f.phone,
+          occupation: f.occupation || "",
+        })),
       },
     };
   }
@@ -394,6 +414,14 @@ class UnitService {
     await unit.save();
     await unit.populate("ownerId", "name email phone vehicles");
     await unit.populate("tenantId", "name email phone vehicles");
+
+    try {
+      const { FamilyMember } = require("../family-member/family-member.model");
+      await FamilyMember.updateMany(
+        { addedBy: user._id, isActive: true, $or: [{ societyId: null }, { unitId: null }] },
+        { $set: { societyId, unitId: unit._id } }
+      );
+    } catch (_) {}
 
     return {
       unit: this.mapUnitCard(unit),

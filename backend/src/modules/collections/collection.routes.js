@@ -36,5 +36,6 @@ router.post("/:collectionId/units/:unitId/unpay", requirePermission("manage_coll
 // Razorpay for resident (any member can pay own unit; check inside service)
 router.post("/:collectionId/units/:unitId/create-order", (req, res, next) => collectionController.createOrder(req, res, next));
 router.post("/:collectionId/units/:unitId/verify", (req, res, next) => collectionController.verifyPayment(req, res, next));
+router.get("/:collectionId/units/:unitId/receipt", (req, res, next) => collectionController.getReceipt(req, res, next));
 
 module.exports = router;

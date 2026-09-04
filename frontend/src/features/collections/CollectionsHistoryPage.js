@@ -66,8 +66,12 @@ export default function CollectionsHistoryPage() {
     <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link to="/collections/manage" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Manage Collections
+          <Link
+            to={canCreate ? "/collections/manage" : "/collections/pay"}
+            className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            {canCreate ? "Manage Collections" : "Collections"}
           </Link>
           <h1 className="page-title flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">history</span> Collection History
@@ -83,10 +87,7 @@ export default function CollectionsHistoryPage() {
         )}
       </section>
 
-      <div className="rounded-lg bg-surface-container-high px-3 py-2 text-label-sm text-on-surface-variant flex items-center gap-2">
-        <span className="material-symbols-outlined text-[16px]">info</span>
-        Tap a card to view details and download Excel for that collection.
-      </div>
+
 
       {collectionsQuery.isLoading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

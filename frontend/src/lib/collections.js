@@ -22,6 +22,7 @@ export const removeCollectionPayment = (collectionId, unitId) => api.post(`/coll
 export const createRazorpayOrder = (collectionId, unitId) => api.post(`/collections/${collectionId}/units/${unitId}/create-order`);
 export const verifyRazorpayPayment = (collectionId, unitId, payload) => api.post(`/collections/${collectionId}/units/${unitId}/verify`, payload);
 export const exportCollectionExcel = (id) => api.get(`/collections/${id}/export`, { responseType: "blob" });
+export const getCollectionReceipt = (collectionId, unitId) => api.get(`/collections/${collectionId}/units/${unitId}/receipt`);
 
 export function extractApiError(error, fallback) {
   return error?.response?.data?.error?.message || error?.response?.data?.message || fallback;
@@ -50,10 +51,10 @@ export const CATEGORY_UI = {
 };
 
 export const STATUS_UI = {
-  active: { label: "Active", pill: "bg-emerald-100 text-emerald-800", stripe: "bg-emerald-500", icon: "schedule" },
-  closed: { label: "Closed", pill: "bg-zinc-100 text-zinc-700", stripe: "bg-zinc-400", icon: "task_alt" },
-  pending: { label: "Pending", pill: "bg-amber-100 text-amber-800", stripe: "bg-amber-500", icon: "schedule" },
-  overdue: { label: "Overdue", pill: "bg-red-100 text-red-800", stripe: "bg-red-500", icon: "error" },
-  paid: { label: "Paid", pill: "bg-emerald-100 text-emerald-800", stripe: "bg-emerald-500", icon: "check_circle" },
-  late_paid: { label: "Late Paid", pill: "bg-violet-100 text-violet-800", stripe: "bg-violet-500", icon: "history_toggle_off" },
+  active: { label: "Active", card: "border-outline-variant bg-surface-container-lowest", pill: "bg-emerald-100 text-emerald-800", stripe: "bg-emerald-500", iconBox: "bg-emerald-100 text-emerald-700", icon: "schedule" },
+  closed: { label: "Closed", card: "border-outline-variant bg-surface-container-lowest", pill: "bg-zinc-100 text-zinc-700", stripe: "bg-zinc-400", iconBox: "bg-zinc-100 text-zinc-700", icon: "task_alt" },
+  pending: { label: "Pending", card: "border-amber-200 bg-amber-50", pill: "bg-amber-100 text-amber-800", stripe: "bg-amber-500", iconBox: "bg-amber-100 text-amber-700", icon: "schedule" },
+  overdue: { label: "Overdue", card: "border-red-200 bg-red-50", pill: "bg-red-100 text-red-800", stripe: "bg-red-500", iconBox: "bg-red-100 text-red-700", icon: "error" },
+  paid: { label: "Paid", card: "border-emerald-200 bg-emerald-50", pill: "bg-emerald-100 text-emerald-800", stripe: "bg-emerald-500", iconBox: "bg-emerald-100 text-emerald-700", icon: "check_circle" },
+  late_paid: { label: "Late Paid", card: "border-violet-200 bg-violet-50", pill: "bg-violet-100 text-violet-800", stripe: "bg-violet-500", iconBox: "bg-violet-100 text-violet-700", icon: "history_toggle_off" },
 };

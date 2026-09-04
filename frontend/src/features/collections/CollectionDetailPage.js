@@ -22,20 +22,37 @@ import { hasPermission } from "../../lib/permissions";
 
 function UnitCard({ unit, collectionId }) {
   const status = STATUS_UI[unit.status] || STATUS_UI.pending;
+  const isSettled = ["paid", "late_paid"].includes(unit.status);
+  const dateLine = isSettled
+    ? `Paid on ${formatDate(unit.paidOn)}${unit.receiptNo ? ` · #${unit.receiptNo}` : ""}`
+    : `Due by ${formatDate(unit.collection?.dueDate)}`;
+
   return (
     <Link
-      to={`/collections/${collectionId}/units/${unit.unitId}`}
+      to={`/collections/${collectionId}/units/${unit.unitId}?from=admin`}
       className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${status.card || "border-outline-variant bg-surface-container-lowest"}`}
     >
       <span className={`absolute inset-y-0 left-0 w-1.5 ${status.stripe || "bg-outline-variant"}`} />
       <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.pill.includes("emerald") ? "bg-emerald-100 text-emerald-700" : status.pill.includes("amber") ? "bg-amber-100 text-amber-700" : status.pill.includes("red") ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-700"}`}>
+        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox || "bg-surface-container-high"}`}>
           <span className="material-symbols-outlined text-[22px]">{unit.isOccupied ? "home" : "home_work"}</span>
         </span>
-        <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-semibold ${status.pill}`}>{status.label}</span>
+        <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-semibold ${status.pill}`}>
+          <span className="material-symbols-outlined text-[13px]">{status.icon}</span>
+          {status.label}
+        </span>
       </div>
       <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">House {unit.label}</p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">{unit.ownerName || "No resident"} {unit.amount ? `· ${formatAmount(unit.amount)}` : ""}</p>
+      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant flex items-center gap-1.5">
+        <span>{unit.ownerName || "No resident"}</span>
+        {unit.amount ? <span>· {formatAmount(unit.amount)}</span> : null}
+      </p>
+      {dateLine && (
+        <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-semibold text-on-surface-variant">
+          <span className="material-symbols-outlined shrink-0 text-[13px]">event</span>
+          {dateLine}
+        </p>
+      )}
     </Link>
   );
 }
@@ -316,7 +333,7 @@ export default function CollectionDetailPage() {
   const cat = CATEGORY_UI[collection.category] || CATEGORY_UI.other;
   const isOverdue = collection.isOverdue;
 
-  const backTo = isAdmin ? "/collections/manage" : "/collections/pay";
+  const backTo = isAdmin ? "/collections/manage" : `/collections/pay?collection=${id}`;
   const backLabel = isAdmin ? "Manage Collections" : "Collections";
 
   return (
@@ -407,7 +424,7 @@ export default function CollectionDetailPage() {
       ) : (
         <div className="space-y-3">
           <h3 className="text-title-md font-semibold">Your Houses</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {units.map((u) => (
               <UnitCard key={u.unitId} unit={u} collectionId={id} />
             ))}

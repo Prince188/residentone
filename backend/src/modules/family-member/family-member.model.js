@@ -39,6 +39,12 @@ const familyMemberSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    occupation: {
+      type: String,
+      trim: true,
+      maxlength: [100, "Occupation cannot exceed 100 characters"],
+      default: "",
+    },
     isActive: {
       type: Boolean,
       default: true,

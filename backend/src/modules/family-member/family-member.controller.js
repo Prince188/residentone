@@ -3,7 +3,7 @@ const familyMemberService = require("./family-member.service");
 class FamilyMemberController {
   async list(req, res, next) {
     try {
-      const docs = await familyMemberService.list(req.societyId, req.userId, req.membership);
+      const docs = await familyMemberService.list(req.societyId, req.userId, req.membership, req.query);
       res.json({ success: true, data: docs.map((d) => familyMemberService.map(d)) });
     } catch (e) { next(e); }
   }

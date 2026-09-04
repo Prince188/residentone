@@ -129,9 +129,7 @@ export default function ComplaintsPage() {
         </div>
       </section>
 
-      <div className="rounded-lg bg-surface-container-high px-3 py-2 text-label-sm text-on-surface-variant">
-        <span className="font-semibold">Public</span> = everyone in society can see. <span className="font-semibold">Private</span> = only you + Admin.
-      </div>
+
 
       {query.isLoading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

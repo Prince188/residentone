@@ -14,6 +14,7 @@ function EditFamilyMemberModal({ member, open, onClose, onSave, isSaving, error 
     name: member?.name || "",
     relation: member?.relation || "other",
     phone: member?.phone || "",
+    occupation: member?.occupation || "",
   });
 
   if (!open || !member) return null;
@@ -27,6 +28,7 @@ function EditFamilyMemberModal({ member, open, onClose, onSave, isSaving, error 
         name: form.name.trim(),
         relation: form.relation,
         phone: form.phone.trim(),
+        occupation: form.occupation.trim(),
       },
     });
   };
@@ -81,6 +83,18 @@ function EditFamilyMemberModal({ member, open, onClose, onSave, isSaving, error 
             </div>
           </div>
 
+          <div>
+            <label className="text-label-md font-medium text-on-surface">Occupation / Profession (Optional)</label>
+            <input
+              type="text"
+              maxLength={100}
+              value={form.occupation}
+              onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+              placeholder="e.g. Doctor, Electrician, Student, Engineer"
+              className="mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
               Cancel
@@ -105,15 +119,15 @@ export default function FamilyMembersPage() {
   const myHouses = membership?.units || [];
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ name: "", relation: "other", phone: "" });
+  const [form, setForm] = useState({ name: "", relation: "other", phone: "", occupation: "" });
   const [editingMember, setEditingMember] = useState(null);
   const [deletingMember, setDeletingMember] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
   const listQuery = useQuery({
-    queryKey: ["family-members", activeSociety?.id || "global"],
-    queryFn: async () => (await getFamilyMembers()).data.data,
+    queryKey: ["family-members", "mine", user?.id || user?._id],
+    queryFn: async () => (await getFamilyMembers({ mine: true })).data.data,
     enabled: Boolean(user),
   });
 
@@ -121,9 +135,11 @@ export default function FamilyMembersPage() {
     mutationFn: (payload) => addFamilyMember(payload).then((r) => r.data.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       setMsg("Family member added");
       setErr("");
-      setForm({ name: "", relation: "other", phone: "" });
+      setForm({ name: "", relation: "other", phone: "", occupation: "" });
       setTimeout(() => setMsg(""), 3000);
     },
     onError: (e) => setErr(extractApiError(e, "Failed to add")),
@@ -133,6 +149,8 @@ export default function FamilyMembersPage() {
     mutationFn: ({ id, payload }) => updateFamilyMember(id, payload).then((r) => r.data.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       setEditingMember(null);
       setMsg("Family member details updated");
       setErr("");
@@ -145,6 +163,8 @@ export default function FamilyMembersPage() {
     mutationFn: (id) => removeFamilyMember(id).then((r) => r.data.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       setDeletingMember(null);
       setMsg("Family member removed");
       setTimeout(() => setMsg(""), 3000);
@@ -152,18 +172,18 @@ export default function FamilyMembersPage() {
     onError: (e) => setErr(extractApiError(e, "Failed to remove")),
   });
 
-  const rawMembers = listQuery.data || [];
-  const members = rawMembers.filter((m) => {
-    const addedById = String(m.addedBy?._id || m.addedBy || "");
-    const userId = String(user?.id || user?._id || "");
-    return addedById && userId && addedById === userId;
-  });
+  const members = listQuery.data || [];
 
   const handleAdd = (e) => {
     e.preventDefault();
     if (!form.name.trim() || form.name.trim().length < 2) { setErr("Enter valid name (min 2 chars)"); return; }
     setErr("");
-    addMut.mutate({ name: form.name.trim(), relation: form.relation, phone: form.phone.trim() });
+    addMut.mutate({
+      name: form.name.trim(),
+      relation: form.relation,
+      phone: form.phone.trim(),
+      occupation: form.occupation.trim(),
+    });
   };
 
   return (
@@ -203,6 +223,20 @@ export default function FamilyMembersPage() {
             />
           </div>
         </div>
+        <div>
+          <label className="text-label-md font-medium text-on-surface">Occupation / Profession (Optional)</label>
+          <input
+            type="text"
+            maxLength={100}
+            value={form.occupation}
+            onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+            placeholder="e.g. Doctor, Electrician, Student, Engineer"
+            className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-body-sm"
+          />
+          <p className="mt-1 text-label-xs text-on-surface-variant">
+            Helps neighbors discover community doctors, electricians, teachers, etc.
+          </p>
+        </div>
         <button type="submit" disabled={addMut.isPending} className="rounded-full bg-primary px-5 py-2 text-label-md text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer">
           {addMut.isPending ? "Adding..." : "Add Member"}
         </button>
@@ -217,11 +251,17 @@ export default function FamilyMembersPage() {
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">{m.name.charAt(0).toUpperCase()}</span>
               <div>
-                <p className="text-body-md font-semibold text-on-surface">
-                  {m.name}{" "}
+                <p className="text-body-md font-semibold text-on-surface flex items-center gap-2 flex-wrap">
+                  <span>{m.name}</span>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-medium capitalize text-primary">
                     {m.relation}
                   </span>
+                  {m.occupation && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-secondary-fixed px-2 py-0.5 text-label-xs font-semibold text-on-secondary-fixed">
+                      <span className="material-symbols-outlined text-[13px]">work</span>
+                      {m.occupation}
+                    </span>
+                  )}
                 </p>
                 <p className="text-label-sm text-on-surface-variant">General · All houses {m.phone ? `· ${m.phone}` : ""}</p>
               </div>

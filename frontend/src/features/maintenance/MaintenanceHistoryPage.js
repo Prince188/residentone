@@ -104,10 +104,7 @@ export default function MaintenanceHistoryPage() {
         </Link>
       </section>
 
-      <div className="rounded-lg bg-surface-container-high px-3 py-2 text-label-sm text-on-surface-variant flex items-center gap-2">
-        <span className="material-symbols-outlined text-[16px]">info</span>
-        Tap a card to view house cards and download Excel for that period.
-      </div>
+
 
       {cyclesQuery.isLoading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

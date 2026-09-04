@@ -7,6 +7,7 @@ import api from "../../lib/api";
 import {
   getFamilyMembers,
   addFamilyMember,
+  updateFamilyMember,
   removeFamilyMember,
 } from "../../lib/familyMembers";
 import PhoneInput from "../../components/ui/PhoneInput";
@@ -30,6 +31,7 @@ export default function ProfilePage() {
   const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [deletingMemberId, setDeletingMemberId] = useState(null);
+  const [editingFamilyMember, setEditingFamilyMember] = useState(null);
 
   // Form States
   const [form, setForm] = useState({
@@ -43,6 +45,14 @@ export default function ProfilePage() {
     name: "",
     relation: "spouse",
     phone: "",
+    occupation: "",
+  });
+
+  const [editFamilyForm, setEditFamilyForm] = useState({
+    name: "",
+    relation: "spouse",
+    phone: "",
+    occupation: "",
   });
 
   const [vehiclePlateInput, setVehiclePlateInput] = useState("");
@@ -65,10 +75,10 @@ export default function ProfilePage() {
 
   const user = profileQuery.data || authUser;
 
-  // Family Members Query
+  // Family Members Query (Universal to the user across all societies)
   const familyMembersQuery = useQuery({
-    queryKey: ["family-members", activeSociety?.id || "global"],
-    queryFn: async () => (await getFamilyMembers()).data.data,
+    queryKey: ["family-members", "mine", user?.id || user?._id],
+    queryFn: async () => (await getFamilyMembers({ mine: true })).data.data,
     enabled: Boolean(user),
   });
 
@@ -108,8 +118,9 @@ export default function ProfilePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
       setIsAddFamilyModalOpen(false);
-      setFamilyForm({ name: "", relation: "spouse", phone: "" });
+      setFamilyForm({ name: "", relation: "spouse", phone: "", occupation: "" });
       setSuccessMsg("Family member added! They are now recognized across all your society houses.");
       setErrorMsg("");
       setTimeout(() => setSuccessMsg(""), 3500);
@@ -144,6 +155,59 @@ export default function ProfilePage() {
       );
     },
   });
+
+  // Mutation: Update Family Member
+  const updateFamilyMutation = useMutation({
+    mutationFn: async ({ id, payload }) => {
+      const res = await updateFamilyMember(id, payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-members"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      setEditingFamilyMember(null);
+      setSuccessMsg("Family member details updated successfully!");
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 3500);
+    },
+    onError: (err) => {
+      setErrorMsg(
+        err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          "Failed to update family member."
+      );
+    },
+  });
+
+  const handleOpenEditFamily = (m) => {
+    setEditingFamilyMember(m);
+    setEditFamilyForm({
+      name: m.name || "",
+      relation: m.relation || "spouse",
+      phone: m.phone || "",
+      occupation: m.occupation || "",
+    });
+    setErrorMsg("");
+  };
+
+  const handleSaveEditFamily = (e) => {
+    e.preventDefault();
+    if (!editingFamilyMember) return;
+    if (!editFamilyForm.name.trim()) {
+      setErrorMsg("Please provide a name.");
+      return;
+    }
+    updateFamilyMutation.mutate({
+      id: editingFamilyMember.id,
+      payload: {
+        name: editFamilyForm.name.trim(),
+        relation: editFamilyForm.relation,
+        phone: editFamilyForm.phone || "",
+        occupation: (editFamilyForm.occupation || "").trim(),
+      },
+    });
+  };
 
   // Mutation: Add Vehicle
   const addVehicleMutation = useMutation({
@@ -236,6 +300,7 @@ export default function ProfilePage() {
       name: familyForm.name.trim(),
       relation: familyForm.relation,
       phone: familyForm.phone.trim(),
+      occupation: (familyForm.occupation || "").trim(),
     });
   };
 
@@ -511,6 +576,12 @@ export default function ProfilePage() {
                           <span className="inline-flex items-center rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-bold capitalize text-on-surface-variant">
                             {m.relation}
                           </span>
+                          {m.occupation && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-secondary-fixed px-2 py-0.5 text-[11px] font-semibold text-on-secondary-fixed">
+                              <span className="material-symbols-outlined text-[13px]">work</span>
+                              {m.occupation}
+                            </span>
+                          )}
                           {m.phone && (
                             <span className="text-label-sm text-outline truncate">{m.phone}</span>
                           )}
@@ -518,14 +589,24 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setDeletingMemberId(m.id)}
-                      className="rounded-xl p-1.5 text-outline hover:bg-error/10 hover:text-error transition-colors cursor-pointer"
-                      title="Remove Family Member"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditFamily(m)}
+                        className="rounded-xl p-1.5 text-outline hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                        title="Edit Family Member"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingMemberId(m.id)}
+                        className="rounded-xl p-1.5 text-outline hover:bg-error/10 hover:text-error transition-colors cursor-pointer"
+                        title="Remove Family Member"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -912,6 +993,23 @@ export default function ProfilePage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">
+                  Occupation / Profession (Optional)
+                </label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={familyForm.occupation || ""}
+                  onChange={(e) => setFamilyForm({ ...familyForm, occupation: e.target.value })}
+                  placeholder="e.g. Doctor, Electrician, Student, Engineer"
+                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="mt-1 text-label-xs text-on-surface-variant">
+                  Allows society residents to contact this family member for professional help or services.
+                </p>
+              </div>
+
               <div className="rounded-xl bg-primary/5 p-3 text-label-sm text-primary">
                 💡 This member will automatically be recognized across your profile and any linked houses.
               </div>
@@ -979,6 +1077,120 @@ export default function ProfilePage() {
                 <span>{removeFamilyMutation.isPending ? "Removing..." : "Remove"}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL: EDIT FAMILY MEMBER */}
+      {editingFamilyMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => !updateFamilyMutation.isPending && setEditingFamilyMember(null)}
+          />
+          <div className="relative w-full max-w-md rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">edit</span>
+                Edit Family Member
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingFamilyMember(null)}
+                disabled={updateFamilyMutation.isPending}
+                className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div className="rounded-xl border border-error/30 bg-error/5 p-3 text-body-sm text-error">
+                {errorMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditFamily} className="space-y-4">
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={editFamilyForm.name}
+                  onChange={(e) => setEditFamilyForm({ ...editFamilyForm, name: e.target.value })}
+                  required
+                  placeholder="e.g. Ananya Sharma"
+                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">
+                  Relationship *
+                </label>
+                <select
+                  value={editFamilyForm.relation}
+                  onChange={(e) => setEditFamilyForm({ ...editFamilyForm, relation: e.target.value })}
+                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  {RELATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">
+                  Phone Number (Optional)
+                </label>
+                <PhoneInput
+                  value={editFamilyForm.phone}
+                  onChange={(e) => setEditFamilyForm({ ...editFamilyForm, phone: e.target.value })}
+                  showDigitCounter={true}
+                />
+              </div>
+
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">
+                  Occupation / Profession (Optional)
+                </label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={editFamilyForm.occupation || ""}
+                  onChange={(e) => setEditFamilyForm({ ...editFamilyForm, occupation: e.target.value })}
+                  placeholder="e.g. Doctor, Electrician, Student, Engineer"
+                  className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 px-3.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="mt-1 text-label-xs text-on-surface-variant">
+                  Allows society residents to find this family member when searching by occupation.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                <button
+                  type="button"
+                  onClick={() => setEditingFamilyMember(null)}
+                  disabled={updateFamilyMutation.isPending}
+                  className="rounded-xl border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface hover:bg-surface-container-low cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateFamilyMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {updateFamilyMutation.isPending ? "hourglass_top" : "save"}
+                  </span>
+                  <span>{updateFamilyMutation.isPending ? "Saving..." : "Save Changes"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

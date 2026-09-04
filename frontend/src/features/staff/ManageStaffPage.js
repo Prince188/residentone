@@ -240,18 +240,6 @@ export default function ManageStaffPage() {
         )}
       </div>
 
-      {/* Info Tip Banner */}
-      <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-body-sm text-on-surface shadow-xs">
-        <span className="material-symbols-outlined text-[24px] text-primary shrink-0 mt-0.5">info</span>
-        <div>
-          <p className="font-bold text-on-surface">No House / Flat Required for Staff & Guards</p>
-          <p className="text-on-surface-variant text-[13px] mt-0.5">
-            Unlike committee members, staff personnel and security guards do not need to live or own a flat in the society.
-            When you assign a <strong>Security Guard</strong>, their account automatically unlocks the <strong>Gatekeeper Terminal</strong> (`/guard` & `/visitors/terminal`).
-          </p>
-        </div>
-      </div>
-
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">

@@ -97,6 +97,21 @@ class CollectionController {
     }
   }
 
+  async getReceipt(req, res, next) {
+    try {
+      const collection = await collectionService.getRawById(req.societyId, req.params.collectionId);
+      const receipt = await collectionService.getReceipt(
+        req.societyId,
+        collection,
+        req.params.unitId,
+        req.membership
+      );
+      res.json({ success: true, data: receipt });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async update(req, res, next) {
     try {
       const data = await collectionService.update(req.societyId, req.params.id, req.body);

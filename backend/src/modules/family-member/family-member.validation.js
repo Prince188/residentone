@@ -6,12 +6,14 @@ const createFamilyMemberSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
   relation: z.enum(FAMILY_ROLES).optional().default("other"),
   phone: z.string().trim().optional().default(""),
+  occupation: z.string().trim().max(100, "Occupation cannot exceed 100 characters").optional().default(""),
 });
 
 const updateFamilyMemberSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   relation: z.enum(FAMILY_ROLES).optional(),
   phone: z.string().trim().optional(),
+  occupation: z.string().trim().max(100, "Occupation cannot exceed 100 characters").optional(),
 });
 
 module.exports = { createFamilyMemberSchema, updateFamilyMemberSchema };

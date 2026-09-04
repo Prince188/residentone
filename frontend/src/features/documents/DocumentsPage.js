@@ -373,12 +373,7 @@ export default function DocumentsPage() {
         )}
       </section>
 
-      {!canManage && (
-        <div className="rounded-lg bg-surface-container-high px-3 py-2 text-label-sm text-on-surface-variant flex items-center gap-2">
-          <span className="material-symbols-outlined text-[16px]">info</span>
-          Only society admin and permission-given members can upload. You can view and download.
-        </div>
-      )}
+
 
       {msg && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-body-sm text-emerald-800">{msg}</div>}
       {err && <div className="rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">{err}</div>}

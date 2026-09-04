@@ -131,16 +131,16 @@ function VehicleRow({ value, index, canRemove, onChange, onRemove }) {
 
 function FamilyMembersInModal({ houseId, addedById }) {
   const { data } = useQuery({
-    queryKey: ["family-members", houseId],
-    queryFn: async () => (await getFamilyMembers()).data.data,
-    enabled: Boolean(houseId),
+    queryKey: ["family-members", houseId, addedById],
+    queryFn: async () =>
+      (
+        await getFamilyMembers(
+          addedById ? { addedBy: addedById } : { unitId: houseId }
+        )
+      ).data.data,
+    enabled: Boolean(houseId || addedById),
   });
-  const members = (data || []).filter((m) => {
-    if (addedById) {
-      return String(m.addedBy?._id || m.addedBy) === String(addedById);
-    }
-    return String(m.unitId?._id || m.unitId) === String(houseId);
-  });
+  const members = data || [];
   if (!members.length) {
     return (
       <div className="mt-4 rounded-2xl border border-dashed border-outline-variant/60 bg-surface-container-low/30 p-4 text-center">
@@ -159,11 +159,17 @@ function FamilyMembersInModal({ houseId, addedById }) {
         {members.map((m) => (
           <div key={m.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
             <div className="min-w-0">
-              <p className="text-body-sm font-semibold text-on-surface flex items-center gap-2">
+              <p className="text-body-sm font-semibold text-on-surface flex items-center gap-2 flex-wrap">
                 <span>{m.name}</span>
                 <span className="rounded-full bg-primary-fixed px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-primary-fixed">
                   {m.relation}
                 </span>
+                {m.occupation && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary-fixed px-2 py-0.5 text-[10px] font-semibold text-on-secondary-fixed">
+                    <span className="material-symbols-outlined text-[11px]">work</span>
+                    {m.occupation}
+                  </span>
+                )}
               </p>
               {m.phone && (
                 <p className="mt-0.5 text-label-sm text-on-surface-variant flex items-center gap-1">
@@ -859,6 +865,30 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
                     Occupation and household family members count.
                   </p>
                 </div>
+
+                {selectedUser?.familyList && selectedUser.familyList.length > 0 && (
+                  <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low/50 p-3 space-y-2">
+                    <div className="flex items-center justify-between text-label-xs font-semibold text-on-surface">
+                      <span className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-primary">group</span>
+                        Registered Family Members ({selectedUser.familyList.length})
+                      </span>
+                      <span className="text-emerald-700 font-bold">✓ Loaded from DB</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedUser.familyList.map((f, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 rounded-md bg-surface-container-lowest px-2 py-1 text-label-xs font-medium text-on-surface shadow-2xs border border-outline-variant/50"
+                        >
+                          <strong>{f.name}</strong> ({f.relation})
+                          {f.occupation && <span className="text-primary font-semibold">· {f.occupation}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <FormField id="modal-occupation" label="Occupation">
                   <input
                     id="modal-occupation"

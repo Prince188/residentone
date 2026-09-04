@@ -13,7 +13,7 @@ class MembershipController {
 
   async directory(req, res, next) {
     try {
-      const members = await membershipService.getDirectory(req.societyId);
+      const members = await membershipService.getDirectory(req.societyId, req.query);
       res.json({ success: true, data: members });
     } catch (error) {
       next(error);
