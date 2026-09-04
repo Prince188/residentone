@@ -19,7 +19,8 @@ class MaintenanceController {
 
   async listCycles(req, res, next) {
     try {
-      const cycles = await maintenanceService.listCycles(req.societyId);
+      const wing = req.query.wing !== undefined ? (req.query.wing ? String(req.query.wing).trim().toUpperCase() : null) : undefined;
+      const cycles = await maintenanceService.listCycles(req.societyId, wing);
       res.json({
         success: true,
         data: cycles.map((c) => maintenanceService.mapCycle(c)),
@@ -31,7 +32,17 @@ class MaintenanceController {
 
   async getLatestCycle(req, res, next) {
     try {
-      const cycle = await maintenanceService.getLatestCycle(req.societyId);
+      const wing = req.query.wing !== undefined ? (req.query.wing ? String(req.query.wing).trim().toUpperCase() : null) : undefined;
+      let cycle = await maintenanceService.getLatestCycle(req.societyId, wing);
+      // If resident requested latest cycle without wing parameter, but has assigned units with a wing, find the latest cycle matching their unit's wing or society-wide
+      if (!cycle && wing === undefined && req.membership?.units?.length) {
+        const { Unit } = require("../unit/unit.model");
+        const userUnits = await Unit.find({ _id: { $in: req.membership.units }, isActive: true }).select("block").lean();
+        const userWings = [...new Set(userUnits.map((u) => u.block).filter(Boolean))];
+        if (userWings.length > 0) {
+          cycle = await maintenanceService.getLatestCycle(req.societyId, userWings[0]);
+        }
+      }
       if (!cycle) {
         return res.json({ success: true, data: null });
       }

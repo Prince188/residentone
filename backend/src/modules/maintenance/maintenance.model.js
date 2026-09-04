@@ -16,7 +16,8 @@ const cycleSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: [true, "Maintenance amount is required"],
-      min: [1, "Amount must be at least 1"],
+      min: [0, "Amount cannot be negative"],
+      default: 0,
     },
     ownerAmount: {
       type: Number,
@@ -42,6 +43,18 @@ const cycleSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Late charge cannot be negative"],
     },
+    wing: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    bhkRates: [
+      {
+        bhkType: { type: String, required: true },
+        ownerAmount: { type: Number, required: true, min: 0 },
+        renterAmount: { type: Number, required: true, min: 0 },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -55,7 +68,7 @@ const cycleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-cycleSchema.index({ societyId: 1, month: 1, year: 1 }, { unique: true });
+cycleSchema.index({ societyId: 1, wing: 1, month: 1, year: 1 }, { unique: true });
 cycleSchema.index({ societyId: 1, year: -1, month: -1 });
 
 tenantPlugin(cycleSchema);

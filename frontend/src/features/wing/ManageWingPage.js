@@ -165,6 +165,15 @@ export default function ManageWingPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {assignedWings.length > 0 && (
+            <Link
+              to={`/dues?wing=${encodeURIComponent(assignedWings[0])}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-label-sm font-semibold text-primary hover:bg-primary hover:text-white no-underline transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+              Manage Wing Maintenance
+            </Link>
+          )}
           <span className="rounded-full px-3 py-1 text-label-sm font-bold bg-amber-100 text-amber-800">{`Wing Admin • Wing ${assignedWings.join(", ") || "—"}`}</span>
           {isSocietyAdmin && <span className="rounded-full px-3 py-1 text-label-sm font-bold bg-primary/10 text-primary border border-primary/20">Society Admin too • wing view only</span>}
         </div>
@@ -194,6 +203,13 @@ export default function ManageWingPage() {
                   <div className="flex items-center gap-3 px-5 py-3 bg-surface-container-low border-b">
                     <span className="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold">{wing}</span>
                     <div className="flex-1"><h3 className="font-bold leading-none">Wing {wing}</h3><p className="text-body-sm text-on-surface-variant">{totalWing} houses • {floorGroups.length} floors</p></div>
+                    <Link
+                      to={`/dues?wing=${encodeURIComponent(wing)}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-surface-container-lowest px-3 py-1 text-label-sm font-semibold text-primary hover:bg-primary hover:text-white no-underline transition-colors shadow-sm"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">receipt_long</span>
+                      <span>Maintenance</span>
+                    </Link>
                     <span className="hidden sm:inline-flex bg-amber-100 text-amber-800 rounded-full px-3 py-1 text-label-sm font-bold">Your Wing</span>
                   </div>
                   <div className="p-5 space-y-5">

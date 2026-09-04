@@ -5,8 +5,8 @@ export const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-export const getCycles = () => api.get("/maintenance/cycles");
-export const getLatestCycle = () => api.get("/maintenance/cycles/latest");
+export const getCycles = (config = {}) => api.get("/maintenance/cycles", config);
+export const getLatestCycle = (config = {}) => api.get("/maintenance/cycles/latest", config);
 export const getCycleUnits = (cycleId) =>
   api.get(`/maintenance/cycles/${cycleId}/units`);
 export const getCycleUnitDetail = (cycleId, unitId) =>

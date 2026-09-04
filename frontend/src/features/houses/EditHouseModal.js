@@ -24,6 +24,7 @@ export default function EditHouseModal({
   const [floor, setFloor] = useState(house?.floor ?? "");
   const [doorNo, setDoorNo] = useState(house?.doorNo || "");
   const [propertyType, setPropertyType] = useState(house?.propertyType || "flat");
+  const [unitType, setUnitType] = useState(house?.unitType || "2bhk");
 
   useEffect(() => {
     if (house) {
@@ -32,6 +33,7 @@ export default function EditHouseModal({
       setFloor(house.floor ?? "");
       setDoorNo(house.doorNo || "");
       setPropertyType(house.propertyType || "flat");
+      setUnitType(house.unitType || "2bhk");
     }
   }, [house, open]);
 
@@ -59,6 +61,7 @@ export default function EditHouseModal({
       floor: floor !== "" ? Number(floor) : null,
       doorNo: doorNo.trim() || null,
       propertyType,
+      unitType: unitType || "2bhk",
     });
   };
 
@@ -202,6 +205,27 @@ export default function EditHouseModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="text-label-sm font-bold text-on-surface flex items-center gap-1.5 mb-1.5">
+              <span className="material-symbols-outlined text-[16px] text-primary">meeting_room</span>
+              Flat Configuration (BHK / Penthouse)
+            </label>
+            <select
+              value={unitType}
+              onChange={(e) => setUnitType(e.target.value)}
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2.5 text-body-md text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium cursor-pointer"
+            >
+              <option value="1bhk">1 BHK</option>
+              <option value="2bhk">2 BHK</option>
+              <option value="3bhk">3 BHK</option>
+              <option value="4bhk">4 BHK</option>
+              <option value="penthouse">Penthouse</option>
+              <option value="studio">Studio</option>
+              <option value="other">Other / Villa</option>
+            </select>
+            <p className="mt-1 text-[11px] text-outline">Used for wing-wise & flat-type maintenance rates calculation.</p>
           </div>
 
           {/* Action Buttons */}

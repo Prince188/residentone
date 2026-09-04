@@ -887,7 +887,11 @@ class SocietyService {
 
   async getRolePermissions(societyId) {
     const society = await Society.findById(societyId).select("rolePermissions");
-    return society?.rolePermissions || {};
+    const perms = { ...(society?.rolePermissions || {}) };
+    if (perms.wing_admin && !perms.wing_admin.includes("manage_maintenance")) {
+      perms.wing_admin = [...perms.wing_admin, "manage_maintenance"];
+    }
+    return perms;
   }
 
   async updateRolePermissions(societyId, newPermissions, userId) {

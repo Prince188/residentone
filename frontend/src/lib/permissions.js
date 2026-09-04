@@ -19,7 +19,7 @@ export const PERMISSIONS = [
 export const DEFAULT_ROLE_PERMISSIONS = {
   society_admin: PERMISSIONS.map((p) => p.key),
   super_admin: PERMISSIONS.map((p) => p.key),
-  wing_admin: ["manage_houses", "manage_complaints", "create_notice", "create_poll", "create_survey", "manage_visitors", "manage_directory", "view_financials", "manage_staff"],
+  wing_admin: ["manage_houses", "manage_maintenance", "manage_complaints", "create_notice", "create_poll", "create_survey", "manage_visitors", "manage_directory", "view_financials", "manage_staff"],
   manager: ["manage_houses", "manage_maintenance", "manage_collections", "manage_documents", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory", "manage_committee", "manage_staff"],
   treasurer: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials", "manage_directory"],
   accountant: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials"],
@@ -34,8 +34,14 @@ export const DEFAULT_ROLE_PERMISSIONS = {
 };
 
 export function getPermissionsForRole(role, customPermissions) {
-  if (customPermissions && customPermissions[role]) return customPermissions[role];
-  return DEFAULT_ROLE_PERMISSIONS[role] || [];
+  const defaults = DEFAULT_ROLE_PERMISSIONS[role] || [];
+  if (customPermissions && customPermissions[role]) {
+    if (role === "wing_admin" && defaults.includes("manage_maintenance") && !customPermissions[role].includes("manage_maintenance")) {
+      return [...customPermissions[role], "manage_maintenance"];
+    }
+    return customPermissions[role];
+  }
+  return defaults;
 }
 
 export function hasPermission(role, permission, customPermissions) {

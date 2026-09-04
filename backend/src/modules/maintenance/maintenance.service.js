@@ -2,6 +2,7 @@ const { MaintenanceCycle, MaintenancePayment } = require("./maintenance.model");
 const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
+const { Membership } = require("../membership/membership.model");
 const { hasPermission } = require("../../shared/permissions");
 const ExcelJS = require("exceljs");
 
@@ -20,7 +21,21 @@ class MaintenanceService {
   getAmountForUnit(cycle, unit) {
     const hasTenant = unit && (unit.tenantId || unit.tenant);
     const hasOwner = unit && (unit.ownerId || unit.owner);
-    // If renter exists (currently lives), use renter amount - priority
+
+    // 1. If cycle has bhkRates, match with unit's unitType (e.g., '1bhk', '2bhk', '3bhk', '4bhk', 'penthouse')
+    if (cycle && Array.isArray(cycle.bhkRates) && cycle.bhkRates.length > 0 && unit) {
+      const uType = (unit.unitType || "2bhk").trim().toLowerCase();
+      const matched = cycle.bhkRates.find(
+        (r) => (r.bhkType || "").trim().toLowerCase() === uType
+      );
+      if (matched) {
+        if (hasTenant && matched.renterAmount != null) return matched.renterAmount;
+        if (hasOwner && matched.ownerAmount != null) return matched.ownerAmount;
+        return hasTenant ? matched.renterAmount : matched.ownerAmount;
+      }
+    }
+
+    // 2. Fallback to owner/renter split or flat amount
     if (hasTenant) {
       return cycle.renterAmount != null ? cycle.renterAmount : cycle.amount;
     }
@@ -31,27 +46,80 @@ class MaintenanceService {
   }
 
   async createCycle(societyId, userId, data) {
+    const society = await Society.findById(societyId).select("societyType").lean();
+    const isRowHouse = society?.societyType === "row_house";
+
+    let wing = null;
+    let bhkRates = [];
+
+    if (isRowHouse) {
+      // Row house: strictly society-wide, no wings, no BHK configuration
+      wing = null;
+      bhkRates = [];
+    } else {
+      // Apartment: allow wing-specific and bhkRates
+      if (data.wing && String(data.wing).trim()) {
+        wing = String(data.wing).trim().toUpperCase();
+      }
+
+      // Check if user is a pure wing_admin restricted to assigned wings
+      const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
+      if (membership) {
+        const roles = [membership.role, ...(membership.additionalRoles || [])];
+        const isSocietyAdmin = roles.includes("society_admin") || roles.includes("super_admin");
+        const isWingAdmin = roles.includes("wing_admin");
+        if (isWingAdmin && !isSocietyAdmin) {
+          const assigned = (membership.assignedWings || []).map((w) => String(w).trim().toUpperCase());
+          if (!wing || !assigned.includes(wing)) {
+            throw new AppError(
+              `As a Wing Admin, you can only create maintenance for your assigned wing (${assigned.join(", ") || "none"}).`,
+              403
+            );
+          }
+        }
+      }
+
+      if (Array.isArray(data.bhkRates) && data.bhkRates.length > 0) {
+        bhkRates = data.bhkRates.map((r) => ({
+          bhkType: String(r.bhkType).trim().toLowerCase(),
+          ownerAmount: Number(r.ownerAmount) || 0,
+          renterAmount: Number(r.renterAmount) || 0,
+        }));
+      }
+    }
+
     const existing = await MaintenanceCycle.findOne({
       societyId,
+      wing: wing || null,
       month: data.month,
       year: data.year,
+      isActive: true,
     });
     if (existing) {
+      const scopeLabel = wing ? `Wing ${wing}` : "Society-wide";
       throw new AppError(
-        `Maintenance for this period already exists. Use a different month/year.`,
+        `Maintenance for ${scopeLabel} for this period already exists. Use a different month/year or wing.`,
         409
       );
     }
+
     // Support both old single amount and new split: if owner/renter provided use them, else fallback to amount
     const amount = data.amount;
     let ownerAmount = data.ownerAmount;
     let renterAmount = data.renterAmount;
+
+    // If bhkRates provided and no owner/renter amount, take first or average bhk rate as reference amount
+    if (bhkRates.length > 0 && ownerAmount == null && renterAmount == null && amount == null) {
+      ownerAmount = bhkRates[0].ownerAmount;
+      renterAmount = bhkRates[0].renterAmount;
+    }
+
     if (ownerAmount == null && renterAmount == null && amount != null) {
       ownerAmount = amount;
       renterAmount = amount;
     }
     // Ensure at least one is set
-    const finalAmount = amount != null ? amount : ownerAmount;
+    const finalAmount = amount != null ? amount : (ownerAmount != null ? ownerAmount : 0);
     const finalOwner = ownerAmount != null ? ownerAmount : finalAmount;
     const finalRenter = renterAmount != null ? renterAmount : finalAmount;
 
@@ -66,6 +134,8 @@ class MaintenanceService {
       dueDate: data.dueDate,
       durationMonths: data.durationMonths || 1,
       lateCharge: data.lateCharge || 0,
+      wing: wing || null,
+      bhkRates,
     });
 
     // Auto-apply existing advances to this new cycle (for future cycles not yet existed at payment time)
@@ -137,15 +207,23 @@ class MaintenanceService {
     return created;
   }
 
-  async listCycles(societyId) {
-    return MaintenanceCycle.find({ societyId, isActive: true })
+  async listCycles(societyId, wing = undefined) {
+    const query = { societyId, isActive: true };
+    if (wing !== undefined) {
+      query.wing = wing || null;
+    }
+    return MaintenanceCycle.find(query)
       .sort({ year: -1, month: -1 })
       .limit(36)
       .lean();
   }
 
-  async getLatestCycle(societyId) {
-    return MaintenanceCycle.findOne({ societyId, isActive: true })
+  async getLatestCycle(societyId, wing = undefined) {
+    const query = { societyId, isActive: true };
+    if (wing !== undefined) {
+      query.wing = wing || null;
+    }
+    return MaintenanceCycle.findOne(query)
       .sort({ year: -1, month: -1 })
       .lean();
   }
@@ -171,6 +249,8 @@ class MaintenanceService {
       dueDate: cycle.dueDate,
       durationMonths: cycle.durationMonths || 1,
       lateCharge: cycle.lateCharge || 0,
+      wing: cycle.wing || null,
+      bhkRates: cycle.bhkRates || [],
       createdAt: cycle.createdAt,
     };
   }
@@ -184,10 +264,15 @@ class MaintenanceService {
       : "late_paid";
   }
 
-  // All units of the society with their payment state for a cycle (admin view)
+  // All units of the society (or wing-specific if cycle is tied to a wing) with their payment state
   // FIX: populate both owner/tenant and expose IDs so isOwner comes from DB (ownerId == userId), not hardcoded
   async getCycleUnits(societyId, cycle) {
-    const units = await Unit.find({ societyId, isActive: true })
+    const unitQuery = { societyId, isActive: true };
+    if (cycle && cycle.wing) {
+      unitQuery.block = new RegExp(`^${cycle.wing}$`, "i");
+    }
+
+    const units = await Unit.find(unitQuery)
       .populate("ownerId", "name phone")
       .populate("tenantId", "name phone")
       .sort({ unitNumber: 1, label: 1 })
@@ -330,10 +415,17 @@ class MaintenanceService {
     }
 
     const unit = await Unit.findById(unitId).lean();
-    const cycles = await MaintenanceCycle.find({
+    const cycleQuery = {
       societyId,
       isActive: true,
-    })
+    };
+    if (unit && unit.block) {
+      cycleQuery.$or = [{ wing: unit.block.toUpperCase() }, { wing: null }];
+    } else {
+      cycleQuery.wing = null;
+    }
+
+    const cycles = await MaintenanceCycle.find(cycleQuery)
       .sort({ year: -1, month: -1 })
       .lean();
 

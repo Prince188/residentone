@@ -198,6 +198,7 @@ class UnitService {
       floor: unit.floor || null,
       propertyType: unit.propertyType || null,
       unitNumber: unit.unitNumber || null,
+      unitType: unit.unitType || "2bhk",
       isAssigned: Boolean(unit.ownerId),
       isRented: Boolean(unit.tenantId),
       hasPendingInvite: Boolean(unit.inviteToken && unit.inviteExpiresAt && new Date(unit.inviteExpiresAt) > new Date()),
@@ -524,6 +525,7 @@ class UnitService {
     if (data.block !== undefined) unit.block = data.block ? data.block.trim() : null;
     if (data.floor !== undefined) unit.floor = data.floor;
     if (data.propertyType !== undefined) unit.propertyType = data.propertyType;
+    if (data.unitType !== undefined) unit.unitType = data.unitType ? data.unitType.trim() : "2bhk";
 
     await unit.save();
 

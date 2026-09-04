@@ -1846,7 +1846,18 @@ export default function DashboardPage() {
       });
     }
     if (isWingOnly) {
-      return adminCards.filter((card) => ["Manage Wing", "Create Poll", "Create Survey", "Create Notice"].includes(card.label) && hasPermissionForMembership(activeMembership, cardPermissionMap[card.label] || "create_poll", customPermissions));
+      const firstWing = activeMembership?.assignedWings?.[0];
+      const wingDuesTo = firstWing ? `/dues?wing=${encodeURIComponent(firstWing)}` : "/dues";
+      return adminCards
+        .filter((card) =>
+          ["Manage Wing", "Manage Maintenance", "Create Poll", "Create Survey", "Create Notice"].includes(card.label) &&
+          hasPermissionForMembership(activeMembership, cardPermissionMap[card.label] || "create_poll", customPermissions)
+        )
+        .map((card) =>
+          card.label === "Manage Maintenance"
+            ? { ...card, label: firstWing ? `Wing ${firstWing} Maintenance` : "Manage Maintenance", to: wingDuesTo }
+            : card
+        );
     }
     if (isCommitteeRole) {
       return adminCards.filter((card) => {
@@ -1860,7 +1871,17 @@ export default function DashboardPage() {
   })();
 
   const filteredWingCards = (() => {
-    if (isAdminWithWing) return adminCards.filter((card) => ["Manage Wing", "Create Poll", "Create Survey"].includes(card.label));
+    if (isAdminWithWing) {
+      const firstWing = activeMembership?.assignedWings?.[0];
+      const wingDuesTo = firstWing ? `/dues?wing=${encodeURIComponent(firstWing)}` : "/dues";
+      return adminCards
+        .filter((card) => ["Manage Wing", "Manage Maintenance", "Create Poll", "Create Survey"].includes(card.label))
+        .map((card) =>
+          card.label === "Manage Maintenance"
+            ? { ...card, label: firstWing ? `Wing ${firstWing} Maintenance` : "Manage Maintenance", to: wingDuesTo }
+            : card
+        );
+    }
     if (isWingOnly) return [];
     return [];
   })();

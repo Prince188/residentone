@@ -9,11 +9,16 @@ function errorHandler(err, _req, res, _next) {
     });
   }
 
-  logger.error("Unhandled error:", err.message);
+  logger.error(err, "Unhandled error: " + err.message);
+  console.error("DEBUG UNHANDLED ERROR:", err);
 
   res.status(500).json({
     success: false,
-    error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
+    error: {
+      code: "INTERNAL_ERROR",
+      message: process.env.NODE_ENV === "production" ? "An unexpected error occurred" : err.message,
+      stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
+    },
   });
 }
 

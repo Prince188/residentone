@@ -9,6 +9,11 @@ const unitSchema = new mongoose.Schema(
       enum: PROPERTY_TYPES,
       required: true,
     },
+    unitType: {
+      type: String,
+      trim: true,
+      default: "2bhk",
+    },
     label: {
       type: String,
       required: [true, "Unit label is required"],

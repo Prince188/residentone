@@ -62,6 +62,7 @@ const updateUnitSchema = z.object({
   floor: z.coerce.number().int().min(-5).max(200).optional().nullable(),
   doorNo: z.string().trim().max(20).optional().nullable(),
   propertyType: z.enum(["flat", "row_house", "villa", "plot", "shop", "office", "penthouse", "studio"]).optional(),
+  unitType: z.string().trim().max(30).optional().nullable(),
 });
 
 module.exports = {

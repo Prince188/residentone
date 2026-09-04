@@ -304,13 +304,31 @@ export default function MaintenanceCycleDetailPage() {
           <Link to="/dues/history" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
             <span className="material-symbols-outlined text-[16px]">arrow_back</span> History
           </Link>
-          <h1 className="page-title flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2 flex-wrap">
             <span className="material-symbols-outlined text-primary">request_quote</span>
             {period}
+            {cycle.wing ? (
+              <span className="rounded-full bg-primary/15 text-primary font-bold px-3 py-0.5 text-label-sm">
+                Wing {cycle.wing}
+              </span>
+            ) : (
+              <span className="rounded-full bg-secondary/15 text-secondary font-bold px-3 py-0.5 text-label-sm">
+                Society-Wide
+              </span>
+            )}
           </h1>
           <p className="page-subtitle">
             Owner {formatAmount(cycle.ownerAmount || cycle.amount)} / Renter {formatAmount(cycle.renterAmount || cycle.amount)} · Due {formatDate(cycle.dueDate)} {isOverdue && <span className="text-error font-semibold">· Overdue</span>}
           </p>
+          {Array.isArray(cycle.bhkRates) && cycle.bhkRates.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {cycle.bhkRates.map((b) => (
+                <span key={b.bhkType} className="rounded-md bg-surface-container-high px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+                  {b.bhkType.toUpperCase()}: ₹{b.ownerAmount} (O) / ₹{b.renterAmount} (R)
+                </span>
+              ))}
+            </div>
+          )}
           <p className="mt-1 text-label-sm text-outline">{units.length} houses · {counts.paid + counts.late_paid} paid · {cycle.durationMonths > 1 ? `${cycle.durationMonths} months` : "1 month"}</p>
         </div>
 

@@ -14,18 +14,23 @@ const createCycleSchema = z.object({
   dueDate: z.coerce.date(),
   durationMonths: z.coerce.number().int().min(1).max(12).optional(),
   lateCharge: z.coerce.number().min(0, "Late charge cannot be negative").optional(),
+  wing: z.string().trim().optional().nullable(),
+  bhkRates: z
+    .array(
+      z.object({
+        bhkType: z.string().trim().min(1),
+        ownerAmount: z.coerce.number().min(0),
+        renterAmount: z.coerce.number().min(0),
+      })
+    )
+    .optional(),
 }).superRefine((data, ctx) => {
   const hasOwner = data.ownerAmount !== undefined && data.ownerAmount !== null;
   const hasRenter = data.renterAmount !== undefined && data.renterAmount !== null;
   const hasAmount = data.amount !== undefined && data.amount !== null;
-  if (!hasOwner && !hasRenter && !hasAmount) {
-    ctx.addIssue({ code: "custom", message: "Provide amount or ownerAmount/renterAmount", path: ["amount"] });
-  }
-  if (hasAmount && !hasOwner && !hasRenter) {
-    // ok - old single amount
-  }
-  if ((hasOwner && data.ownerAmount <= 0) || (hasRenter && data.renterAmount !== undefined && data.renterAmount < 0)) {
-    // validated by zod min
+  const hasBhkRates = Array.isArray(data.bhkRates) && data.bhkRates.length > 0;
+  if (!hasOwner && !hasRenter && !hasAmount && !hasBhkRates) {
+    ctx.addIssue({ code: "custom", message: "Provide amount or flat-type rates", path: ["amount"] });
   }
 });
 

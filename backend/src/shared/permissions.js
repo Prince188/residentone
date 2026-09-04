@@ -19,7 +19,7 @@ const PERMISSIONS = [
 const DEFAULT_ROLE_PERMISSIONS = {
   society_admin: PERMISSIONS.map((p) => p.key),
   super_admin: PERMISSIONS.map((p) => p.key),
-  wing_admin: ["manage_houses", "manage_complaints", "create_notice", "create_poll", "create_survey", "manage_visitors", "manage_directory", "view_financials", "manage_staff"],
+  wing_admin: ["manage_houses", "manage_maintenance", "manage_complaints", "create_notice", "create_poll", "create_survey", "manage_visitors", "manage_directory", "view_financials", "manage_staff"],
   manager: ["manage_houses", "manage_maintenance", "create_notice", "manage_amenities", "manage_bookings", "create_poll", "create_survey", "manage_complaints", "manage_visitors", "view_financials", "manage_directory", "manage_committee", "manage_collections", "manage_documents", "manage_staff"],
   treasurer: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials", "manage_directory"],
   accountant: ["manage_maintenance", "manage_collections", "manage_documents", "view_financials"],
@@ -34,10 +34,15 @@ const DEFAULT_ROLE_PERMISSIONS = {
 };
 
 function getPermissionsForRole(role, customPermissions) {
+  const defaults = DEFAULT_ROLE_PERMISSIONS[role] || [];
   if (customPermissions && customPermissions[role]) {
+    // If role is wing_admin, ensure new base capabilities like manage_maintenance are always preserved even if society had old saved permissions
+    if (role === "wing_admin" && defaults.includes("manage_maintenance") && !customPermissions[role].includes("manage_maintenance")) {
+      return [...customPermissions[role], "manage_maintenance"];
+    }
     return customPermissions[role];
   }
-  return DEFAULT_ROLE_PERMISSIONS[role] || [];
+  return defaults;
 }
 
 function hasPermission(role, permission, customPermissions) {

@@ -16,9 +16,15 @@ function CycleCard({ cycle }) {
       <span className="absolute inset-y-0 left-0 w-1.5 bg-primary" />
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">request_quote</span>
           <div className="min-w-0">
-            <h3 className="truncate text-body-md font-semibold text-on-surface">{period}</h3>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="truncate text-body-md font-semibold text-on-surface">{period}</h3>
+              {cycle.wing && (
+                <span className="rounded-full bg-primary/15 text-primary font-bold px-2 py-0.5 text-[10px]">
+                  Wing {cycle.wing}
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 flex items-center gap-1.5 text-label-sm text-outline">
               <span className={`rounded-full px-2 py-0.5 text-label-sm font-semibold ${isOverdue ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
                 {isOverdue ? "Overdue" : "Active"}
