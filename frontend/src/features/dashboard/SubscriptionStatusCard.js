@@ -143,15 +143,36 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
 
   const rate = chosenPlanMeta.rate || 6;
   const units = Number(activeSociety.totalUnits) || 1;
-  const multiplier = selectedCycle === "yearly" ? 12 : 1;
-  const totalAmount = units * rate * multiplier;
   const isPaid = Boolean(activeSociety.isSubscriptionPaid);
-
-  const isUpgrade = chosenPlanMeta.tier > registeredPlanMeta.tier;
-  const isDowngrade = chosenPlanMeta.tier < registeredPlanMeta.tier;
 
   const renewalMeta = getSubscriptionRenewalMeta(activeSociety);
   const paidPlanName = SUBSCRIPTION_PLAN_LABELS[activeSociety.subscriptionPlan] || "Basic";
+
+  const isWarning = renewalMeta.isExpiringSoon || renewalMeta.isExpired;
+  const isMidCycleActive = isPaid && !isWarning && renewalMeta.daysRemaining > 7;
+
+  // Proration Calculation for Mid-Cycle Upgrades
+  const currentRate = registeredPlanMeta.rate || 6;
+  const isUpgrade = chosenPlanMeta.tier > registeredPlanMeta.tier;
+  const isDowngrade = chosenPlanMeta.tier < registeredPlanMeta.tier;
+
+  let unusedCredit = 0;
+  let newPeriodCost = 0;
+  let proratedPayable = 0;
+
+  if (isMidCycleActive && isUpgrade) {
+    const currentDailyBurn = (units * currentRate) / 30;
+    const newDailyBurn = (units * chosenPlanMeta.rate) / 30;
+    unusedCredit = Math.round(currentDailyBurn * renewalMeta.daysRemaining);
+    newPeriodCost = Math.round(newDailyBurn * renewalMeta.daysRemaining);
+    proratedPayable = Math.max(1, newPeriodCost - unusedCredit);
+  }
+
+  const multiplier = selectedCycle === "yearly" ? 12 : 1;
+  const fullCycleAmount = units * rate * multiplier;
+
+  // Amount due depends on whether it's a mid-cycle prorated upgrade or full renewal/activation
+  const totalAmount = (isMidCycleActive && isUpgrade) ? proratedPayable : fullCycleAmount;
 
   const handlePay = async (isDemo = false, paymentMethod = "demo_upi") => {
     setLoading(true);
@@ -160,12 +181,14 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     try {
       const res = await paySocietySubscription(activeSociety.id, {
         plan: selectedPlan,
-        billingCycle: selectedCycle,
+        billingCycle: isMidCycleActive ? activeSociety.subscriptionBilling : selectedCycle,
         isDemoSimulation: isDemo,
         paymentMethod,
       });
 
       const updatedSociety = res.data?.data?.society;
+      const paymentType = res.data?.data?.paymentType;
+
       if (updateActiveSocietySubscription) {
         updateActiveSocietySubscription({
           isSubscriptionPaid: true,
@@ -176,8 +199,8 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
       }
 
       setSuccessMsg(
-        isDemo
-          ? `Payment successful! Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
+        paymentType === "upgrade"
+          ? `Plan successfully upgraded to ${chosenPlanMeta.fullName}! Your expiry date remains ${renewalMeta.formattedDate}.`
           : `Payment successful! Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
       );
       setShowPayModal(false);
@@ -192,52 +215,62 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     }
   };
 
-  const renderPlanSelectorAndActions = (isRenewalFlow = false) => (
+  const renderPlanSelectorAndActions = (isRenewalOrUpgrade = false) => (
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[18px] text-primary">tune</span>
-              {isRenewalFlow
+              <span className="material-symbols-outlined text-[18px] text-primary">
+                {isMidCycleActive ? "upgrade" : "tune"}
+              </span>
+              {isMidCycleActive
+                ? "Upgrade Plan (Prorated Mid-Cycle Upgrade)"
+                : isRenewalOrUpgrade
                 ? "Choose Plan for Renewal (Upgrade or Degrade Available)"
-                : "Select or Change Plan (Upgrade / Degrade)"}
+                : "Select or Change Plan"}
             </h4>
             <p className="text-[12px] text-on-surface-variant">
-              {isRenewalFlow ? (
-                <>Current plan: <strong>{paidPlanName}</strong> (expires <strong>{renewalMeta.formattedDate}</strong>). Advance payments add time cumulatively to your existing expiry date.</>
+              {isMidCycleActive ? (
+                <>
+                  Current Plan: <strong>{paidPlanName}</strong> ({renewalMeta.daysRemaining} days remaining until {renewalMeta.formattedDate}). Upgrading applies an instant prorated credit from your current plan.
+                </>
+              ) : isRenewalOrUpgrade ? (
+                <>Current plan: <strong>{paidPlanName}</strong> (expires <strong>{renewalMeta.formattedDate}</strong>). Select any plan for your next cycle.</>
               ) : (
                 <>Originally registered on <strong>{registeredPlanMeta.name}</strong>. Choose any plan that suits your community.</>
               )}
             </p>
           </div>
 
-          {/* Billing Cycle Toggle */}
-          <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant/50 p-1 rounded-xl">
-            <span className="text-[11px] font-bold text-outline uppercase px-1">Billing:</span>
-            <button
-              type="button"
-              onClick={() => setSelectedCycle("monthly")}
-              className={`px-3 py-1 rounded-lg text-label-sm font-bold transition-all cursor-pointer ${
-                selectedCycle === "monthly"
-                  ? "bg-white text-primary shadow-xs"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedCycle("yearly")}
-              className={`px-3 py-1 rounded-lg text-label-sm font-bold transition-all cursor-pointer ${
-                selectedCycle === "yearly"
-                  ? "bg-white text-primary shadow-xs"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              Yearly (12 Mo)
-            </button>
-          </div>
+          {/* Billing Cycle Toggle (only relevant for fresh activation or renewal) */}
+          {!isMidCycleActive && (
+            <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant/50 p-1 rounded-xl">
+              <span className="text-[11px] font-bold text-outline uppercase px-1">Billing:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedCycle("monthly")}
+                className={`px-3 py-1 rounded-lg text-label-sm font-bold transition-all cursor-pointer ${
+                  selectedCycle === "monthly"
+                    ? "bg-white text-primary shadow-xs"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCycle("yearly")}
+                className={`px-3 py-1 rounded-lg text-label-sm font-bold transition-all cursor-pointer ${
+                  selectedCycle === "yearly"
+                    ? "bg-white text-primary shadow-xs"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+              >
+                Yearly (12 Mo)
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 3 Plan Cards Grid */}
@@ -250,14 +283,21 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             const monthlyPlanCost = units * plan.rate;
             const cyclePlanCost = monthlyPlanCost * multiplier;
 
+            // In mid-cycle, downgrades or same plan extensions are disabled
+            const isBlockedMidCycle = isMidCycleActive && (isPlanDowngrade || isCurrentPlan);
+
             return (
               <div
                 key={plan.id}
-                onClick={() => setSelectedPlan(plan.id)}
-                className={`relative rounded-2xl p-4 cursor-pointer border-2 transition-all flex flex-col justify-between ${
-                  isSelected
-                    ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-                    : "border-outline-variant/60 bg-surface-container-lowest hover:border-outline hover:bg-surface-container-low"
+                onClick={() => {
+                  if (!isBlockedMidCycle) setSelectedPlan(plan.id);
+                }}
+                className={`relative rounded-2xl p-4 transition-all flex flex-col justify-between ${
+                  isBlockedMidCycle
+                    ? "opacity-60 bg-surface-container/60 border border-outline-variant/40 cursor-not-allowed"
+                    : isSelected
+                    ? "border-2 border-primary bg-primary/5 shadow-md ring-2 ring-primary/20 cursor-pointer"
+                    : "border-2 border-outline-variant/60 bg-surface-container-lowest hover:border-outline hover:bg-surface-container-low cursor-pointer"
                 }`}
               >
                 {/* Popular or Status Tag */}
@@ -265,9 +305,12 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
                   <div className="flex items-center gap-1.5">
                     <input
                       type="radio"
-                      name={`subscriptionPlanChoice_${isRenewalFlow ? "renewal" : "new"}`}
+                      name={`subscriptionPlanChoice_${isRenewalOrUpgrade ? "renewal" : "new"}`}
                       checked={isSelected}
-                      onChange={() => setSelectedPlan(plan.id)}
+                      disabled={isBlockedMidCycle}
+                      onChange={() => {
+                        if (!isBlockedMidCycle) setSelectedPlan(plan.id);
+                      }}
                       className="accent-primary h-4 w-4 cursor-pointer"
                     />
                     <span className="font-extrabold text-title-sm text-on-surface">
@@ -288,9 +331,9 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
                       Degrade
                     </span>
                   )}
-                  {isCurrentPlan && !isPlanUpgrade && !isPlanDowngrade && (
-                    <span className="inline-flex items-center rounded-full bg-surface-container text-on-surface-variant border border-outline-variant px-2 py-0.5 text-[10px] font-bold">
-                      {isRenewalFlow ? "Current Plan" : "Registered"}
+                  {isCurrentPlan && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                      Current Active
                     </span>
                   )}
                 </div>
@@ -311,7 +354,7 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
                     </span>
                   </div>
                   <p className="text-[11px] text-on-surface-variant mt-1">
-                    Total for {units} unit{units > 1 ? "s" : ""}: ₹{cyclePlanCost.toLocaleString("en-IN")} / {selectedCycle === "yearly" ? "year" : "month"}
+                    {units} unit{units > 1 ? "s" : ""} · ₹{cyclePlanCost.toLocaleString("en-IN")} / {selectedCycle === "yearly" ? "year" : "month"}
                   </p>
                 </div>
 
@@ -329,7 +372,15 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
 
                 {/* Bottom Selection Button / Indicator */}
                 <div className="mt-3.5 pt-2 border-t border-outline-variant/30 text-center">
-                  {isSelected ? (
+                  {isCurrentPlan && isMidCycleActive ? (
+                    <span className="inline-flex items-center justify-center w-full py-1 rounded-lg bg-surface-container text-on-surface-variant text-[11px] font-semibold">
+                      Your Current Plan
+                    </span>
+                  ) : isPlanDowngrade && isMidCycleActive ? (
+                    <span className="inline-flex items-center justify-center w-full py-1 rounded-lg bg-surface-container-high text-on-surface-variant text-[10px] font-semibold">
+                      Available at Renewal
+                    </span>
+                  ) : isSelected ? (
                     <span className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-lg bg-primary text-on-primary text-[11px] font-bold shadow-xs">
                       <span className="material-symbols-outlined text-[14px]">check</span>
                       Selected Plan
@@ -347,35 +398,50 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
       </div>
 
       {/* Summary Box & Checkout Actions */}
-      <div className="rounded-2xl bg-surface-container border border-outline-variant/60 p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <div>
+      <div className="rounded-2xl bg-surface-container border border-outline-variant/60 p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-outline">
-              {isRenewalFlow ? "Renewal Summary:" : "Checkout Summary:"}
+              {isMidCycleActive ? "Upgrade Summary:" : isRenewalOrUpgrade ? "Renewal Summary:" : "Checkout Summary:"}
             </span>
             <span className="font-extrabold text-on-surface text-body-md">
               {chosenPlanMeta.fullName}
             </span>
             {isUpgrade && (
               <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                Upgraded from {registeredPlanMeta.name}
+                Upgrading from {registeredPlanMeta.name}
               </span>
             )}
             {isDowngrade && (
               <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                Degraded from {registeredPlanMeta.name}
+                Degrading from {registeredPlanMeta.name}
               </span>
             )}
           </div>
-          <p className="text-body-xs text-on-surface-variant mt-1">
-            {units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}
-          </p>
+
+          {/* Prorated Breakdown Display */}
+          {isMidCycleActive && isUpgrade ? (
+            <div className="text-body-xs text-on-surface-variant pt-1 space-y-0.5">
+              <p>
+                Period: <strong>Remaining {renewalMeta.daysRemaining} days</strong> (until {renewalMeta.formattedDate})
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                <span>New Plan Cost: <strong>₹{newPeriodCost.toLocaleString("en-IN")}</strong></span>
+                <span>•</span>
+                <span className="text-emerald-700">Less Unused {registeredPlanMeta.name} Credit: <strong>-₹{unusedCredit.toLocaleString("en-IN")}</strong></span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-body-xs text-on-surface-variant">
+              {units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="text-left sm:text-right pr-2">
             <span className="text-[11px] font-bold uppercase text-outline block">
-              Total Due Now
+              {isMidCycleActive && isUpgrade ? "Net Payable Today" : "Total Due Now"}
             </span>
             <span className="text-[28px] font-black text-primary leading-none">
               ₹{totalAmount.toLocaleString("en-IN")}
@@ -386,7 +452,7 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             <button
               type="button"
               onClick={() => handlePay(true, "instant_simulation")}
-              disabled={loading}
+              disabled={loading || (isMidCycleActive && !isUpgrade)}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-2.5 rounded-xl font-bold text-label-md shadow-xs hover:from-emerald-700 hover:to-teal-700 transition-all disabled:opacity-60 cursor-pointer"
             >
               {loading ? (
@@ -397,7 +463,13 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[18px]">bolt</span>
-                  <span>{isRenewalFlow ? "Quick Pay & Renew" : "Quick Pay & Unlock"}</span>
+                  <span>
+                    {isMidCycleActive && isUpgrade
+                      ? "Quick Upgrade Now"
+                      : isRenewalOrUpgrade
+                      ? "Quick Pay & Renew"
+                      : "Quick Pay & Unlock"}
+                  </span>
                 </>
               )}
             </button>
@@ -405,11 +477,11 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             <button
               type="button"
               onClick={() => setShowPayModal(true)}
-              disabled={loading}
+              disabled={loading || (isMidCycleActive && !isUpgrade)}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-primary text-on-primary px-4 py-2.5 rounded-xl font-bold text-label-md shadow-xs hover:bg-inverse-surface transition-all disabled:opacity-60 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">credit_card</span>
-              <span>Pay Online</span>
+              <span>{isMidCycleActive && isUpgrade ? "Upgrade Online" : "Pay Online"}</span>
             </button>
           </div>
         </div>
@@ -421,109 +493,65 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   if (isPaid) {
     const isWarning = renewalMeta.isExpiringSoon || renewalMeta.isExpired;
 
+    // When the active plan is healthy (> 7 days remaining), do not render floating pill/button on dashboard.
+    // Plan indicator and Upgrade button are placed in the Header next to society switcher (Option B).
+    if (!isWarning) {
+      return null;
+    }
+
     return (
       <div className="space-y-4">
         {/* Warning Line (shown when plan is about to end before 7 days of end, or expired) */}
-        {isWarning && (
-          <div className="rounded-2xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-amber-50 to-surface-container-lowest p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${
-                  renewalMeta.daysRemaining <= 0 ? "bg-red-600" : "bg-amber-600"
-                }`}>
-                  <span className="material-symbols-outlined text-[24px]">
-                    {renewalMeta.daysRemaining <= 0 ? "error" : "warning"}
-                  </span>
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="font-bold text-on-surface text-body-md">
-                      Subscription Expiry Warning
-                    </h4>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white ${
-                      renewalMeta.daysRemaining <= 0 ? "bg-red-600" : "bg-amber-600"
-                    }`}>
-                      {renewalMeta.daysRemaining < 0
-                        ? "Expired"
-                        : renewalMeta.daysRemaining === 0
-                        ? "Expires Today"
-                        : `Expires in ${renewalMeta.daysRemaining} Day${renewalMeta.daysRemaining > 1 ? "s" : ""}`}
-                    </span>
-                  </div>
-                  <p className="text-body-xs text-on-surface-variant mt-0.5">
-                    {renewalMeta.daysRemaining < 0 ? (
-                      <>Your <strong>{paidPlanName}</strong> subscription expired on <strong>{renewalMeta.formattedDate}</strong>. Renew now to avoid feature interruptions.</>
-                    ) : (
-                      <>Your <strong>{paidPlanName}</strong> subscription will end on <strong>{renewalMeta.formattedDate}</strong> ({renewalMeta.daysRemaining} days remaining). Click pay below to renew or change your plan.</>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setShowRenewalSelector((prev) => !prev)}
-                  className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl font-bold text-label-md shadow-xs transition-all cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">payments</span>
-                  <span>{showRenewalSelector ? "Hide Plans" : "Pay / Renew Plan"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* When user clicks on Pay, show again 3 plans incase he wants to change the plan */}
-            {showRenewalSelector && (
-              <div className="pt-3 border-t border-amber-500/20">
-                {renderPlanSelectorAndActions(true)}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Regular Active Subscription Card */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 shadow-xs transition-all space-y-4">
+        <div className="rounded-2xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-amber-50 to-surface-container-lowest p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
-                <span className="material-symbols-outlined text-[24px]">verified</span>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${
+                renewalMeta.daysRemaining <= 0 ? "bg-red-600" : "bg-amber-600"
+              }`}>
+                <span className="material-symbols-outlined text-[24px]">
+                  {renewalMeta.daysRemaining <= 0 ? "error" : "warning"}
+                </span>
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-on-surface text-body-md">
-                    Active Subscription: {paidPlanName} ({(activeSociety.subscriptionPlan || "starter").toUpperCase()})
-                  </h3>
-                  <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[11px] font-bold">
-                    ✓ Paid & Active
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="font-bold text-on-surface text-body-md">
+                    Subscription Expiry Warning
+                  </h4>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white ${
+                    renewalMeta.daysRemaining <= 0 ? "bg-red-600" : "bg-amber-600"
+                  }`}>
+                    {renewalMeta.daysRemaining < 0
+                      ? "Expired"
+                      : renewalMeta.daysRemaining === 0
+                      ? "Expires Today"
+                      : `Expires in ${renewalMeta.daysRemaining} Day${renewalMeta.daysRemaining > 1 ? "s" : ""}`}
                   </span>
                 </div>
                 <p className="text-body-xs text-on-surface-variant mt-0.5">
-                  {units} Total Units · Billed {activeSociety.subscriptionBilling || "monthly"} · Renewal: <strong>{renewalMeta.formattedDate}</strong> ({renewalMeta.daysRemaining > 0 ? `${renewalMeta.daysRemaining} days left` : "due for renewal"})
+                  {renewalMeta.daysRemaining < 0 ? (
+                    <>Your <strong>{paidPlanName}</strong> subscription expired on <strong>{renewalMeta.formattedDate}</strong>. Renew now to avoid feature interruptions.</>
+                  ) : (
+                    <>Your <strong>{paidPlanName}</strong> subscription will end on <strong>{renewalMeta.formattedDate}</strong> ({renewalMeta.daysRemaining} days remaining). Click pay below to renew or change your plan.</>
+                  )}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-auto">
-              {!isWarning && (
-                <button
-                  type="button"
-                  onClick={() => setShowRenewalSelector((prev) => !prev)}
-                  className="text-label-sm text-primary hover:text-on-surface bg-primary/10 hover:bg-primary/15 border border-primary/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">tune</span>
-                  <span>{showRenewalSelector ? "Hide Options" : "Upgrade / Change Plan"}</span>
-                </button>
-              )}
-              <span className="text-label-sm text-emerald-700 bg-emerald-100/70 border border-emerald-300/60 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px]">lock_open</span>
-                All Features Unlocked
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowRenewalSelector((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl font-bold text-label-md shadow-xs transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">payments</span>
+                <span>{showRenewalSelector ? "Hide Plans" : "Pay / Renew Plan"}</span>
+              </button>
             </div>
           </div>
 
-          {/* Voluntary plan change/upgrade when not in warning mode */}
-          {!isWarning && showRenewalSelector && (
-            <div className="pt-3 border-t border-emerald-500/20">
+          {/* When user clicks on Pay, show again 3 plans in case he wants to change the plan */}
+          {showRenewalSelector && (
+            <div className="pt-3 border-t border-amber-500/20">
               {renderPlanSelectorAndActions(true)}
             </div>
           )}
@@ -563,20 +591,20 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
               <h3 className="text-title-md font-extrabold text-on-surface">
                 Activate Subscription to Unlock Features
               </h3>
-              <span className="inline-flex items-center rounded-full bg-amber-600 text-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider">
-                Payment Required
+              <span className="inline-flex items-center rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold">
+                Pending Activation
               </span>
             </div>
             <p className="text-body-xs text-on-surface-variant mt-1">
-              Your society has been approved by Super Admin. You can review, upgrade, or degrade your subscription plan below before making payment.
+              Your society registration is approved. Choose your plan below to complete payment and unlock the dashboard.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 px-3 py-1.5 self-start md:self-center">
-          <span className="material-symbols-outlined text-amber-700 text-[18px]">lock</span>
-          <span className="text-[11px] font-bold text-amber-900">
-            Features Locked Until Paid
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-on-surface-variant bg-surface-container px-3 py-1.5 rounded-lg border border-outline-variant/40">
+            <span className="material-symbols-outlined text-[15px] text-primary">apartment</span>
+            {units} Total Billable Units
           </span>
         </div>
       </div>
@@ -603,14 +631,22 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     </div>
   );
 
-  function renderCheckoutModal(isRenewalFlow = false) {
+  function renderCheckoutModal(isRenewalOrUpgradeFlow = false) {
+    const isProratedUpgrade = isMidCycleActive && isUpgrade;
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-xs">
         <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-outline-variant space-y-4">
           <div className="flex items-center justify-between border-b border-outline-variant/40 pb-3">
             <h4 className="text-title-sm font-bold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[22px]">account_balance_wallet</span>
-              {isRenewalFlow ? "Subscription Renewal Checkout" : "Subscription Checkout"}
+              <span className="material-symbols-outlined text-primary text-[22px]">
+                {isProratedUpgrade ? "upgrade" : "account_balance_wallet"}
+              </span>
+              {isProratedUpgrade
+                ? "Plan Upgrade Invoice"
+                : isRenewalOrUpgradeFlow
+                ? "Subscription Renewal Checkout"
+                : "Subscription Checkout"}
             </h4>
             <button
               type="button"
@@ -627,32 +663,65 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
               <span className="font-semibold text-on-surface">{activeSociety.name}</span>
             </div>
             <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Chosen Plan</span>
+              <span className="text-on-surface-variant">Target Plan</span>
               <span className="font-semibold text-on-surface">{chosenPlanMeta.fullName}</span>
             </div>
             <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Tier Action</span>
+              <span className="text-on-surface-variant">Transaction Type</span>
               <span className="font-semibold text-on-surface">
-                {isUpgrade ? "▲ Upgrade" : isDowngrade ? "▼ Degrade" : isRenewalFlow ? "Renew Current Plan" : "Original Choice"}
+                {isProratedUpgrade
+                  ? "▲ Prorated Upgrade"
+                  : isRenewalOrUpgradeFlow
+                  ? isUpgrade
+                    ? "▲ Upgrade at Renewal"
+                    : isDowngrade
+                    ? "▼ Degrade at Renewal"
+                    : "Renewal (Same Plan)"
+                  : "Initial Activation"}
               </span>
             </div>
-            <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Units / Rate</span>
-              <span className="font-semibold text-on-surface">{units} units × ₹{rate}/mo</span>
-            </div>
-            <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Billing Cycle</span>
-              <span className="font-semibold capitalize text-on-surface">{selectedCycle}</span>
-            </div>
+
+            {isProratedUpgrade ? (
+              <>
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Remaining Duration</span>
+                  <span className="font-semibold text-on-surface">{renewalMeta.daysRemaining} days (until {renewalMeta.formattedDate})</span>
+                </div>
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">New Plan Charge</span>
+                  <span className="font-semibold text-on-surface">₹{newPeriodCost.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between text-body-sm text-emerald-700 font-medium">
+                  <span>Less Unused {registeredPlanMeta.name} Credit</span>
+                  <span>-₹{unusedCredit.toLocaleString("en-IN")}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Units / Rate</span>
+                  <span className="font-semibold text-on-surface">{units} units × ₹{rate}/mo</span>
+                </div>
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Billing Cycle</span>
+                  <span className="font-semibold capitalize text-on-surface">{selectedCycle}</span>
+                </div>
+              </>
+            )}
+
             <div className="border-t border-outline-variant/40 pt-2 flex justify-between font-bold text-title-sm text-primary">
-              <span>Total Due</span>
+              <span>{isProratedUpgrade ? "Net Payable Today" : "Total Due"}</span>
               <span>₹{totalAmount.toLocaleString("en-IN")}</span>
             </div>
           </div>
 
           <div className="p-3 bg-blue-50 text-blue-900 rounded-xl text-body-xs flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-blue-700">verified_user</span>
-            <span>Online Payment Gateway: Completing this payment activates the {chosenPlanMeta.fullName} plan immediately.</span>
+            <span className="material-symbols-outlined text-[20px] text-blue-700 shrink-0">verified_user</span>
+            <span>
+              {isProratedUpgrade
+                ? `Completing this payment upgrades your plan to ${chosenPlanMeta.fullName} immediately for your remaining duration.`
+                : `Completing this payment activates the ${chosenPlanMeta.fullName} plan immediately.`}
+            </span>
           </div>
 
           <div className="flex gap-2.5 pt-2">
@@ -677,4 +746,3 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     );
   }
 }
-

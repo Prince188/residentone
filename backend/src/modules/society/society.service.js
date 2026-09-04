@@ -946,34 +946,91 @@ class SocietyService {
     if (!society) {
       throw new AppError("Society not found", 404);
     }
-    const plan = data.plan || society.subscriptionPlan || "starter";
-    const billingCycle = data.billingCycle || society.subscriptionBilling || "monthly";
+    const requestedPlan = data.plan || society.subscriptionPlan || "starter";
+    const requestedBillingCycle = data.billingCycle || society.subscriptionBilling || "monthly";
     const units = Number(society.totalUnits || data.units || 1);
-    const ratePerUnit = PLAN_RATES[plan] || 6;
-    const multiplier = billingCycle === "yearly" ? 12 : 1;
-    const amount = units * ratePerUnit * multiplier;
-
     const nowPay = new Date();
-    let baseDate = nowPay;
 
-    // Cumulative expiry: if society has an active subscription expiring in the future, add to it
-    if (society.subscriptionExpiresAt && new Date(society.subscriptionExpiresAt) > nowPay) {
-      baseDate = new Date(society.subscriptionExpiresAt);
+    const currentPlan = society.subscriptionPlan || "starter";
+    const currentRate = PLAN_RATES[currentPlan] || 6;
+    const requestedRate = PLAN_RATES[requestedPlan] || 6;
+
+    // Check if society has an active, valid paid subscription with future expiry
+    let existingExpiry = null;
+    if (society.isSubscriptionPaid && society.subscriptionExpiresAt) {
+      existingExpiry = new Date(society.subscriptionExpiresAt);
     } else if (society.isSubscriptionPaid) {
-      // If legacy document without explicit subscriptionExpiresAt
       const started = society.subscriptionStartedAt ? new Date(society.subscriptionStartedAt) : new Date(society.createdAt || nowPay);
       const prevBilling = society.subscriptionBilling || "monthly";
       const derivedExpiry = new Date(started);
       if (prevBilling === "yearly") derivedExpiry.setFullYear(derivedExpiry.getFullYear() + 1);
       else derivedExpiry.setMonth(derivedExpiry.getMonth() + 1);
-      if (derivedExpiry > nowPay) baseDate = derivedExpiry;
+      existingExpiry = derivedExpiry;
     }
 
-    const expiresAt = new Date(baseDate);
-    if (billingCycle === "yearly") {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    const hasActiveSubscription = existingExpiry && existingExpiry > nowPay;
+    const msLeft = hasActiveSubscription ? (existingExpiry.getTime() - nowPay.getTime()) : 0;
+    const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+    const isMidCycle = hasActiveSubscription && daysLeft > 7;
+
+    let plan = requestedPlan;
+    let billingCycle = requestedBillingCycle;
+    let ratePerUnit = requestedRate;
+    let amount = 0;
+    let baseDate = nowPay;
+    let expiresAt = null;
+    let paymentType = "initial"; // "initial" | "renewal" | "upgrade"
+    let notes = data.isDemoSimulation ? "Demo simulation payment" : "Online card/UPI payment";
+
+    if (isMidCycle) {
+      // MID-CYCLE FLOW
+      if (requestedRate > currentRate) {
+        // Legitimate Mid-Cycle Upgrade (e.g. Basic -> Standard/Premium)
+        paymentType = "upgrade";
+        plan = requestedPlan;
+        billingCycle = society.subscriptionBilling || "monthly"; // Keep cycle during remaining duration
+
+        // Proration math based on remaining days
+        const currentDailyRate = (units * currentRate) / 30; // Daily burn of old plan
+        const newDailyRate = (units * requestedRate) / 30;     // Daily burn of new plan
+
+        const unusedCredit = Math.round(currentDailyRate * daysLeft);
+        const newPeriodCost = Math.round(newDailyRate * daysLeft);
+        const upgradeDifference = Math.max(1, newPeriodCost - unusedCredit);
+
+        amount = upgradeDifference;
+        baseDate = nowPay;
+        expiresAt = existingExpiry; // Expiry date remains unchanged
+
+        notes = `Mid-cycle plan upgrade from ${currentPlan} to ${requestedPlan} for remaining ${daysLeft} days. Credit: ₹${unusedCredit}, New Cost: ₹${newPeriodCost}`;
+      } else if (requestedRate < currentRate) {
+        // Mid-cycle downgrade attempt is not allowed mid-cycle
+        throw new AppError("Downgrading plan is only available at the time of renewal (within 7 days of expiry).", 400);
+      } else {
+        // Same plan attempt mid-cycle (extension not needed)
+        throw new AppError("Your subscription is already active and healthy. Advance plan extensions are not required.", 400);
+      }
     } else {
-      expiresAt.setMonth(expiresAt.getMonth() + 1);
+      // INITIAL OR RENEWAL FLOW (New subscription, expired, or <= 7 days left)
+      paymentType = hasActiveSubscription ? "renewal" : "initial";
+      plan = requestedPlan;
+      billingCycle = requestedBillingCycle;
+      ratePerUnit = requestedRate;
+      const multiplier = billingCycle === "yearly" ? 12 : 1;
+      amount = units * ratePerUnit * multiplier;
+
+      if (hasActiveSubscription) {
+        baseDate = existingExpiry;
+      } else {
+        baseDate = nowPay;
+      }
+
+      expiresAt = new Date(baseDate);
+      if (billingCycle === "yearly") {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      } else {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+      }
     }
 
     const payment = await SubscriptionPayment.create({
@@ -989,7 +1046,7 @@ class SocietyService {
       paidAt: nowPay,
       periodStart: baseDate,
       periodEnd: expiresAt,
-      notes: data.isDemoSimulation ? "Demo simulation payment" : "Online card/UPI payment",
+      notes,
     });
 
     society.isSubscriptionPaid = true;
@@ -1002,10 +1059,10 @@ class SocietyService {
     try {
       const s = require("../../socket");
       if (s.emitSocietyChange) s.emitSocietyChange("update", society);
-      if (s.emitToSuperAdmins) s.emitToSuperAdmins("subscription:paid", { payment, society });
+      if (s.emitToSuperAdmins) s.emitToSuperAdmins("subscription:paid", { payment, society, paymentType });
     } catch (_) {}
 
-    return { society, payment };
+    return { society, payment, paymentType, proratedDetails: paymentType === "upgrade" ? { daysLeft, amount } : null };
   }
 
   async getHistoricalAnalytics({ startYear, endYear }) {

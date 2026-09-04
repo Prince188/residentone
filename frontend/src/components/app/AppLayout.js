@@ -13,6 +13,7 @@ import { respondVisitorApproval } from "../../lib/visitors";
 import sound from "../../lib/sound";
 import toast from "../../lib/toast";
 import GateCallModal from "../visitors/GateCallModal";
+import SubscriptionUpgradeModal from "../../features/dashboard/SubscriptionUpgradeModal";
 
 export default function AppLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -352,6 +353,9 @@ export default function AppLayout() {
           isResponding={isRespondingCall}
         />
       )}
+
+      {/* Global Subscription Plan Upgrade Modal */}
+      <SubscriptionUpgradeModal />
 
       <Sidebar
         isCollapsed={isCollapsed}

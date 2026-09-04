@@ -10,6 +10,10 @@ const useSocietyStore = create(
       activeSocietyId: null,
       isSuperAdminManaging: false,
       status: "idle",
+      isUpgradeModalOpen: false,
+
+      openUpgradeModal: () => set({ isUpgradeModalOpen: true }),
+      closeUpgradeModal: () => set({ isUpgradeModalOpen: false }),
 
       loadMySocieties: async () => {
         set({ status: "loading" });

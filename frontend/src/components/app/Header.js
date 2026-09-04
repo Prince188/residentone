@@ -1,7 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import useAuthStore from "../../stores/auth.store";
-import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
+import useSocietyStore, {
+  selectActiveSociety,
+  selectActiveMembership,
+} from "../../stores/society.store";
+import { SUBSCRIPTION_PLAN_LABELS } from "../../lib/societies";
 import SocietySelector from "./SocietySelector";
 import UserMenu from "./UserMenu";
 import NotificationBell from "../notifications/NotificationBell";
@@ -12,8 +16,14 @@ export default function Header({ onMenuClick }) {
   const user = useAuthStore((state) => state.user);
   const isPlatformAdmin = user?.role?.includes("super_admin");
   const activeSociety = useSocietyStore(selectActiveSociety);
+  const activeMembership = useSocietyStore(selectActiveMembership);
   const isSuperAdminManaging = useSocietyStore((state) => state.isSuperAdminManaging);
   const exitSuperAdminSocietyMode = useSocietyStore((state) => state.exitSuperAdminSocietyMode);
+  const openUpgradeModal = useSocietyStore((state) => state.openUpgradeModal);
+
+  const isAdmin = activeMembership?.role === "society_admin" || isPlatformAdmin;
+  const currentPlanId = activeSociety?.subscriptionPlan || "starter";
+  const planName = SUBSCRIPTION_PLAN_LABELS[currentPlanId] || "Basic";
 
   const [isMuted, setIsMuted] = useState(sound.isMuted());
 
@@ -67,6 +77,23 @@ export default function Header({ onMenuClick }) {
                   Super Admin Management Mode
                 </span>
               </div>
+              {activeSociety.isSubscriptionPaid && (
+                <div className="hidden sm:flex items-center gap-1 shrink-0 ml-1">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300/70 px-2 py-0.5 text-[10px] font-bold">
+                    <span className="material-symbols-outlined text-[12px] text-emerald-600">verified</span>
+                    <span>{planName}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={openUpgradeModal}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 text-[10px] font-bold transition-all cursor-pointer hover:scale-102"
+                    title="Upgrade subscription plan"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">upgrade</span>
+                    <span>Upgrade</span>
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleExitSocietyMode}
@@ -93,16 +120,41 @@ export default function Header({ onMenuClick }) {
             </div>
           )
         ) : (
-          <SocietySelector />
+          <div className="flex items-center gap-2">
+            <SocietySelector />
+            {activeSociety && activeSociety.isSubscriptionPaid && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  title={`Active Plan: ${planName}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300/70 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs"
+                >
+                  <span className="material-symbols-outlined text-[13px] text-emerald-600">verified</span>
+                  <span>{planName}</span>
+                </span>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={openUpgradeModal}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-0.5 text-[11px] font-bold transition-all cursor-pointer shadow-2xs hover:scale-102"
+                    title="Upgrade subscription plan"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">upgrade</span>
+                    <span className="hidden sm:inline">Upgrade</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <div className="shrink-0 flex items-center gap-1 md:gap-2">
+        {/* Audio Alerts Toggle (desktop only; tablet and mobile adjusted in UserMenu profile dropdown) */}
         <button
           type="button"
           onClick={handleToggleSound}
           title={isMuted ? "Audio Muted - Click to Unmute" : "Audio Alerts Active - Click to Mute"}
-          className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all cursor-pointer ${
+          className={`hidden lg:flex h-10 w-10 items-center justify-center rounded-xl transition-all cursor-pointer ${
             isMuted
               ? "text-outline hover:text-on-surface hover:bg-surface-container-high"
               : "text-primary hover:bg-primary/10"
@@ -112,7 +164,13 @@ export default function Header({ onMenuClick }) {
             {isMuted ? "volume_off" : "volume_up"}
           </span>
         </button>
-        <NotificationBell />
+
+        {/* Notification Bell (desktop only; tablet and mobile adjusted in UserMenu profile dropdown) */}
+        <div className="hidden lg:block">
+          <NotificationBell />
+        </div>
+
+        {/* User Profile Menu (all devices; contains sound and notification controls on tablet/mobile) */}
         <UserMenu />
       </div>
     </header>
