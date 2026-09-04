@@ -1,26 +1,29 @@
 # 📱 ResidentOne — Mobile App Replication Specification & Blueprint
 
-This document is the **single source of truth (SSOT)** for building the **ResidentOne React Native (Expo) Mobile Application** with **0% functional or design discrepancy** from the web platform.
+This document is the **Single Source of Truth (SSOT)** for building the **ResidentOne React Native (Expo) Mobile Application** with **0% functional or design discrepancy** from the web platform.
 
 ---
 
 ## 📑 Table of Contents
 1. [Architecture & Technology Stack](#1-architecture--technology-stack)
-2. [Design System & UI Tokens](#2-design-system--ui-tokens)
+2. [Design System, UI Tokens & Form Component Anatomy](#2-design-system-ui-tokens--form-component-anatomy)
 3. [Global State & Authentication Engine](#3-global-state--authentication-engine)
 4. [Real-Time WebSocket & Sound Intercom Protocol](#4-real-time-websocket--sound-intercom-protocol)
-5. [Complete Screen-by-Screen User Flows & Logic](#5-complete-screen-by-screen-user-flows--logic)
-   - [Auth & Onboarding Flow](#51-auth--onboarding-flow)
-   - [Dashboard (Home) Flow](#52-dashboard-home-flow)
-   - [Gate Security & Visitor Management Flow](#53-gate-security--visitor-management-flow)
-   - [Gate Parcel & Delivery Hub Flow](#54-gate-parcel--delivery-hub-flow)
-   - [Finances, Maintenance & Collections Flow](#55-finances-maintenance--collections-flow)
-   - [Household, Flats, Family & Vehicles Flow](#56-household-flats-family--vehicles-flow)
-   - [Helpdesk & Complaints Flow](#57-helpdesk--complaints-flow)
-   - [Amenities Booking Flow](#58-amenities-booking-flow)
-   - [Community (Notices, Polls, Surveys, Chat, Directory)](#59-community-notices-polls-surveys-chat-directory)
-   - [Society Administration & Staff Management](#510-society-administration--staff-management)
-   - [Guard Gate Terminal (Tablet / Guard Mode)](#511-guard-gate-terminal-tablet--guard-mode)
+5. [Detailed Screen & Modal Layout Specifications (Exact UI Match)](#5-detailed-screen--modal-layout-specifications-exact-ui-match)
+   - [5.1 Auth & Onboarding Screens](#51-auth--onboarding-screens)
+   - [5.2 Dashboard (Home Screen)](#52-dashboard-home-screen)
+   - [5.3 Add / Edit Family Member Modal (Exact Form Layout)](#53-add--edit-family-member-modal-exact-form-layout)
+   - [5.4 Visitor Pre-Approval Modal & Passes](#54-visitor-pre-approval-modal--passes)
+   - [5.5 Real-Time Incoming Visitor Ringing Intercom Modal](#55-real-time-incoming-visitor-ringing-intercom-modal)
+   - [5.6 Gate Parcel & Delivery Hub Screens & Keypads](#56-gate-parcel--delivery-hub-screens--keypads)
+   - [5.7 Maintenance Payment & Digital Receipts](#57-maintenance-payment--digital-receipts)
+   - [5.8 Special Collections & Festival Fund Drives](#58-special-collections--festival-fund-drives)
+   - [5.9 Raise Helpdesk Ticket / Complaint Form](#59-raise-helpdesk-ticket--complaint-form)
+   - [5.10 Amenity Booking Slot Selector](#510-amenity-booking-slot-selector)
+   - [5.11 Create Poll & Create Survey Forms](#511-create-poll--create-survey-forms)
+   - [5.12 Staff & Guard Onboarding Form](#512-staff--guard-onboarding-form)
+   - [5.13 House Assignment & 7-Day Invite Generator](#513-house-assignment--7-day-invite-generator)
+   - [5.14 Guard Gate Terminal (Dedicated Guard Station)](#514-guard-gate-terminal-dedicated-guard-station)
 6. [Component Mapping Table (Web to React Native)](#6-component-mapping-table-web-to-react-native)
 7. [API Endpoints Reference](#7-api-endpoints-reference)
 
@@ -42,7 +45,7 @@ This document is the **single source of truth (SSOT)** for building the **Reside
 
 ---
 
-## 2. Design System & UI Tokens
+## 2. Design System, UI Tokens & Form Component Anatomy
 
 To ensure a **100% visual match**, use the exact color tokens, typography scales, and component geometries:
 
@@ -87,18 +90,42 @@ export const CARD_TINTS = [
 ];
 ```
 
-### 📱 Common UI Geometries
-* **Card Corner Radius**: `borderRadius: 16` (`rounded-2xl`)
-* **Input Height**: `48px` or `52px` with `borderRadius: 12` (`rounded-xl`)
-* **Button Height**: `48px` with `borderRadius: 12` (`rounded-xl`)
-* **Floating Badge**: Circle with `height: 22, width: 22, borderRadius: 11, backgroundColor: COLORS.error`
+### 📐 Form Field Anatomy & Visual Specifications
+
+#### 1. Standard Single-Line Input Field
+* **Container**: `height: 48px`, `borderRadius: 12` (`rounded-xl`), `backgroundColor: "#FBFDFA"` (`bg-surface`), `borderWidth: 1`, `borderColor: "#BFC9C2"` (`border-outline-variant`).
+* **Focused State**: `borderColor: "#1B4D3E"`, subtle shadow ring.
+* **Label**: Rendered above input, `fontSize: 13`, `fontWeight: "600"`, `color: "#191C1B"`.
+
+#### 2. `<PhoneInput />` Single-Box Container (Crucial Component)
+Rendered as a **seamless single-box input** matching standard inputs:
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🇮🇳 +91 ▾  │  98765 43210                            (10/10) ✓ │
+└────────────────────────────────────────────────────────────┘
+```
+* **Left Section**: Touchable country trigger showing Country Flag Emoji + Dial Code (`+91`) + Small Chevron (`▾`).
+* **Vertical Divider**: `width: 1px`, `height: 24px`, `backgroundColor: "#BFC9C2"`.
+* **Right Section**: Number `TextInput` (numeric keypad, dynamic max-length enforcement: 10 digits for India `+91`, 9 for UAE `+971`, etc.).
+* **Right Checkmark Badge**: Subtle green checkmark `✓` shown when exact country digit length is reached.
+* **Country Picker Popover Modal**: Search input at top + list of countries with flags, names, and dial codes. Top NRI countries pinned at top (India, UAE, US, UK, Singapore, Canada, Australia, Saudi Arabia, Qatar, Oman).
+
+#### 3. Pill & Chip Selection Buttons (Relationship, Priority, Visitor Type)
+* **Inactive Pill**: `borderRadius: 9999` (`rounded-full`), `backgroundColor: "#F4F6F3"`, `borderWidth: 1`, `borderColor: "#BFC9C2"`, `color: "#3F4944"`, `paddingHorizontal: 16`, `paddingVertical: 8`.
+* **Active Pill**: `backgroundColor: "#1B4D3E"`, `color: "#FFFFFF"`, `borderColor: "#1B4D3E"`, `fontWeight: "700"`.
+
+#### 4. Standard Modal Architecture
+* **Backdrop**: Semi-transparent dark overlay (`backgroundColor: "rgba(0,0,0,0.6)"`).
+* **Modal Card**: Centered or Bottom-sheet, `borderRadius: 24` (`rounded-3xl`), `backgroundColor: "#FBFDFA"`, `padding: 24`.
+* **Header**: Icon badge in circle + Title (`fontSize: 18, fontWeight: "bold"`) + Subtitle + Close `✕` button at top right.
+* **Footer**: Full-width Cancel button (`outlined`) + Submit button (`bg-primary text-white font-bold`).
 
 ---
 
 ## 3. Global State & Authentication Engine
 
 ### 1. `auth.store.js` (JWT & User Session)
-* **Storage Engine**: `AsyncStorage` (instead of `localStorage`)
+* **Storage Engine**: `AsyncStorage`
 * **State**:
   - `user`: `{ id, name, phone, email, isSuperAdmin, avatarUrl }`
   - `token`: JWT Bearer string
@@ -142,228 +169,389 @@ const socket = io(API_BASE_URL, {
 
 ---
 
-## 5. Complete Screen-by-Screen User Flows & Logic
+## 5. Detailed Screen & Modal Layout Specifications (Exact UI Match)
 
 ---
 
-### 5.1 Auth & Onboarding Flow
+### 5.1 Auth & Onboarding Screens
 
 #### 1. Login Screen (`/login`)
-* **Fields**:
-  - Phone Number Input (with `<PhoneInput />` country picker)
-  - Password Input (with show/hide eye toggle)
-* **Logic**:
-  - Submits `POST /api/v1/auth/login` with `{ phone, password }`.
-  - On success: sets `token` and `user`, fetches user memberships via `GET /api/v1/societies/my-memberships`.
-  - If 1 society $\to$ sets `activeSociety` $\to$ navigates to `Dashboard`.
-  - If multiple societies $\to$ opens Society Selector Modal.
-
-#### 2. Register Screen (`/register`)
-* **Fields**:
-  - Full Name
-  - Phone Number (`<PhoneInput />` with 10-digit validation for India `+91`)
-  - Email (Optional)
-  - Password
-* **Logic**: Submits `POST /api/v1/auth/register`.
-
-#### 3. House Claim / Invite Screen (`/house-invite/:token`)
-* **Logic**:
-  - Submits `GET /api/v1/houses/invite-info/:token` to display Flat Number, Society Name, and Inviter Name.
-  - Form asks to set Password and confirm details.
-  - Submits `POST /api/v1/houses/claim-invite` $\to$ auto-provisions user, assigns unit, and redirects to Dashboard.
-
----
-
-### 5.2 Dashboard (Home) Flow
-
-The Dashboard is the central command center of the app:
-
-#### Component Hierarchy:
-1. **Header**:
-   - Time Greeting (`Good morning / afternoon / evening, {FirstName} 👋`)
-   - Date badge (`Thursday, 3 Sep`)
-   - Role badge chip (`Owner`, `Tenant`, `Society Admin`, `Guard`)
-   - Society & Flat selector pill (`Greenfield Heights · Flat A-402 ▾`)
-2. **High-Priority Alert Banners** (Conditional):
-   - **📦 Waiting Parcel Banner**: Rendered if resident has uncollected packages at gate desk:
-     - Displays courier name (e.g. *Amazon*, *Blinkit*) + **Bold 4-Digit Pickup PIN** (e.g. `PIN: 4821`).
-     - Tapping opens `/visitors?tab=parcels`.
-   - **💳 Maintenance Overdue Alert Banner**: Rendered if maintenance is unpaid:
-     - Displays month, due date, overdue badge, and 1-tap `[ Pay Now ]` button.
-3. **Society Administration Grid** (Rendered for Admins/Committee):
-   - 11 square cards with admin permissions (`Manage Houses`, `Manage Society`, `Manage Wing`, `Manage Maintenance`, `Manage Collections`, `Create Notice`, `Manage Amenities`, `Create Poll`, `Create Survey`, `Manage Committee`, `Manage Staff`).
-4. **Resident Services Grid (16 Square Cards)**:
-   - `Pay Maintenance` (`/maintenance`)
-   - `Collections` (`/collections/pay`)
-   - `My Unit` (`/my-unit`)
-   - `Add Members` (`/family-members`)
-   - `Notices` (`/notices`)
-   - `Visitors` (`/visitors`)
-   - `Gate Parcels` (`/visitors?tab=parcels`)
-   - `Complaints` (`/complaints`)
-   - `Amenities` (`/amenities`)
-   - `Polls` (`/polls`)
-   - `Surveys` (`/surveys`)
-   - `Chat` (`/chat`)
-   - `Documents` (`/documents`)
-   - `Emergency` (`/emergency-contacts`)
-   - `Directory` (`/directory`)
-   - `Vehicles` (`/vehicles`)
-5. **Recent Notices Feed**:
-   - Displays latest 2 announcements with author avatar and timeago stamp + `[ View all ]` button.
+```
+┌────────────────────────────────────────────────────────────┐
+│                    [ 🏢 ResidentOne Logo ]                 │
+│                      Welcome Back 👋                       │
+│             Sign in to access your society portal          │
+│                                                            │
+│  Phone Number                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ 🇮🇳 +91 ▾ │  Enter 10-digit mobile number             │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  Password                                                  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ ••••••••••••                                      👁 │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                     Sign In →                        │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│              Don't have an account? Register               │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### 5.3 Gate Security & Visitor Management Flow
+### 5.2 Dashboard (Home Screen)
 
-#### 1. Resident Visitors Portal (`/visitors`)
-* **Tabs**: `🚶 Inside Now` | `🕒 Expected Today` | `🔔 Pending Approvals` | `📦 Gate Parcels` | `📜 History`
-* **Pre-Approve Visitor Modal**:
-  - Visitor Type selection: `Guest`, `Delivery`, `Cab`, `Service (Plumber/AC)`, `Other`
-  - Visitor Name & Phone (`<PhoneInput />`)
-  - Expected Date & Time slot
-  - Vehicle Number (Optional)
-  - Submits `POST /api/v1/visitors/pre-approve`
-  - Returns **6-digit Entry Passcode** (e.g. `839201`) + QR code with 1-tap **WhatsApp Share Button**.
-
-#### 2. Real-Time Intercom Approval Flow (When Guard logs walk-in at gate)
-* Socket receives `visitor:new_approval`.
-* App plays audible chime sound.
-* Modal pops up on resident's screen:
-  - Visitor Name, Purpose, Vehicle Number, Guard Photo.
-  - 3 Instant Actions:
-    1. **`[ ✅ Approve Entry ]`** $\to$ emits `POST /api/v1/visitors/:id/respond` `{ status: "approved" }`.
-    2. **`[ 📦 Leave at Gate ]`** $\to$ converts to a Gate Parcel with generated 4-digit pickup PIN.
-    3. **`[ ❌ Deny Entry ]`** $\to$ marks as denied and notifies gate guard immediately.
-
----
-
-### 5.4 Gate Parcel & Delivery Hub Flow
-
-1. **Intake at Gate**:
-   - Guard logs package: Courier name (*Amazon, Flipkart, Swiggy, Zomato, Blinkit, Courier, Other*) + Flat autocomplete.
-   - Backend auto-generates a secure **4-digit Pickup PIN** (e.g. `7194`).
-2. **Resident Notification**:
-   - Resident receives socket ping + dashboard banner showing `PIN: 7194`.
-3. **Handover at Gate**:
-   - Guard types the 4-digit PIN on the terminal keypad.
-   - Terminal displays confirmed package card.
-   - Guard taps `[ Confirm Handover ]` $\to$ parcel is archived as collected.
-
----
-
-### 5.5 Finances, Maintenance & Collections Flow
-
-#### 1. Resident Maintenance Screen (`/maintenance`)
-* **Hero Card**: Total outstanding balance across all owned units.
-* **Active Cycle Card**: Current month amount, due date, status pill (`Paid`, `Due Soon`, `Overdue`).
-* **Pay Maintenance Modal**:
-  - Payment Method selector: `UPI`, `Bank Transfer / NEFT`, `Cheque`, `Cash`.
-  - Transaction Reference / Cheque number input.
-  - Submits `POST /api/v1/maintenance/pay`.
-  - Displays instant **Digital Receipt** with receipt number, payment date, and PDF download.
-
-#### 2. Special Collections Screen (`/collections/pay`)
-* Displays festival / special project fund drives (e.g. *Ganesh Festival 2026*, *CCTV Upgrade*).
-* Shows **Target vs. Collected Progress Bar** (e.g. `₹45,000 / ₹1,00,000 (45%)`).
-* 1-tap contribution button per flat.
+```
+┌────────────────────────────────────────────────────────────┐
+│ Good morning, Rahul 👋                 Thursday, 3 Sep     │
+│ [ 🛡️ Owner ]                                              │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 🏢 Greenfield Heights · Flat A-402 ▾                   │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌─── 📦 Waiting Gate Delivery (Conditional Banner) ──────┐ │
+│ │ 📦 1 Package Waiting at Main Gate                      │ │
+│ │ Amazon Delivery · Arrived 10 mins ago                  │ │
+│ │ ┌───────────────────┐                                  │ │
+│ │ │  PIN: 4821        │ (Tap to view details)            │ │
+│ │ └───────────────────┘                                  │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌─── 💳 Maintenance Alert (Conditional Banner) ──────────┐ │
+│ │ ⚠️ September 2026 Maintenance Due (₹2,500)             │ │
+│ │ Due by 10 Sep 2026                    [ Pay Now → ]    │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ Resident Services                                          │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌─────┐ │
+│ │ 💳           │ │ 🤝           │ │ 🏠           │ │ 👨‍👩‍👧 │ │
+│ │ Pay Dues     │ │ Collections  │ │ My Unit      │ │ Add │ │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └─────┘ │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌─────┐ │
+│ │ 📢           │ │ 🛡️           │ │ 📦           │ │ 🛠️  │ │
+│ │ Notices      │ │ Visitors     │ │ Gate Parcels │ │ Tkt │ │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └─────┘ │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌─────┐ │
+│ │ 🏊           │ │ 🗳️           │ │ 📋           │ │ 💬  │ │
+│ │ Amenities    │ │ Polls        │ │ Surveys      │ │ Chat│ │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └─────┘ │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌─────┐ │
+│ │ 📁           │ │ 🚨           │ │ 👥           │ │ 🚗  │ │
+│ │ Documents    │ │ Emergency    │ │ Directory    │ │ Cars│ │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └─────┘ │
+│                                                            │
+│ Recent Notices                             [ View all → ]  │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 📢 Annual General Body Meeting (AGM) 2026              │ │
+│ │ Notice issued by Secretary · 2h ago                    │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### 5.6 Household, Flats, Family & Vehicles Flow
+### 5.3 Add / Edit Family Member Modal (Exact Form Layout)
 
-#### 1. My Unit Screen (`/my-unit`)
-* Displays flat number, floor, wing, occupancy status.
-* Quick lists of linked family members, registered vehicles, and tenant details.
+When user taps **"+ Add Member"** on Profile or Household page:
 
-#### 2. Family Members Screen (`/family-members`)
-* Displays active family list with relation chips (*Spouse, Child, Parent, Sibling, Relative, Other*).
-* **"+ Add Member" Modal**:
-  - Name, Relationship dropdown, Phone number with `<PhoneInput />`.
-  - Automatically updates the household member count upon saving.
-* **Delete Member**: 1-click confirmation with instant removal.
-
-#### 3. Vehicles Screen (`/vehicles`)
-* Displays 2-Wheelers and 4-Wheelers.
-* Add Vehicle: Vehicle Type, Vehicle Number (License Plate), Parking Slot Number.
-
----
-
-### 5.7 Helpdesk & Complaints Flow
-
-#### 1. Complaints List (`/complaints`)
-* Status Filter Pills: `All`, `Open`, `In Progress`, `Resolved`, `Closed`.
-* Card displays: Ticket ID (`#TKT-104`), Category, Priority badge (`Urgent`, `High`, `Medium`, `Low`), Title, Created time.
-
-#### 2. Raise Complaint Modal / Screen (`/complaints/new`)
-* Category: *Plumbing, Electrical, Lift, Security, Housekeeping, Noise, Parking, Other*.
-* Priority Selector.
-* Title & Description.
-* Photo Attachment (Camera / Image Picker).
-* Submits `POST /api/v1/complaints`.
-
-#### 3. Complaint Detail (`/complaints/:id`)
-* Status progress timeline.
-* Admin responses & internal comments.
-* Resident closure / reopen button.
+```
+┌────────────────────────────────────────────────────────────┐
+│ 👨‍👩‍👧‍👦 Add Family Member                                   ✕ │
+│ Add a household member living in your flat                 │
+│                                                            │
+│ Full Name *                                                │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ e.g. Priya Sharma                                      │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ Relationship *                                             │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────────┐   │
+│ │ Spouse    │ │ Child     │ │ Parent    │ │ Sibling    │   │
+│ └───────────┘ └───────────┘ └───────────┘ └────────────┘   │
+│ ┌───────────┐ ┌───────────┐                                │
+│ │ Relative  │ │ Other     │ (Active pill gets primary bg)  │
+│ └───────────┘ └───────────┘                                │
+│                                                            │
+│ Phone Number (Optional)                                    │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 🇮🇳 +91 ▾ │ 98765 43210                         (10/10) ✓│ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌─────────────────────────┐  ┌───────────────────────────┐ │
+│ │ Cancel                  │  │ Save Member               │ │
+│ └─────────────────────────┘  └───────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
+* **Auto Sync Logic**: On clicking "Save Member", `POST /api/v1/family-members` is called $\to$ the family list updates and the Household Member Count on Profile increments dynamically.
 
 ---
 
-### 5.8 Amenities Booking Flow
+### 5.4 Visitor Pre-Approval Modal & Passes
 
-1. **Browse Amenities (`/amenities`)**:
-   - Clubhouse, Swimming Pool, Tennis Court, Badminton Turf, Party Hall.
-   - Shows timings, hourly price (or free), max capacity, and rules.
-2. **Booking Flow**:
-   - Date picker $\to$ Time slot grid (e.g. `06:00 PM - 07:00 PM`).
-   - Slot availability checker (blocks conflicting slots in real time).
-   - Submits `POST /api/v1/amenities/:id/book`.
-3. **My Bookings Tab**:
-   - Shows active booking pass with booking ID and cancel button.
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🎫 Pre-Approve Visitor                                   ✕ │
+│ Create a guest entry pass for seamless gate access         │
+│                                                            │
+│ Visitor Type *                                             │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────────┐   │
+│ │ 👤 Guest  │ │ 📦Delivery│ │ 🚕 Cab    │ │ 🔧 Service │   │
+│ └───────────┘ └───────────┘ └───────────┘ └────────────┘   │
+│                                                            │
+│ Visitor Name *                                             │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ e.g. Rajesh Kumar                                      │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ Visitor Phone Number *                                     │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 🇮🇳 +91 ▾ │ 98230 11223                         (10/10) ✓│ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ Expected Date & Time *                                     │
+│ ┌─────────────────────────┐  ┌───────────────────────────┐ │
+│ │ 📅 Today, 3 Sep 2026    │  │ 🕒 04:00 PM - 06:00 PM    │ │
+│ └─────────────────────────┘  └───────────────────────────┘ │
+│                                                            │
+│ Vehicle Number (Optional)                                  │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ e.g. MH 12 AB 1234                                     │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │               Generate Entry Pass →                    │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
+
+#### Generated Pass Result Card:
+```
+┌────────────────────────────────────────────────────────────┐
+│                 ✅ Entry Pass Generated!                   │
+│                                                            │
+│             6-Digit Gate Entry Passcode:                   │
+│             ┌──────────────────────────────┐               │
+│             │          8 3 9 2 0 1         │               │
+│             └──────────────────────────────┘               │
+│               [ QR Code Placeholder ]                      │
+│                                                            │
+│ Visitor: Rajesh Kumar · Guest · Valid for Today            │
+│ Destination: Greenfield Heights · Flat A-402               │
+│                                                            │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 💬 Share Entry Pass via WhatsApp                       │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### 5.9 Community (Notices, Polls, Surveys, Chat, Directory)
+### 5.5 Real-Time Incoming Visitor Ringing Intercom Modal
 
-1. **Notices (`/notices`)**:
-   - Official circulars, pinned announcements, search filter by category.
-2. **Polls (`/polls`)**:
-   - Voting cards with radio options $\to$ Submits vote $\to$ Instantly displays live percentage progress bars and voter count.
-3. **Surveys (`/surveys`)**:
-   - Questionnaire forms with 1-5 star ratings and feedback text.
-4. **Chat (`/chat`)**:
-   - General society group channel + Committee channel.
-   - Real-time message exchange via `socket.io`.
-5. **Directory (`/directory`)**:
-   - Resident directory searchable by Wing, Flat, or Name.
-   - Emergency SOS tab with 1-tap phone dialer (`Linking.openURL('tel:911')`).
+When guard logs a walk-in visitor at the gate, this modal pops up with ringing sound:
 
----
-
-### 5.10 Society Administration & Staff Management
-
-*(Accessible only to users with `society_admin`, `wing_admin`, or committee permissions)*
-1. **Manage Houses (`/houses`)**:
-   - Add flats, assign owners/tenants, generate 7-day shareable invite links.
-2. **Manage Maintenance (`/dues`)**:
-   - Generate new monthly cycle, track defaulters, record offline cash payments.
-3. **Manage Staff (`/staff`)**:
-   - Add guards, technicians, and cleaners.
-   - Auto-generates staff login credentials.
-4. **Manage Society (`/society/manage`)**:
-   - Update society rules, bank details, contact numbers.
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🔔 INCOMING VISITOR AT MAIN GATE                           │
+│ Ringing intercom...                                        │
+│                                                            │
+│ [ 👤 Visitor Photo ]  Amit Verma                           │
+│                       Delivery (Swiggy) · Bike MH12 CD5678 │
+│                                                            │
+│ Flat: A-402 (Your Unit)                                    │
+│ Guard Desk: Gate 1 Terminal                                │
+│                                                            │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ ✅ APPROVE ENTRY                                        │ │
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 📦 LEAVE AT GATE (Creates Parcel with Pickup PIN)      │ │
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ ❌ DENY ENTRY                                           │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### 5.11 Guard Gate Terminal (Tablet / Guard Mode)
+### 5.6 Gate Parcel & Delivery Hub Screens & Keypads
+
+#### Resident View (`/visitors?tab=parcels`):
+* **Uncollected Parcels Grid**:
+  - Displays courier company badge (*Amazon, Flipkart, Blinkit, Swiggy, Zomato*).
+  - Arrival timestamp + Gate Guard name.
+  - **Highlighted 4-Digit Pickup PIN Card** (e.g. `PIN: 7194`).
+* **Collected History**: List of past collected packages with handover timestamps.
+
+---
+
+### 5.7 Maintenance Payment & Digital Receipts
+
+#### Pay Maintenance Modal:
+```
+┌────────────────────────────────────────────────────────────┐
+│ 💳 Pay Maintenance Dues                                  ✕ │
+│ Billing Cycle: September 2026 · Flat A-402                 │
+│ Total Amount Due: ₹2,500                                   │
+│                                                            │
+│ Select Payment Method *                                    │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────────┐   │
+│ │ UPI / QR  │ │ NetBanking│ │ Cheque    │ │ Cash       │   │
+│ └───────────┘ └───────────┘ └───────────┘ └────────────┘   │
+│                                                            │
+│ Transaction Reference ID / Cheque No. *                    │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ e.g. UPI-REF-902819284019                              │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │               Submit Payment & Get Receipt             │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 5.8 Special Collections & Festival Fund Drives
+
+* **Campaign Hero Card**:
+  - Event title (e.g. *Diwali Celebration 2026*, *Elevator Modernization*).
+  - **Target Progress Bar**: `[██████████░░░░] ₹45,000 / ₹1,00,000 (45%)`.
+  - Contribution per flat amount: `₹1,000`.
+  - 1-tap **`[ Pay Contribution ]`** button.
+
+---
+
+### 5.9 Raise Helpdesk Ticket / Complaint Form
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🛠️ Raise Helpdesk Ticket                                 ✕ │
+│ Report a flat or society maintenance issue                 │
+│                                                            │
+│ Category *                                                 │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────────┐   │
+│ │ Plumbing  │ │ Electrical│ │ Lift      │ │ Security   │   │
+│ └───────────┘ └───────────┘ └───────────┘ └────────────┘   │
+│ ┌───────────┐ ┌───────────┐                                │
+│ │ Cleaning  │ │ Other     │                                │
+│ └───────────┘ └───────────┘                                │
+│                                                            │
+│ Priority Level *                                           │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────────┐   │
+│ │ 🟢 Low    │ │ 🟡 Medium │ │ 🟠 High   │ │ 🔴 Urgent  │   │
+│ └───────────┘ └───────────┘ └───────────┘ └────────────┘   │
+│                                                            │
+│ Title *                                                    │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ e.g. Water leakage in master bathroom ceiling          │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ Description *                                              │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ Provide details about the issue...                     │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ Photo Attachment (Optional)                                │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ 📷 Tap to take photo or choose from gallery            │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │               Submit Ticket →                          │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 5.10 Amenity Booking Slot Selector
+
+1. **Amenity Header**: Image of Clubhouse/Pool + Pricing + Max capacity.
+2. **Date Picker**: Horizontal swipeable calendar day pills (`[ Today 3 ]` `[ Fri 4 ]` `[ Sat 5 ]` `[ Sun 6 ]`).
+3. **Time Slots Grid**:
+   - `[ 06:00 AM - 07:00 AM ]` (Available $\to$ White border)
+   - `[ 07:00 AM - 08:00 AM ]` (Booked $\to$ Disabled grey)
+   - `[ 08:00 AM - 09:00 AM ]` (Selected $\to$ Active primary fill)
+4. **Bottom Sticky Bar**: Selected slot + Price + `[ Confirm Booking ]` button.
+
+---
+
+### 5.11 Create Poll & Create Survey Forms
+
+#### Poll Creation Form:
+* Question input (`e.g. Should we install EV charging stations?`).
+* Dynamic Options list with `[ + Add Option ]` button and `✕` remove button.
+* Single / Multiple Choice toggle.
+* Expiry Date picker.
+
+---
+
+### 5.12 Staff & Guard Onboarding Form
+
+* Full Name.
+* Staff Role dropdown: `Security Guard`, `Technician`, `Housekeeping`, `Gardener`.
+* Phone Number with `<PhoneInput />`.
+* Shift Allocation: `Day Shift (08 AM - 08 PM)` / `Night Shift (08 PM - 08 AM)`.
+* **Auto Temporary Password Generator**: Displays generated password chip (e.g. `Guard@2026`) with 1-tap Copy button.
+
+---
+
+### 5.13 House Assignment & 7-Day Invite Generator
+
+* Flat selection (Wing + Flat number).
+* Occupancy type: `Owner` vs `Tenant`.
+* Resident Phone (`<PhoneInput />`).
+* **Shareable Invite Link**:
+  - Generates `https://residentone.app/house-invite/<TOKEN>`.
+  - Displays **7-Day Expiry Notice**.
+  - 1-tap **`[ 📋 Copy Link ]`** and **`[ 💬 Share via WhatsApp ]`**.
+
+---
+
+### 5.14 Guard Gate Terminal (Dedicated Guard Station)
 
 *(Optimized for guards on gate tablets or smartphones)*
-1. **PIN Keypad**:
-   - Guard enters visitor 6-digit passcode $\to$ instant verified card $\to$ 1-tap `[ Check In ]`.
-2. **Walk-in Visitor Entry**:
-   - Guard types flat number (e.g. `A-402`) or owner name $\to$ smart autocomplete suggestion dropdown $\to$ visitor purpose $\to$ sends ringing notification to resident.
-3. **Gate Parcel Hub**:
-   - 4-digit pickup PIN keypad $\to$ verifies resident pickup code $\to$ 1-tap `[ Confirm Handover ]`.
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🛡️ GATE 1 SECURITY DESK — Greenfield Heights               │
+│ [ 🚶 Walk-In Entry ]  [ 🎫 PIN Passcode ]  [ 📦 Parcels ]  │
+│                                                            │
+│ ┌─── Tab 1: Walk-In Entry ───────────────────────────────┐ │
+│ │ Search Flat / Owner:                                   │ │
+│ │ ┌────────────────────────────────────────────────────┐ │ │
+│ │ │ 🔍 Type flat e.g. A-402 or Sharma...               │ │ │
+│ │ └────────────────────────────────────────────────────┘ │ │
+│ │ Suggestions:                                           │ │
+│ │ • [ Flat A-402 ] Rahul Sharma (Owner) · Wing A, Fl 4  │ │
+│ │ • [ Flat B-104 ] Amit Sharma (Tenant) · Wing B, Fl 1  │ │
+│ │                                                        │ │
+│ │ Visitor Name: [ Vikram Singh                         ] │ │
+│ │ Visitor Phone: [ 🇮🇳 +91 98200 11223                ] │ │
+│ │ Purpose: [ 👤 Guest ] [ 📦 Delivery ] [ 🚕 Cab ]       │ │
+│ │                                                        │ │
+│ │ ┌────────────────────────────────────────────────────┐ │ │
+│ │ │ 🔔 RING RESIDENT INTERCOM →                        │ │ │
+│ │ └────────────────────────────────────────────────────┘ │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ ┌─── Tab 2: 6-Digit Passcode Keypad ─────────────────────┐ │
+│ │ Enter Visitor Entry Code:                              │ │
+│ │ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐                    │ │
+│ │ │ 8 │ │ 3 │ │ 9 │ │ 2 │ │ 0 │ │ 1 │                    │ │
+│ │ └───┘ └───┘ └───┘ └───┘ └───┘ └───┘                    │ │
+│ │ [ 1 ] [ 2 ] [ 3 ]                                      │ │
+│ │ [ 4 ] [ 5 ] [ 6 ]                                      │ │
+│ │ [ 7 ] [ 8 ] [ 9 ]                                      │ │
+│ │ [ ⌫ ] [ 0 ] [ ✅ Verify ]                              │ │
+│ └────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 

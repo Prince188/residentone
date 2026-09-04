@@ -13,6 +13,7 @@ const {
   updateSocietySchema,
   rejectSocietySchema,
   updatePermissionsSchema,
+  paySubscriptionSchema,
 } = require("./society.validation");
 
 const router = express.Router();
@@ -57,6 +58,9 @@ router.get("/", authenticate, requirePlatformAdmin, (req, res, next) =>
 );
 router.get("/stats", authenticate, requirePlatformAdmin, (req, res, next) =>
   societyController.stats(req, res, next)
+);
+router.get("/analytics", authenticate, requirePlatformAdmin, (req, res, next) =>
+  societyController.historicalAnalytics(req, res, next)
 );
 router.post(
   "/",
@@ -106,6 +110,12 @@ router.patch(
 
 router.get("/:id", authenticate, (req, res, next) =>
   societyController.getById(req, res, next)
+);
+router.post(
+  "/:id/pay-subscription",
+  authenticate,
+  validate(paySubscriptionSchema),
+  (req, res, next) => societyController.paySubscription(req, res, next)
 );
 router.patch(
   "/:id",

@@ -11,7 +11,10 @@ import {
   archiveSociety,
   unarchiveSociety,
   deleteSocietyPermanently,
+  updateSociety,
   SOCIETY_TYPE_LABELS,
+  SUBSCRIPTION_PLAN_LABELS,
+  SUBSCRIPTION_PLAN_RATES,
   extractApiError,
 } from "../../lib/societies";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -118,6 +121,13 @@ export default function AdminSocietyDetailPage() {
       navigate("/admin/societies");
     },
     onError: (error) => setActionError(extractApiError(error, "Failed to delete society permanently.")),
+  });
+
+  const planMutation = useMutation({
+    mutationFn: ({ sid, subscriptionPlan, subscriptionBilling }) =>
+      updateSociety(sid, { subscriptionPlan, subscriptionBilling }),
+    onSuccess: invalidate,
+    onError: (error) => setActionError(extractApiError(error, "Failed to update subscription plan.")),
   });
 
   const closeDialog = () => {
@@ -229,10 +239,18 @@ export default function AdminSocietyDetailPage() {
       )}
 
       {(society.status === "pending" || society.status === "rejected") && (
-        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-secondary-fixed bg-secondary-fixed/40 px-4 py-3">
-          <span className="material-symbols-outlined text-primary">pending_actions</span>
+        <section className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${
+          society.status === "rejected"
+            ? "border-error/30 bg-error-container/30"
+            : "border-secondary-fixed bg-secondary-fixed/40"
+        }`}>
+          <span className={`material-symbols-outlined ${society.status === "rejected" ? "text-error" : "text-primary"}`}>
+            {society.status === "rejected" ? "cancel" : "pending_actions"}
+          </span>
           <span className="text-body-sm font-semibold text-on-surface">
-            This society registration is {society.status === "pending" ? "awaiting approval" : "currently rejected"}.
+            {society.status === "pending"
+              ? "This society registration is awaiting approval."
+              : `This society registration is currently rejected${society.rejectionReason ? `: "${society.rejectionReason}"` : ""}.`}
           </span>
           <div className="ml-auto flex gap-2">
             <button
@@ -241,7 +259,7 @@ export default function AdminSocietyDetailPage() {
               disabled={busy}
               className="rounded-lg bg-primary px-3.5 py-2 text-label-md text-on-primary font-semibold transition-colors hover:bg-inverse-surface cursor-pointer disabled:opacity-60"
             >
-              Approve Society
+              {society.status === "rejected" ? "Re-Approve & Activate" : "Approve Society"}
             </button>
             {society.status === "pending" && (
               <button
@@ -357,6 +375,84 @@ export default function AdminSocietyDetailPage() {
         )}
         <DetailRow label="Created">{formatDate(society.createdAt)}</DetailRow>
         <DetailRow label="Last Updated">{formatDate(society.updatedAt)}</DetailRow>
+      </section>
+
+      {/* Subscription Plan & Billing Management */}
+      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant pb-3">
+          <div>
+            <h2 className="text-body-lg font-bold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[22px]">loyalty</span>
+              SaaS Subscription Plan & Billing Tier
+            </h2>
+            <p className="text-label-sm text-on-surface-variant mt-0.5">
+              Current plan assignment, billing mode, and fee calculations for this society.
+            </p>
+          </div>
+          <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-bold ${
+            society.subscriptionPlan === "enterprise"
+              ? "bg-violet-100 text-violet-800"
+              : society.subscriptionPlan === "professional"
+              ? "bg-primary/10 text-primary"
+              : "bg-emerald-100 text-emerald-800"
+          }`}>
+            <span className="h-2 w-2 rounded-full bg-current" />
+            {SUBSCRIPTION_PLAN_LABELS[society.subscriptionPlan] || "Basic"} Tier
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-outline-variant bg-surface-container-low/50 p-3.5">
+            <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Assigned Plan</span>
+            <div className="mt-1.5 flex items-center justify-between">
+              <select
+                value={society.subscriptionPlan || "starter"}
+                onChange={(e) =>
+                  planMutation.mutate({
+                    sid: society._id,
+                    subscriptionPlan: e.target.value,
+                    subscriptionBilling: society.subscriptionBilling || "monthly",
+                  })
+                }
+                disabled={planMutation.isPending}
+                className="w-full rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-body-sm font-bold text-on-surface focus:border-primary focus:outline-none cursor-pointer disabled:opacity-60"
+              >
+                <option value="starter">Starter / Basic (₹6/unit)</option>
+                <option value="professional">Professional / Standard (₹10/unit)</option>
+                <option value="enterprise">Enterprise / Premium (₹15/unit)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-low/50 p-3.5">
+            <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Billing Frequency</span>
+            <div className="mt-1.5">
+              <select
+                value={society.subscriptionBilling || "monthly"}
+                onChange={(e) =>
+                  planMutation.mutate({
+                    sid: society._id,
+                    subscriptionPlan: society.subscriptionPlan || "starter",
+                    subscriptionBilling: e.target.value,
+                  })
+                }
+                disabled={planMutation.isPending}
+                className="w-full rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-body-sm font-bold text-on-surface focus:border-primary focus:outline-none cursor-pointer disabled:opacity-60"
+              >
+                <option value="monthly">Monthly Recurring</option>
+                <option value="yearly">Yearly Prepaid (10 mo)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-low/50 p-3.5">
+            <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Estimated Monthly SaaS Dues</span>
+            <p className="mt-1.5 text-headline-sm font-black text-primary">
+              ₹{((society.totalUnits || 0) * (SUBSCRIPTION_PLAN_RATES[society.subscriptionPlan || "starter"] || 6)).toLocaleString("en-IN")}
+              <span className="text-label-sm font-normal text-on-surface-variant">/mo</span>
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* Danger Zone / Lifecycle Controls */}

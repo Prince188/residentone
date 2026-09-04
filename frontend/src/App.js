@@ -18,6 +18,7 @@ import AdminSocietiesPage from "./features/admin/AdminSocietiesPage";
 import PendingApprovalsPage from "./features/admin/PendingApprovalsPage";
 import AdminCreateSocietyPage from "./features/admin/AdminCreateSocietyPage";
 import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
+import AdminAnalyticsPage from "./features/admin/AdminAnalyticsPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MaintenancePage from "./features/maintenance/MaintenancePage";
 import MaintenanceDetailPage from "./features/maintenance/MaintenanceDetailPage";
@@ -166,6 +167,10 @@ function App() {
               <Route
                 path="/admin/societies/:id"
                 element={<SuperAdminRoute><AdminSocietyDetailPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/analytics"
+                element={<SuperAdminRoute><AdminAnalyticsPage /></SuperAdminRoute>}
               />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

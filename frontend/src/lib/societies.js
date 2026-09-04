@@ -14,12 +14,30 @@ export const archiveSociety = (id) => api.patch(`/societies/${id}/archive`);
 export const unarchiveSociety = (id) => api.patch(`/societies/${id}/unarchive`);
 export const deleteSocietyPermanently = (id) => api.delete(`/societies/${id}/permanent`);
 
+export const getHistoricalAnalytics = (params) => api.get("/societies/analytics", { params });
+export const updateSociety = (id, payload) => api.patch(`/societies/${id}`, payload);
+export const paySocietySubscription = (id, payload) => api.post(`/societies/${id}/pay-subscription`, payload);
+
 export const SOCIETY_STATUS_LABELS = {
   pending: "Pending",
   active: "Active",
+  trial: "Trial",
   rejected: "Rejected",
   suspended: "Suspended",
+  churned: "Churned",
   archived: "Archived",
+};
+
+export const SUBSCRIPTION_PLAN_LABELS = {
+  starter: "Basic",
+  professional: "Standard",
+  enterprise: "Premium",
+};
+
+export const SUBSCRIPTION_PLAN_RATES = {
+  starter: 6,
+  professional: 10,
+  enterprise: 15,
 };
 
 export const SOCIETY_TYPE_LABELS = {

@@ -66,6 +66,18 @@ class SocietyController {
     }
   }
 
+  async historicalAnalytics(req, res, next) {
+    try {
+      const analytics = await societyService.getHistoricalAnalytics({
+        startYear: req.query.startYear,
+        endYear: req.query.endYear,
+      });
+      res.json({ success: true, data: analytics });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async adminCreate(req, res, next) {
     try {
       const { society, adminAccount } = await societyService.createByAdmin(
@@ -197,7 +209,18 @@ class SocietyController {
       if (!["society_admin", "super_admin"].includes(req.membership?.role) && req.accountRole !== "super_admin") {
         return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Only Society Admin can update society info" } });
       }
-      const allowed = ["name", "address", "city", "state", "pincode", "contactPersonName", "contactEmail", "contactPhone"];
+      const allowed = [
+        "name",
+        "address",
+        "city",
+        "state",
+        "pincode",
+        "contactPersonName",
+        "contactEmail",
+        "contactPhone",
+        "subscriptionPlan",
+        "subscriptionBilling",
+      ];
       const payload = {};
       for (const k of allowed) if (req.body[k] !== undefined) payload[k] = req.body[k];
       payload.updatedBy = req.userId;
@@ -248,6 +271,37 @@ class SocietyController {
     try {
       const perms = await societyService.updateRolePermissions(req.societyId, req.body.permissions, req.userId);
       res.json({ success: true, data: perms });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async paySubscription(req, res, next) {
+    try {
+      const societyId = req.params.id || req.societyId;
+      if (!societyId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "BAD_REQUEST", message: "Society ID is required" },
+        });
+      }
+
+      // Check permission: super admin or society admin of this society
+      if (req.accountRole !== "super_admin") {
+        const membership = await membershipService.findByUserAndSociety(
+          req.userId,
+          societyId
+        );
+        if (!membership || (membership.role !== "society_admin" && !membership.additionalRoles?.includes("society_admin"))) {
+          return res.status(403).json({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Only Society Admin or Super Admin can pay subscription" },
+          });
+        }
+      }
+
+      const result = await societyService.paySubscription(societyId, req.body, req.userId);
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

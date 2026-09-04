@@ -68,6 +68,11 @@ const useSocietyStore = create(
             societyType: society.societyType,
             isActive: society.isActive,
             totalUnits: society.totalUnits,
+            subscriptionPlan: society.subscriptionPlan,
+            subscriptionBilling: society.subscriptionBilling,
+            subscriptionStartedAt: society.subscriptionStartedAt,
+            subscriptionExpiresAt: society.subscriptionExpiresAt,
+            isSubscriptionPaid: society.isSubscriptionPaid,
           },
           role: "super_admin",
           additionalRoles: ["society_admin"],
@@ -80,6 +85,24 @@ const useSocietyStore = create(
           activeSocietyId: socId,
           isSuperAdminManaging: true,
         });
+        queryClient.invalidateQueries();
+      },
+
+      updateActiveSocietySubscription: (updates) => {
+        const { societies, activeSocietyId } = get();
+        const nextSocieties = societies.map((s) => {
+          if (s.society.id === activeSocietyId || s.society._id === activeSocietyId) {
+            return {
+              ...s,
+              society: {
+                ...s.society,
+                ...updates,
+              },
+            };
+          }
+          return s;
+        });
+        set({ societies: nextSocieties });
         queryClient.invalidateQueries();
       },
 

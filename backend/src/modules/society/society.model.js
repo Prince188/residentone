@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
-const { SOCIETY_STATUSES, SOCIETY_TYPES } = require("../../shared/types");
+const {
+  SOCIETY_STATUSES,
+  SOCIETY_TYPES,
+  SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_BILLING,
+} = require("../../shared/types");
 
 const societySchema = new mongoose.Schema(
   {
@@ -87,6 +92,30 @@ const societySchema = new mongoose.Schema(
     rolePermissions: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    subscriptionPlan: {
+      type: String,
+      enum: SUBSCRIPTION_PLANS,
+      default: "starter",
+      index: true,
+    },
+    subscriptionBilling: {
+      type: String,
+      enum: SUBSCRIPTION_BILLING,
+      default: "monthly",
+    },
+    subscriptionStartedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    subscriptionExpiresAt: {
+      type: Date,
+      index: true,
+    },
+    isSubscriptionPaid: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
     isActive: {
       type: Boolean,

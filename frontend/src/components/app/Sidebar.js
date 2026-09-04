@@ -5,8 +5,24 @@ import {
   RESIDENT_NAV_SECTIONS,
   ADMIN_NAV_SECTIONS,
 } from "../../config/navigation";
+import { getSubscriptionRenewalMeta } from "../../features/dashboard/SubscriptionStatusCard";
 
-function NavItem({ item, isCollapsed, onNavigate }) {
+function NavItem({ item, isCollapsed, onNavigate, isLocked }) {
+  if (isLocked && item.to !== "/dashboard") {
+    return (
+      <div
+        title="Locked: Subscription payment required to unlock this feature."
+        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-body-sm text-outline opacity-50 cursor-not-allowed select-none ${
+          isCollapsed ? "md:justify-center md:px-0" : ""
+        }`}
+      >
+        <span className="material-symbols-outlined shrink-0 text-[20px]">{item.icon}</span>
+        <span className={`truncate flex-1 ${isCollapsed ? "md:hidden" : ""}`}>{item.label}</span>
+        <span className={`material-symbols-outlined text-[14px] text-amber-600 ${isCollapsed ? "md:hidden" : ""}`}>lock</span>
+      </div>
+    );
+  }
+
   return (
     <NavLink
       to={item.to}
@@ -35,6 +51,15 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
   const isSuperAdminManaging = useSocietyStore((state) => state.isSuperAdminManaging);
   const activeSociety = useSocietyStore(selectActiveSociety);
   const exitSuperAdminSocietyMode = useSocietyStore((state) => state.exitSuperAdminSocietyMode);
+
+  const renewalMeta = getSubscriptionRenewalMeta(activeSociety);
+  const isSubscriptionExpired = Boolean(activeSociety?.isSubscriptionPaid) && renewalMeta.isExpired;
+  const isSubscriptionUnpaid =
+    Boolean(activeSociety) &&
+    !activeSociety.isSubscriptionPaid &&
+    !isPlatformAdmin;
+
+  const isNavLocked = (isSubscriptionUnpaid || isSubscriptionExpired) && !isPlatformAdmin;
 
   // If Super Admin has entered a specific society, show full society resident/admin nav
   const isManagingSpecificSociety = isPlatformAdmin && isSuperAdminManaging && Boolean(activeSociety);
@@ -114,6 +139,38 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
             </div>
           )}
 
+          {isNavLocked && (
+            <Link
+              to="/dashboard"
+              onClick={onDrawerClose}
+              className={`rounded-xl border p-3 space-y-1 block no-underline ${
+                isSubscriptionExpired
+                  ? "border-red-500/30 bg-red-500/10"
+                  : "border-amber-500/30 bg-amber-500/10"
+              }`}
+            >
+              <div className={`flex items-center gap-2 ${isCollapsed ? "md:justify-center" : ""}`}>
+                <span className={`material-symbols-outlined text-[18px] ${
+                  isSubscriptionExpired ? "text-red-600" : "text-amber-600"
+                }`}>
+                  lock
+                </span>
+                <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${
+                  isSubscriptionExpired ? "text-red-900" : "text-amber-900"
+                } ${isCollapsed ? "md:hidden" : ""}`}>
+                  {isSubscriptionExpired ? "Subscription Expired" : "Payment Due"}
+                </span>
+              </div>
+              <p className={`text-[11px] font-medium ${
+                isSubscriptionExpired ? "text-red-950" : "text-amber-950"
+              } ${isCollapsed ? "md:hidden" : ""}`}>
+                {isSubscriptionExpired
+                  ? `Expired ${renewalMeta.formattedDate || ""}. Renew now`
+                  : "Pay subscription to unlock features"}
+              </p>
+            </Link>
+          )}
+
           <Link
             to="/"
             onClick={onDrawerClose}
@@ -141,6 +198,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
                     key={item.to}
                     item={item}
                     isCollapsed={isCollapsed}
+                    isLocked={isNavLocked}
                     onNavigate={onDrawerClose}
                   />
                 ))}

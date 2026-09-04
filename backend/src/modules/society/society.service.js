@@ -1,9 +1,11 @@
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { Society } = require("./society.model");
+const { SubscriptionPayment } = require("./subscription-payment.model");
 const { User } = require("../user/user.model");
 const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
+const { PLAN_RATES, SUBSCRIPTION_PLANS } = require("../../shared/types");
 const unitService = require("../unit/unit.service");
 
 class SocietyService {
@@ -21,7 +23,28 @@ class SocietyService {
 
   async listForAdmin(filters = {}) {
     const query = {};
-    if (filters.status) query.status = filters.status;
+    if (filters.status) {
+      if (filters.status === "active_paid") {
+        query.status = "active";
+        query.isSubscriptionPaid = true;
+      } else if (filters.status === "approved") {
+        query.status = "active";
+      } else if (filters.status === "unpaid") {
+        query.status = "active";
+        query.isSubscriptionPaid = { $ne: true };
+      } else if (filters.status === "churned" || filters.status === "freeze") {
+        query.status = { $in: ["churned", "archived"] };
+      } else {
+        query.status = filters.status;
+      }
+    }
+
+    if (filters.paid === "true") {
+      query.isSubscriptionPaid = true;
+    } else if (filters.paid === "false") {
+      query.isSubscriptionPaid = { $ne: true };
+    }
+
     if (filters.search) {
       const rx = new RegExp(filters.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       query.$or = [{ name: rx }, { city: rx }];
@@ -37,17 +60,484 @@ class SocietyService {
   async stats() {
     const { Unit } = require("../unit/unit.model");
     const { User } = require("../user/user.model");
-    const [total, pending, active, rejected, suspended, archived, totalUnits, totalUsers] = await Promise.all([
+    const { Membership } = require("../membership/membership.model");
+    const { Visitor } = require("../visitor/visitor.model");
+    const { Notice } = require("../notice/notice.model");
+    const { Complaint } = require("../complaint/complaint.model");
+    const { Notification } = require("../notification/notification.model");
+    const { MaintenancePayment } = require("../maintenance/maintenance.model");
+    const { OtpLog } = require("../otp/otp.model");
+    const { SubscriptionPayment } = require("./subscription-payment.model");
+
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const last30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      totalSocieties,
+      activeSocieties,
+      pendingSocieties,
+      trialSocieties,
+      suspendedSocieties,
+      churnedSocieties,
+      archivedSocieties,
+      rejectedSocieties,
+      newSocietiesThisMonth,
+      newSocietiesLastMonth,
+      totalUnits,
+      newUnitsThisMonth,
+      totalRegisteredUsers,
+      activeUsersCount,
+      dau,
+      mau,
+      residentMemberships,
+      newResidentsThisMonth,
+      supportTickets,
+      reportedIssues,
+      failedPayments,
+      overduePayments,
+      visitorsLogged,
+      deliveriesLogged,
+      complaintsCreated,
+      maintenanceTransactions,
+      notificationsSent,
+      paymentTotalsAgg,
+      recentSocietiesRaw,
+      recentComplaintsRaw,
+      recentPaymentsRaw,
+      allSocietiesRaw,
+      monthlyPaymentsRaw,
+      pendingAdminsCount,
+      otpEmailSent,
+      otpSmsSent,
+      otpTotalSent,
+      activeLinkedUsers,
+      newSubscriptionsThisMonth,
+      subscriptionTotalsAgg,
+      monthlySubscriptionPaymentsRaw,
+      paidSocietiesRaw,
+    ] = await Promise.all([
       Society.countDocuments({}),
-      Society.countDocuments({ status: "pending" }),
       Society.countDocuments({ status: "active" }),
-      Society.countDocuments({ status: "rejected" }),
+      Society.countDocuments({ status: "pending" }),
+      Society.countDocuments({ status: "trial" }),
       Society.countDocuments({ status: "suspended" }),
+      Society.countDocuments({ status: { $in: ["churned", "archived"] } }),
       Society.countDocuments({ status: "archived" }),
-      Unit.countDocuments({ isActive: true }),
-      User.countDocuments({ isActive: true }),
+      Society.countDocuments({ status: "rejected" }),
+      Society.countDocuments({ createdAt: { $gte: startOfThisMonth } }),
+      Society.countDocuments({ createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } }),
+      Unit.countDocuments({ isActive: true }).catch(() => 0),
+      Unit.countDocuments({ createdAt: { $gte: startOfThisMonth } }).catch(() => 0),
+      User.countDocuments({}).catch(() => 0),
+      User.countDocuments({ isActive: true }).catch(() => 0),
+      User.countDocuments({ updatedAt: { $gte: last24h } }).catch(() => 0),
+      User.countDocuments({ updatedAt: { $gte: last30d } }).catch(() => 0),
+      Membership.distinct("userId", { role: { $in: ["owner", "tenant"] }, isActive: true }).catch(() => []),
+      Membership.distinct("userId", { role: { $in: ["owner", "tenant"] }, joinedAt: { $gte: startOfThisMonth } }).catch(() => []),
+      Complaint.countDocuments({ status: { $in: ["open", "in_progress"] } }).catch(() => 0),
+      Complaint.countDocuments({ priority: { $in: ["high", "urgent"] }, status: { $in: ["open", "in_progress"] } }).catch(() => 0),
+      MaintenancePayment.countDocuments({ gatewayStatus: "failed" }).catch(() => 0),
+      MaintenancePayment.countDocuments({
+        gatewayStatus: "created",
+        createdAt: { $lte: sevenDaysAgo },
+      }).catch(() => 0),
+      Visitor.countDocuments({ visitorType: { $ne: "delivery" } }).catch(() => 0),
+      Visitor.countDocuments({ visitorType: "delivery" }).catch(() => 0),
+      Complaint.countDocuments({}).catch(() => 0),
+      MaintenancePayment.countDocuments({}).catch(() => 0),
+      Notification.countDocuments({}).catch(() => 0),
+      MaintenancePayment.aggregate([
+        { $match: { gatewayStatus: { $in: ["paid", "cash"] } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]).catch(() => []),
+      Society.find({}).sort({ createdAt: -1 }).limit(5).lean().catch(() => []),
+      Complaint.find({ status: { $in: ["open", "in_progress"] } })
+        .populate("societyId", "name")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean()
+        .catch(() => []),
+      MaintenancePayment.find({})
+        .populate("societyId", "name")
+        .sort({ paidOn: -1 })
+        .limit(5)
+        .lean()
+        .catch(() => []),
+      Society.find({}, "name status city totalUnits subscriptionPlan subscriptionBilling subscriptionStartedAt subscriptionExpiresAt isSubscriptionPaid createdAt").lean().catch(() => []),
+      MaintenancePayment.aggregate([
+        { $match: { gatewayStatus: { $in: ["paid", "cash"] } } },
+        {
+          $group: {
+            _id: {
+              year: { $year: { $ifNull: ["$paidOn", "$createdAt"] } },
+              month: { $month: { $ifNull: ["$paidOn", "$createdAt"] } },
+            },
+            total: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]).catch(() => []),
+      Society.countDocuments({
+        status: "active",
+        $or: [{ societyAdmin: null }, { societyAdmin: { $exists: false } }],
+      }).catch(() => 0),
+      OtpLog.countDocuments({ channel: "email" }).catch(() => 0),
+      OtpLog.countDocuments({ channel: "sms" }).catch(() => 0),
+      OtpLog.countDocuments({}).catch(() => 0),
+      Membership.distinct("userId", { isActive: true }).catch(() => []),
+      Society.countDocuments({ status: "active", createdAt: { $gte: startOfThisMonth } }).catch(() => 0),
+      SubscriptionPayment.aggregate([
+        { $match: { status: "paid" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]).catch(() => []),
+      SubscriptionPayment.aggregate([
+        { $match: { status: "paid" } },
+        {
+          $group: {
+            _id: {
+              year: { $year: { $ifNull: ["$paidAt", "$createdAt"] } },
+              month: { $month: { $ifNull: ["$paidAt", "$createdAt"] } },
+            },
+            total: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]).catch(() => []),
+      SubscriptionPayment.distinct("societyId", { status: "paid" }).catch(() => []),
     ]);
-    return { total, pending, active, rejected, suspended, archived, totalUnits, totalUsers };
+
+    const totalResidents = residentMemberships.length;
+    const newResidentsCount = newResidentsThisMonth.length;
+    const activeLinkedUsersCount = activeLinkedUsers.length;
+
+    // Platform Growth Rate calculation
+    const societyGrowthRate =
+      newSocietiesLastMonth > 0
+        ? Math.round(((newSocietiesThisMonth - newSocietiesLastMonth) / newSocietiesLastMonth) * 100)
+        : newSocietiesThisMonth > 0
+        ? 100
+        : 0;
+
+    // 3 Subscription Plans Breakdown (Starter/Basic, Professional/Standard, Enterprise/Premium)
+    const plansBreakdown = {
+      starter: {
+        plan: "starter",
+        label: "Basic",
+        rate: PLAN_RATES.starter || 6,
+        description: "Essential billing & resident directories",
+        societiesCount: 0,
+        activeSocietiesCount: 0,
+        totalUnits: 0,
+        estimatedMRR: 0,
+        societies: [],
+      },
+      professional: {
+        plan: "professional",
+        label: "Standard",
+        rate: PLAN_RATES.professional || 10,
+        description: "Automated gate security & amenity booking",
+        societiesCount: 0,
+        activeSocietiesCount: 0,
+        totalUnits: 0,
+        estimatedMRR: 0,
+        societies: [],
+      },
+      enterprise: {
+        plan: "enterprise",
+        label: "Premium",
+        rate: PLAN_RATES.enterprise || 15,
+        description: "Deep compliance, ballots, vaults & dedicated manager",
+        societiesCount: 0,
+        activeSocietiesCount: 0,
+        totalUnits: 0,
+        estimatedMRR: 0,
+        societies: [],
+      },
+    };
+
+    // Filter strictly to societies that have paid their subscription
+    const paidSocietyIdSet = new Set((paidSocietiesRaw || []).map((id) => String(id)));
+    const paidSocietiesOnly = (allSocietiesRaw || []).filter(
+      (soc) => soc.isSubscriptionPaid === true || paidSocietyIdSet.has(String(soc._id))
+    );
+
+    let calculatedMRR = 0;
+    const effectiveUnits = totalUnits > 0 ? totalUnits : (allSocietiesRaw || []).reduce((acc, s) => acc + (s.totalUnits || 0), 0);
+
+    // Only populate plansBreakdown and calculate subscription MRR for paid societies
+    paidSocietiesOnly.forEach((soc) => {
+      const planKey = plansBreakdown[soc.subscriptionPlan] ? soc.subscriptionPlan : "starter";
+      const planInfo = plansBreakdown[planKey];
+      const units = soc.totalUnits || 0;
+      const rate = planInfo.rate;
+      const monthlyFee = units * rate;
+
+      planInfo.societiesCount += 1;
+      planInfo.totalUnits += units;
+      if (soc.status === "active") {
+        planInfo.activeSocietiesCount += 1;
+        planInfo.estimatedMRR += monthlyFee;
+        calculatedMRR += monthlyFee;
+      }
+
+        planInfo.societies.push({
+          _id: soc._id,
+          name: soc.name,
+          city: soc.city,
+          status: soc.status,
+          totalUnits: units,
+          monthlyFee,
+          subscriptionBilling: soc.subscriptionBilling || "monthly",
+          subscriptionStartedAt: soc.subscriptionStartedAt,
+          subscriptionExpiresAt: soc.subscriptionExpiresAt,
+          createdAt: soc.createdAt,
+        });
+      });
+
+    // Real dynamic calculation of expiring subscriptions within 14 days (only for active paid societies)
+    const expiringSubscriptions = paidSocietiesOnly.filter((soc) => {
+      if (soc.status !== "active") return false;
+      let renewalDate;
+      if (soc.subscriptionExpiresAt) {
+        renewalDate = new Date(soc.subscriptionExpiresAt);
+      } else {
+        const started = soc.subscriptionStartedAt ? new Date(soc.subscriptionStartedAt) : new Date(soc.createdAt);
+        const isYearly = soc.subscriptionBilling === "yearly";
+        renewalDate = new Date(started);
+        if (isYearly) {
+          while (renewalDate <= now) {
+            renewalDate.setFullYear(renewalDate.getFullYear() + 1);
+          }
+        } else {
+          while (renewalDate <= now) {
+            renewalDate.setMonth(renewalDate.getMonth() + 1);
+          }
+        }
+      }
+      const daysToRenewal = (renewalDate - now) / (1000 * 60 * 60 * 24);
+      return daysToRenewal >= 0 && daysToRenewal <= 14;
+    }).length;
+
+    // Genuine subscription revenue mapping
+    const monthlySubscriptionMap = new Map();
+    (monthlySubscriptionPaymentsRaw || []).forEach((p) => {
+      if (p._id?.year && p._id?.month) {
+        const key = `${p._id.year}-${p._id.month}`;
+        monthlySubscriptionMap.set(key, p.total || 0);
+      }
+    });
+
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+    const revenueThisMonth = monthlySubscriptionMap.get(currentMonthKey) || 0;
+    const totalPlatformRevenue = subscriptionTotalsAgg?.[0]?.total || 0;
+    const activePaidCount = (paidSocietiesOnly || []).filter((s) => s.status === "active").length;
+    const unpaidApprovedCount = Math.max(0, activeSocieties - activePaidCount);
+    const trialSocietiesCount = trialSocieties;
+
+    // Index DB monthly maintenance payments for resident operations tracking
+    const monthlyPaymentsMap = new Map();
+    (monthlyPaymentsRaw || []).forEach((p) => {
+      if (p._id?.year && p._id?.month) {
+        const key = `${p._id.year}-${p._id.month}`;
+        monthlyPaymentsMap.set(key, p.total || 0);
+      }
+    });
+
+    // Build 12-Month Dynamic Arrays strictly from genuine DB records
+    const revenueLast12Months = [];
+    const societyGrowthLast12Months = [];
+
+    for (let i = 11; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+      const monthLabel = monthDate.toLocaleDateString("en-US", { month: "short" });
+      const year = monthDate.getFullYear();
+      const monthNum = monthDate.getMonth() + 1; // 1-12
+
+      // Genuine subscription sales revenue collected in this month
+      const actualSubscriptionForMonth = monthlySubscriptionMap.get(`${year}-${monthNum}`) || 0;
+      const actualDbMaintenanceForMonth = monthlyPaymentsMap.get(`${year}-${monthNum}`) || 0;
+
+      // Societies registered on or before this month end
+      const societiesUpToMonth = (allSocietiesRaw || []).filter(
+        (s) => new Date(s.createdAt) <= monthEnd
+      );
+      const cumulativeCount = societiesUpToMonth.length;
+
+      // Societies registered specifically within this month
+      const newSocietiesInMonth = (allSocietiesRaw || []).filter(
+        (s) => new Date(s.createdAt) >= monthDate && new Date(s.createdAt) <= monthEnd
+      ).length;
+
+      revenueLast12Months.push({
+        label: `${monthLabel} '${String(year).slice(-2)}`,
+        month: monthLabel,
+        year,
+        revenue: actualSubscriptionForMonth,
+        saasRevenue: actualSubscriptionForMonth,
+        maintenanceRevenue: actualDbMaintenanceForMonth,
+      });
+
+      societyGrowthLast12Months.push({
+        label: `${monthLabel} '${String(year).slice(-2)}`,
+        month: monthLabel,
+        year,
+        newSocieties: newSocietiesInMonth,
+        cumulative: cumulativeCount,
+      });
+    }
+
+    const totalMaintenancePayments = paymentTotalsAgg?.[0]?.total || 0;
+
+    // Build Combined Recent Platform Activity Feed
+    const recentActivity = [];
+
+    (recentSocietiesRaw || []).forEach((soc) => {
+      recentActivity.push({
+        id: `soc-${soc._id}`,
+        type: soc.status === "active" ? "society_approved" : "society_registered",
+        societyName: soc.name || "Society",
+        title: soc.status === "active" ? "Society Approved & Operational" : "New Society Registration",
+        description: `${soc.city || "India"} · ${soc.totalUnits || 0} Units · Contact: ${soc.contactPersonName || "Admin"}`,
+        status: soc.status,
+        timestamp: soc.approvedAt || soc.createdAt || new Date(),
+      });
+    });
+
+    (recentComplaintsRaw || []).forEach((c) => {
+      recentActivity.push({
+        id: `comp-${c._id}`,
+        type: "reported_issue",
+        societyName: c.societyId?.name || "Residential Society",
+        title: `Helpdesk: ${c.title || "Complaint Logged"}`,
+        description: `Priority: ${c.priority?.toUpperCase()} · Category: ${c.category}`,
+        status: c.status,
+        timestamp: c.createdAt || new Date(),
+      });
+    });
+
+    (recentPaymentsRaw || []).forEach((p) => {
+      recentActivity.push({
+        id: `pay-${p._id}`,
+        type: "payment_recorded",
+        societyName: p.societyId?.name || "Residential Society",
+        title: `Payment Received: ₹${(p.amount || 0).toLocaleString("en-IN")}`,
+        description: `Method: ${p.method || "Online Gateway"} · Status: ${p.gatewayStatus?.toUpperCase() || "PAID"}`,
+        status: p.gatewayStatus === "failed" ? "failed" : "success",
+        timestamp: p.paidOn || p.createdAt || new Date(),
+      });
+    });
+
+    recentActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const topRecentActivity = recentActivity.slice(0, 8);
+
+    return {
+      // 1. Top-Level Platform Overview
+      overview: {
+        totalSocieties,
+        totalUnits: effectiveUnits,
+        totalResidents,
+        activeUsers: activeLinkedUsersCount,
+        registeredUsers: totalRegisteredUsers,
+      },
+
+      // 2. Society Overview (Aligning with user-defined lifecycle categories)
+      societies: {
+        total: totalSocieties,
+        active: activePaidCount, // who paid money
+        approved: activeSocieties, // all paid + approved operational societies
+        pending: pendingSocieties,
+        unpaid: unpaidApprovedCount, // approved but not paid
+        suspended: suspendedSocieties,
+        rejected: rejectedSocieties,
+        churned: churnedSocieties, // freeze/churned (churned or archived)
+        trial: trialSocieties,
+        newThisMonth: newSocietiesThisMonth,
+      },
+      // Top-level aliases for direct component access
+      total: totalSocieties,
+      active: activePaidCount,
+      approved: activeSocieties,
+      pending: pendingSocieties,
+      unpaid: unpaidApprovedCount,
+      suspended: suspendedSocieties,
+      rejected: rejectedSocieties,
+      churned: churnedSocieties,
+      trial: trialSocieties,
+
+      // 3. Action Required
+      actionRequired: {
+        pendingSocieties,
+        pendingAdmins: pendingAdminsCount,
+        pendingKyc: pendingSocieties,
+        supportTickets,
+        reportedIssues,
+        paymentIssues: failedPayments,
+      },
+
+      // 4. Financial & Subscription Overview
+      financials: {
+        mrr: activePaidCount > 0 ? calculatedMRR : 0,
+        projectedMrr: calculatedMRR,
+        revenueThisMonth,
+        totalRevenue: totalPlatformRevenue,
+        activeSubscriptions: activePaidCount,
+        trialSubscriptions: trialSocietiesCount,
+        expiringSubscriptions: activePaidCount > 0 ? expiringSubscriptions : 0,
+        overduePayments,
+        failedPayments,
+        revenueLast12Months,
+        plansBreakdown,
+        societyMaintenanceVolume: totalMaintenancePayments,
+      },
+
+      // 5. Platform Growth
+      growth: {
+        newSocietiesThisMonth,
+        newResidentsThisMonth: newResidentsCount,
+        newUnitsThisMonth,
+        newSubscriptions: newSubscriptionsThisMonth,
+        churnedSocieties,
+        societyGrowthRate,
+        societyGrowthLast12Months,
+      },
+
+      // 6. Platform Usage
+      usage: {
+        activeResidents: totalResidents,
+        registeredUsers: totalRegisteredUsers,
+        activeLinkedUsers: activeLinkedUsersCount,
+        dau,
+        mau,
+        visitorsLogged,
+        deliveriesLogged,
+        complaintsCreated,
+        maintenanceTransactions,
+        societyMaintenanceVolume: totalMaintenancePayments,
+        notificationsSent,
+        otpEmailSent,
+        otpSmsSent,
+        otpTotalSent,
+      },
+
+      // 7. Recent Platform Activity
+      recentActivity: topRecentActivity,
+
+      // Backward compatibility top-level fields
+      total: totalSocieties,
+      pending: pendingSocieties,
+      active: activeSocieties,
+      rejected: rejectedSocieties,
+      suspended: suspendedSocieties,
+      archived: archivedSocieties,
+      totalUnits: effectiveUnits,
+      totalUsers: totalRegisteredUsers,
+    };
   }
 
   mapRegistrationPayload(data) {
@@ -221,17 +711,17 @@ class SocietyService {
   async approve(id, adminId) {
     const current = await this.findRawById(id);
     if (!current) throw new AppError("Society not found", 404);
-    if (current.status !== "pending") {
-      throw new AppError("Only pending societies can be approved", 409);
+    if (!["pending", "rejected"].includes(current.status)) {
+      throw new AppError("Only pending or rejected societies can be approved", 409);
     }
 
     let adminAccount = null;
-    if (current.source === "public_registration") {
+    if (current.source === "public_registration" || !current.societyAdmin) {
       adminAccount = await this.onboardContactAsSocietyAdmin(current);
     }
 
     const society = await Society.findOneAndUpdate(
-      { _id: id, status: "pending" },
+      { _id: id, status: { $in: ["pending", "rejected"] } },
       {
         $set: {
           status: "active",
@@ -245,8 +735,17 @@ class SocietyService {
       { new: true }
     );
     if (!society) {
-      throw new AppError("Society is no longer pending", 409);
+      throw new AppError("Society could not be updated to active", 409);
     }
+
+    // Ensure society admin membership is active if previously marked inactive
+    if (society.societyAdmin) {
+      await Membership.updateMany(
+        { societyId: society._id, userId: society.societyAdmin },
+        { $set: { isActive: true, role: "society_admin" } }
+      );
+    }
+
     await unitService.ensureUnitsForSociety(society._id);
     try {
       const s = require("../../socket");
@@ -262,7 +761,7 @@ class SocietyService {
 
   async reject(id, adminId, reason) {
     const society = await Society.findOneAndUpdate(
-      { _id: id, status: "pending" },
+      { _id: id, status: { $in: ["pending", "rejected"] } },
       {
         $set: {
           status: "rejected",
@@ -289,7 +788,7 @@ class SocietyService {
   async updateStatus(id, adminId, status) {
     const allowedTransitions = {
       suspend: ["active"],
-      activate: ["suspended"],
+      activate: ["suspended", "rejected"],
       archive: ["active", "suspended", "rejected"],
       unarchive: ["archived"],
     };
@@ -300,7 +799,7 @@ class SocietyService {
     }
     const updatePayload = {
       suspend: { status: "suspended", isActive: false, updatedBy: adminId },
-      activate: { status: "active", isActive: true, updatedBy: adminId },
+      activate: { status: "active", isActive: true, rejectionReason: null, updatedBy: adminId },
       archive: { status: "archived", isActive: false, updatedBy: adminId },
       unarchive: { status: "active", isActive: true, updatedBy: adminId },
     }[status];
@@ -440,6 +939,238 @@ class SocietyService {
       else if (society && s.emitToSuperAdmins) s.emitToSuperAdmins("society:change", { action: "update", society, id: society._id });
     } catch (_) {}
     return society;
+  }
+
+  async paySubscription(societyId, data = {}, userId = null) {
+    const society = await this.findRawById(societyId);
+    if (!society) {
+      throw new AppError("Society not found", 404);
+    }
+    const plan = data.plan || society.subscriptionPlan || "starter";
+    const billingCycle = data.billingCycle || society.subscriptionBilling || "monthly";
+    const units = Number(society.totalUnits || data.units || 1);
+    const ratePerUnit = PLAN_RATES[plan] || 6;
+    const multiplier = billingCycle === "yearly" ? 12 : 1;
+    const amount = units * ratePerUnit * multiplier;
+
+    const nowPay = new Date();
+    let baseDate = nowPay;
+
+    // Cumulative expiry: if society has an active subscription expiring in the future, add to it
+    if (society.subscriptionExpiresAt && new Date(society.subscriptionExpiresAt) > nowPay) {
+      baseDate = new Date(society.subscriptionExpiresAt);
+    } else if (society.isSubscriptionPaid) {
+      // If legacy document without explicit subscriptionExpiresAt
+      const started = society.subscriptionStartedAt ? new Date(society.subscriptionStartedAt) : new Date(society.createdAt || nowPay);
+      const prevBilling = society.subscriptionBilling || "monthly";
+      const derivedExpiry = new Date(started);
+      if (prevBilling === "yearly") derivedExpiry.setFullYear(derivedExpiry.getFullYear() + 1);
+      else derivedExpiry.setMonth(derivedExpiry.getMonth() + 1);
+      if (derivedExpiry > nowPay) baseDate = derivedExpiry;
+    }
+
+    const expiresAt = new Date(baseDate);
+    if (billingCycle === "yearly") {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    } else {
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+    }
+
+    const payment = await SubscriptionPayment.create({
+      societyId: society._id,
+      plan,
+      billingCycle,
+      units,
+      ratePerUnit,
+      amount,
+      status: "paid",
+      gateway: data.isDemoSimulation ? "Demo Simulator" : (data.gateway || "Razorpay"),
+      transactionId: data.transactionId || `SUB-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
+      paidAt: nowPay,
+      periodStart: baseDate,
+      periodEnd: expiresAt,
+      notes: data.isDemoSimulation ? "Demo simulation payment" : "Online card/UPI payment",
+    });
+
+    society.isSubscriptionPaid = true;
+    society.subscriptionPlan = plan;
+    society.subscriptionBilling = billingCycle;
+    society.subscriptionStartedAt = society.subscriptionStartedAt || nowPay;
+    society.subscriptionExpiresAt = expiresAt;
+    await society.save();
+
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("update", society);
+      if (s.emitToSuperAdmins) s.emitToSuperAdmins("subscription:paid", { payment, society });
+    } catch (_) {}
+
+    return { society, payment };
+  }
+
+  async getHistoricalAnalytics({ startYear, endYear }) {
+    const { MaintenancePayment } = require("../maintenance/maintenance.model");
+    const { SubscriptionPayment } = require("./subscription-payment.model");
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    const fromYear = parseInt(startYear, 10) || currentYear - 2; // Default last 3 years e.g. 2024
+    const toYear = parseInt(endYear, 10) || currentYear; // e.g. 2026
+
+    const startDate = new Date(fromYear, 0, 1);
+    const endDate = new Date(toYear, 11, 31, 23, 59, 59, 999);
+
+    // Fetch all societies, genuine subscription sales, and resident maintenance payments
+    const [allSocieties, subscriptionAgg, paymentsAgg] = await Promise.all([
+      Society.find(
+        {},
+        "name status city totalUnits subscriptionPlan subscriptionBilling createdAt"
+      ).lean(),
+      SubscriptionPayment.aggregate([
+        {
+          $match: {
+            status: "paid",
+            $or: [
+              { paidAt: { $gte: startDate, $lte: endDate } },
+              { createdAt: { $gte: startDate, $lte: endDate } },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: { $ifNull: ["$paidAt", "$createdAt"] } },
+              month: { $month: { $ifNull: ["$paidAt", "$createdAt"] } },
+            },
+            totalRevenue: { $sum: "$amount" },
+            transactionCount: { $sum: 1 },
+          },
+        },
+      ]).catch(() => []),
+      MaintenancePayment.aggregate([
+        {
+          $match: {
+            gatewayStatus: { $in: ["paid", "cash"] },
+            $or: [
+              { paidOn: { $gte: startDate, $lte: endDate } },
+              { createdAt: { $gte: startDate, $lte: endDate } },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: { $ifNull: ["$paidOn", "$createdAt"] } },
+              month: { $month: { $ifNull: ["$paidOn", "$createdAt"] } },
+            },
+            totalRevenue: { $sum: "$amount" },
+            transactionCount: { $sum: 1 },
+          },
+        },
+      ]).catch(() => []),
+    ]);
+
+    const subscriptionMap = new Map();
+    (subscriptionAgg || []).forEach((p) => {
+      if (p._id?.year && p._id?.month) {
+        subscriptionMap.set(`${p._id.year}-${p._id.month}`, {
+          revenue: p.totalRevenue || 0,
+          transactions: p.transactionCount || 0,
+        });
+      }
+    });
+
+    const paymentMap = new Map();
+    (paymentsAgg || []).forEach((p) => {
+      if (p._id?.year && p._id?.month) {
+        paymentMap.set(`${p._id.year}-${p._id.month}`, {
+          revenue: p.totalRevenue || 0,
+          transactions: p.transactionCount || 0,
+        });
+      }
+    });
+
+    const monthlyTimeline = [];
+    let cumulativeSocieties = 0;
+    let cumulativeUnits = 0;
+
+    // Iterate through every month in the specified range
+    for (let y = fromYear; y <= toYear; y++) {
+      const maxMonth = (y === currentYear) ? now.getMonth() : 11;
+      for (let m = 0; m <= maxMonth; m++) {
+        const monthStart = new Date(y, m, 1);
+        const monthEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
+        const monthLabel = monthStart.toLocaleDateString("en-US", { month: "short" });
+        const monthNum = m + 1;
+
+        // Societies registered up to this month
+        const societiesUpToMonth = (allSocieties || []).filter(
+          (s) => new Date(s.createdAt) <= monthEnd
+        );
+        cumulativeSocieties = societiesUpToMonth.length;
+        cumulativeUnits = societiesUpToMonth.reduce((sum, s) => sum + (s.totalUnits || 0), 0);
+
+        // Societies joined in this specific month
+        const societiesJoinedThisMonth = (allSocieties || []).filter(
+          (s) => new Date(s.createdAt) >= monthStart && new Date(s.createdAt) <= monthEnd
+        );
+        const newSocieties = societiesJoinedThisMonth.length;
+        const newUnits = societiesJoinedThisMonth.reduce((sum, s) => sum + (s.totalUnits || 0), 0);
+
+        // Genuine subscription and maintenance payments recorded
+        const subData = subscriptionMap.get(`${y}-${monthNum}`) || { revenue: 0, transactions: 0 };
+        const payData = paymentMap.get(`${y}-${monthNum}`) || { revenue: 0, transactions: 0 };
+
+        monthlyTimeline.push({
+          periodKey: `${y}-${String(monthNum).padStart(2, "0")}`,
+          year: y,
+          month: monthLabel,
+          monthNum,
+          label: `${monthLabel} ${y}`,
+          totalRevenue: subData.revenue,
+          saasRevenue: subData.revenue,
+          paymentRevenue: payData.revenue,
+          transactionCount: payData.transactions,
+          newSocieties,
+          cumulativeSocieties,
+          newUnits,
+          cumulativeUnits,
+        });
+      }
+    }
+
+    // High level summary metrics
+    const totalHistoricalRevenue = monthlyTimeline.reduce((acc, m) => acc + m.totalRevenue, 0);
+    const totalTransactions = monthlyTimeline.reduce((acc, m) => acc + m.transactionCount, 0);
+    const peakRevenue = Math.max(0, ...monthlyTimeline.map((m) => m.totalRevenue));
+    const avgMonthlyRevenue = monthlyTimeline.length > 0 ? Math.round(totalHistoricalRevenue / monthlyTimeline.length) : 0;
+
+    const earliestSocietyYear = (allSocieties || []).reduce((earliest, s) => {
+      const yr = s.createdAt ? new Date(s.createdAt).getFullYear() : currentYear;
+      return yr < earliest ? yr : earliest;
+    }, currentYear);
+    const minYear = Math.min(earliestSocietyYear, currentYear - 2);
+    const availableYears = [];
+    for (let y = minYear; y <= currentYear; y++) {
+      availableYears.push(y);
+    }
+
+    return {
+      timeRange: {
+        fromYear,
+        toYear,
+        availableYears,
+      },
+      summary: {
+        totalRevenue: totalHistoricalRevenue,
+        avgMonthlyRevenue,
+        peakRevenue,
+        totalTransactions,
+        currentSocieties: cumulativeSocieties,
+        currentUnits: cumulativeUnits,
+      },
+      timeline: monthlyTimeline,
+    };
   }
 
   async deactivate(id) {

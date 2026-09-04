@@ -1,5 +1,9 @@
 const { z } = require("zod");
-const { SOCIETY_TYPES } = require("../../shared/types");
+const {
+  SOCIETY_TYPES,
+  SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_BILLING,
+} = require("../../shared/types");
 
 const pincodeSchema = z
   .string()
@@ -24,6 +28,8 @@ const registrationBaseSchema = z.object({
   contactName: z.string().min(1, "Contact person name is required").max(100),
   contactMobile: phoneSchema,
   contactEmail: z.string().email("Invalid email address"),
+  subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional().default("starter"),
+  subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional().default("monthly"),
 });
 
 const structureWingSchema = z.object({
@@ -49,6 +55,15 @@ const manualCreateSchema = registrationBaseSchema.extend({
   structure: structureSchema,
 });
 
+const paySubscriptionSchema = z.object({
+  plan: z.enum(SUBSCRIPTION_PLANS).optional(),
+  billingCycle: z.enum(SUBSCRIPTION_BILLING).optional().default("monthly"),
+  units: z.number().optional(),
+  isDemoSimulation: z.boolean().optional().default(false),
+  paymentMethod: z.string().optional().default("demo_upi"),
+  transactionId: z.string().optional(),
+});
+
 const updateSocietySchema = z.object({
   name: z.string().min(1).max(200).optional(),
   societyType: z.enum(SOCIETY_TYPES).optional(),
@@ -60,6 +75,8 @@ const updateSocietySchema = z.object({
   contactPersonName: z.string().min(1).max(100).optional(),
   contactEmail: z.string().email().optional(),
   contactPhone: phoneSchema.optional(),
+  subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional(),
+  subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional(),
 });
 const rejectSocietySchema = z.object({
   reason: z
@@ -78,4 +95,5 @@ module.exports = {
   updateSocietySchema,
   rejectSocietySchema,
   updatePermissionsSchema,
+  paySubscriptionSchema,
 };

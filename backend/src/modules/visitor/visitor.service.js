@@ -100,6 +100,21 @@ class VisitorService {
       emitToSociety(societyId, "visitor:change", populated);
     } catch (_) {}
 
+    try {
+      const otpService = require("../otp/otp.service");
+      otpService.recordOtpDispatch({
+        channel: "sms",
+        purpose: "visitor_passcode",
+        recipient: data.phone.trim(),
+        recipientName: data.name.trim(),
+        status: "delivered",
+        societyId,
+        userId,
+        provider: "Twilio SMS",
+        metadata: { visitorId: visitor._id, passcode },
+      });
+    } catch (_) {}
+
     return populated;
   }
 
@@ -612,6 +627,21 @@ class VisitorService {
         collectedBy: null,
       },
     });
+
+    try {
+      const otpService = require("../otp/otp.service");
+      otpService.recordOtpDispatch({
+        channel: "sms",
+        purpose: "gate_entry",
+        recipient: data.phone?.trim() || "Delivery Partner",
+        recipientName: data.name?.trim() || `${data.company || "Courier"} Delivery`,
+        status: "delivered",
+        societyId,
+        userId: hostUserId,
+        provider: "Msg91 Gateway",
+        metadata: { parcelId: parcel._id, parcelCode },
+      });
+    } catch (_) {}
 
     const populated = await Visitor.findById(parcel._id)
       .populate("unitId", "label doorNo block floor")

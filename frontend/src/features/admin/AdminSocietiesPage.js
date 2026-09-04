@@ -1,21 +1,27 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore from "../../stores/society.store";
 import {
   listSocieties,
   getSocietyStats,
+  approveSociety,
   SOCIETY_TYPE_LABELS,
+  SUBSCRIPTION_PLAN_LABELS,
 } from "../../lib/societies";
 import StatusBadge from "../../components/ui/StatusBadge";
+import { getSubscriptionRenewalMeta } from "../dashboard/SubscriptionStatusCard";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
-  { value: "active", label: "Active" },
+  { value: "active_paid", label: "Active (Paid)" },
+  { value: "approved", label: "Approved" },
   { value: "pending", label: "Pending" },
-  { value: "rejected", label: "Rejected" },
+  { value: "unpaid", label: "Unpaid" },
   { value: "suspended", label: "Suspended" },
-  { value: "archived", label: "Archived" },
+  { value: "rejected", label: "Rejected" },
+  { value: "churned", label: "Freeze / Churned" },
+  { value: "trial", label: "Trial" },
 ];
 
 function formatDate(value) {
@@ -52,6 +58,15 @@ export default function AdminSocietiesPage() {
   const stats = statsQuery.data;
   const societies = societiesQuery.data || [];
 
+  const queryClient = useQueryClient();
+  const approveMutation = useMutation({
+    mutationFn: (id) => approveSociety(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["societies"] });
+      queryClient.invalidateQueries({ queryKey: ["society-stats"] });
+    },
+  });
+
   const enterSocietyAsSuperAdmin = useSocietyStore((state) => state.enterSocietyAsSuperAdmin);
   const navigate = useNavigate();
 
@@ -72,11 +87,15 @@ export default function AdminSocietiesPage() {
   };
 
   const statCards = [
-    { label: "All Societies", value: stats?.total ?? "-", tone: "default", status: "" },
-    { label: "Pending Approvals", value: stats?.pending ?? "-", tone: "warning", status: "pending" },
-    { label: "Active", value: stats?.active ?? "-", tone: "success", status: "active" },
-    { label: "Rejected", value: stats?.rejected ?? "-", tone: "danger", status: "rejected" },
-    { label: "Suspended", value: stats?.suspended ?? "-", tone: "muted", status: "suspended" },
+    { label: "Total Societies", value: stats?.societies?.total ?? stats?.total ?? "-", status: "" },
+    { label: "Active (Paid)", value: stats?.societies?.active ?? stats?.active ?? "-", tone: "success", status: "active_paid" },
+    { label: "Approved", value: stats?.societies?.approved ?? stats?.approved ?? "-", tone: "primary", status: "approved" },
+    { label: "Pending", value: stats?.societies?.pending ?? stats?.pending ?? "-", tone: "warning", status: "pending" },
+    { label: "Unpaid", value: stats?.societies?.unpaid ?? stats?.unpaid ?? "-", tone: "caution", status: "unpaid" },
+    { label: "Suspended", value: stats?.societies?.suspended ?? stats?.suspended ?? "-", tone: "muted", status: "suspended" },
+    { label: "Rejected", value: stats?.societies?.rejected ?? stats?.rejected ?? "-", tone: "danger", status: "rejected" },
+    { label: "Freeze / Churned", value: stats?.societies?.churned ?? stats?.churned ?? "-", tone: "muted", status: "churned" },
+    { label: "Trial", value: stats?.societies?.trial ?? stats?.trial ?? "-", tone: "info", status: "trial" },
   ];
 
   return (
@@ -97,39 +116,39 @@ export default function AdminSocietiesPage() {
         </Link>
       </div>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {statCards.map((card) => (
           <button
             key={card.label}
             type="button"
             onClick={() => setStatus(card.status)}
-            className={`relative rounded-xl border p-4 text-left transition-colors cursor-pointer ${
+            className={`relative rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
               statusFilter === card.status
-                ? "border-primary bg-primary-fixed/50"
-                : "border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low"
+                ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
+                : "border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low hover:border-outline"
             }`}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-outline">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-outline truncate">
               {card.label}
             </p>
-            <p className="mt-1 text-headline-md text-on-surface">{card.value}</p>
-            {card.status === "pending" && (stats?.pending ?? 0) > 0 && (
-              <span className="absolute top-3 right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-[11px] font-bold text-on-error">
-                {stats.pending}
+            <p className="mt-1 text-headline-md font-extrabold text-on-surface">{card.value}</p>
+            {card.status === "pending" && (stats?.societies?.pending ?? stats?.pending ?? 0) > 0 && (
+              <span className="absolute top-2.5 right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-[11px] font-bold text-on-error">
+                {stats?.societies?.pending ?? stats?.pending}
               </span>
             )}
           </button>
         ))}
       </section>
 
-      {statusFilter === "pending" && (stats?.pending ?? 0) > 0 && (
+      {statusFilter === "pending" && (stats?.societies?.pending ?? stats?.pending ?? 0) > 0 && (
         <Link
           to="/admin/societies/pending"
           className="flex items-center gap-3 rounded-xl border border-secondary-fixed bg-secondary-fixed/40 px-4 py-3 no-underline transition-colors hover:bg-secondary-fixed/60"
         >
           <span className="material-symbols-outlined text-primary">pending_actions</span>
           <span className="text-body-sm font-semibold text-on-surface">
-            {stats.pending} registration{stats.pending > 1 ? "s" : ""} awaiting review
+            {stats?.societies?.pending ?? stats?.pending} registration{(stats?.societies?.pending ?? stats?.pending) > 1 ? "s" : ""} awaiting review
           </span>
           <span className="ml-auto material-symbols-outlined text-on-surface-variant">
             arrow_forward
@@ -193,12 +212,14 @@ export default function AdminSocietiesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
+            <table className="w-full min-w-[780px] text-left">
               <thead>
                 <tr className="border-b border-outline-variant text-label-sm uppercase tracking-wide text-outline">
                   <th className="px-4 py-3 font-semibold">Society</th>
                   <th className="px-4 py-3 font-semibold">City</th>
                   <th className="px-4 py-3 font-semibold">Type</th>
+                  <th className="px-4 py-3 font-semibold">Plan</th>
+                  <th className="px-4 py-3 font-semibold">Payment</th>
                   <th className="px-4 py-3 font-semibold">Units</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Created</th>
@@ -224,6 +245,52 @@ export default function AdminSocietiesPage() {
                     <td className="px-4 py-3 text-body-sm text-on-surface-variant">
                       {SOCIETY_TYPE_LABELS[society.societyType] || "-"}
                     </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                        society.subscriptionPlan === "enterprise"
+                          ? "bg-violet-100 text-violet-800"
+                          : society.subscriptionPlan === "professional"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}>
+                        {SUBSCRIPTION_PLAN_LABELS[society.subscriptionPlan] || "Basic"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {society.isSubscriptionPaid ? (
+                        (() => {
+                          const meta = getSubscriptionRenewalMeta(society);
+                          return (
+                            <div className="space-y-0.5">
+                              <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold border ${
+                                meta.isExpired
+                                  ? "bg-red-50 text-red-700 border-red-200"
+                                  : meta.isExpiringSoon
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              }`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${
+                                  meta.isExpired ? "bg-red-500" : meta.isExpiringSoon ? "bg-amber-500" : "bg-emerald-500"
+                                }`} />
+                                {meta.isExpired ? "Expired" : "Paid"}
+                              </span>
+                              {meta.formattedDate && (
+                                <p className={`text-[10px] font-medium leading-tight ${
+                                  meta.isExpired ? "text-red-700" : "text-on-surface-variant"
+                                }`}>
+                                  {meta.isExpired ? `Exp ${meta.formattedDate}` : `Renews ${meta.formattedDate}`}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Unpaid
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-body-sm text-on-surface-variant">
                       {society.totalUnits ?? "-"}
                     </td>
@@ -244,6 +311,18 @@ export default function AdminSocietiesPage() {
                           >
                             <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
                             Manage
+                          </button>
+                        )}
+                        {society.status === "rejected" && (
+                          <button
+                            type="button"
+                            onClick={() => approveMutation.mutate(society._id)}
+                            disabled={approveMutation.isPending}
+                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-label-sm font-semibold text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                            title="Re-approve and activate this rejected society"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                            Re-Approve
                           </button>
                         )}
                         <Link

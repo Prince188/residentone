@@ -18,11 +18,21 @@ const ACCOUNT_ROLES = ["resident", "society_admin", "super_admin"];
 
 const DEFAULT_ACCOUNT_ROLE = "resident";
 
-const SOCIETY_STATUSES = ["pending", "active", "rejected", "suspended", "archived"];
+const SOCIETY_STATUSES = ["pending", "active", "rejected", "suspended", "archived", "trial", "churned"];
 
 const SOCIETY_TYPES = ["apartment", "row_house", "mixed"];
 
 const PROPERTY_TYPES = ["flat", "row_house"];
+
+const SUBSCRIPTION_PLANS = ["starter", "professional", "enterprise"];
+
+const SUBSCRIPTION_BILLING = ["monthly", "yearly"];
+
+const PLAN_RATES = {
+  starter: 6,
+  professional: 10,
+  enterprise: 15,
+};
 
 const ROLE_HIERARCHY = {
   super_admin: 100,
@@ -48,4 +58,7 @@ module.exports = {
   PROPERTY_TYPES,
   SOCIETY_STATUSES,
   SOCIETY_TYPES,
+  SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_BILLING,
+  PLAN_RATES,
 };

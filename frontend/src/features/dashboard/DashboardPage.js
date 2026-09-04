@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useAuthStore from "../../stores/auth.store";
@@ -8,18 +9,12 @@ import useSocietyStore, {
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
 import { formatAmount, formatDate, getLatestCycle } from "../../lib/maintenance";
-import { getSocietyStats, listSocieties, SOCIETY_TYPE_LABELS } from "../../lib/societies";
+import { getSocietyStats } from "../../lib/societies";
 import { getVisitorStats, getVisitors, getGateParcels } from "../../lib/visitors";
-import StatusBadge from "../../components/ui/StatusBadge";
 import api from "../../lib/api";
 import { hasPermissionForMembership, getMembershipRoles } from "../../lib/permissions";
 import { getBadges } from "../../lib/dashboard";
-
-const superAdminCards = [
-  { icon: "apartment", label: "Societies Directory", to: "/admin/societies", desc: "View, filter and manage all societies" },
-  { icon: "pending_actions", label: "Pending Approvals", to: "/admin/societies/pending", desc: "Review incoming registrations", badgeKey: "pending" },
-  { icon: "add_business", label: "Provision Society", to: "/admin/societies/new", desc: "Manually onboard a new society" },
-];
+import SubscriptionStatusCard, { getSubscriptionRenewalMeta } from "./SubscriptionStatusCard";
 
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
@@ -119,17 +114,24 @@ function SectionTitle({ children, subtitle }) {
   );
 }
 
-function SquareCard({ icon, label, to, tint, badge, isLocked }) {
+function SquareCard({ icon, label, to, tint, badge, isLocked, isSubscriptionUnpaid }) {
   const showBadge = !isLocked && badge != null && Number(badge) > 0;
   const display = showBadge ? (Number(badge) > 99 ? "99+" : String(badge)) : null;
 
   if (isLocked) {
+    const tooltip = isSubscriptionUnpaid
+      ? "Locked: Subscription payment required to unlock this feature."
+      : "Locked: Society is frozen. Please contact the admin.";
     return (
       <div
-        title="Locked: Society is frozen. Please contact the admin."
-        className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low p-3 opacity-60 cursor-not-allowed select-none transition-all shadow-none"
+        title={tooltip}
+        className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low p-3 opacity-50 cursor-not-allowed select-none transition-all shadow-none"
       >
-        <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-error text-on-error shadow-sm ring-2 ring-surface-container-lowest">
+        <span
+          className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full text-white shadow-sm ring-2 ring-surface-container-lowest ${
+            isSubscriptionUnpaid ? "bg-amber-600" : "bg-error"
+          }`}
+        >
           <span className="material-symbols-outlined text-[12px]">lock</span>
         </span>
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-high text-outline shadow-none sm:h-12 sm:w-12">
@@ -164,7 +166,7 @@ function SquareCard({ icon, label, to, tint, badge, isLocked }) {
   );
 }
 
-function CardSection({ title, cards, variant = "general", badges, isLocked = false }) {
+function CardSection({ title, cards, variant = "general", badges, isLocked = false, isSubscriptionUnpaid = false }) {
   const cols =
     cards.length <= 4
       ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-6"
@@ -178,6 +180,7 @@ function CardSection({ title, cards, variant = "general", badges, isLocked = fal
             key={card.label}
             {...card}
             isLocked={isLocked}
+            isSubscriptionUnpaid={isSubscriptionUnpaid}
             badge={card.badgeKey ? badges?.[card.badgeKey] : 0}
             tint={
               variant === "admin"
@@ -235,39 +238,298 @@ function NoticeItem({ title, body, createdAt, featured }) {
  *    - Left: Pending Approval queue & Recent Societies Table
  *    - Right: Quick Management actions, Society Status Distribution & Platform Health
  */
+/**
+ * Interactive 12-Month Revenue Trend Chart Component
+ */
+function RevenueTrendChart({ data = [] }) {
+  const [activeIdx, setActiveIdx] = useState(data.length > 0 ? data.length - 1 : 0);
+  const maxRevenue = Math.max(1, ...data.map((d) => d.revenue || 0));
+  const activeItem = data[activeIdx] || data[data.length - 1] || { revenue: 0, label: "" };
+
+  return (
+    <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-outline-variant/60">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-1 rounded-full bg-primary shrink-0" />
+            <h3 className="text-body-md font-bold text-on-surface">Revenue Chart — Last 12 Months</h3>
+          </div>
+          <p className="text-label-sm text-on-surface-variant mt-0.5">
+            Trailing 12-month platform SaaS subscription revenue
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <Link
+            to="/admin/analytics?chart=revenue"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2 text-label-sm font-bold text-on-surface no-underline shadow-xs hover:border-primary hover:text-primary transition-all cursor-pointer"
+            title="Open full multi-year historical analytics and detailed monthly breakdown"
+          >
+            <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+            <span className="hidden xs:inline">View Expand</span>
+          </Link>
+          <div className="rounded-xl bg-primary/5 px-3 py-1.5 text-right border border-primary/20">
+            <span className="text-[11px] font-semibold text-on-surface-variant block uppercase">
+              {activeItem.label}
+            </span>
+            <span className="text-headline-sm font-extrabold text-primary">
+              ₹{(activeItem.revenue || 0).toLocaleString("en-IN")}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Chart Bars */}
+      <div className="mt-6">
+        <div className="flex h-52 items-end gap-2 sm:gap-3">
+          {data.map((item, idx) => {
+            const heightPercent = item.revenue > 0 ? Math.max(8, Math.round(((item.revenue || 0) / maxRevenue) * 100)) : 3;
+            const isSelected = idx === activeIdx;
+            return (
+              <div
+                key={item.label || idx}
+                className="group relative flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
+                onMouseEnter={() => setActiveIdx(idx)}
+                onClick={() => setActiveIdx(idx)}
+              >
+                {/* Floating tooltip on hover */}
+                {isSelected && (
+                  <div className="absolute -top-9 z-20 whitespace-nowrap rounded-lg bg-on-surface px-2.5 py-1 text-[11px] font-bold text-white shadow-md animate-in fade-in zoom-in-95 duration-150">
+                    ₹{(item.revenue || 0).toLocaleString("en-IN")}
+                  </div>
+                )}
+
+                {/* The Bar */}
+                <div
+                  style={{ height: `${heightPercent}%` }}
+                  className={`w-full rounded-t-lg transition-all duration-300 ${
+                    item.revenue > 0
+                      ? isSelected
+                        ? "bg-gradient-to-t from-primary via-primary to-primary-container shadow-md"
+                        : "bg-primary/20 hover:bg-primary/40"
+                      : isSelected
+                      ? "bg-primary/40"
+                      : "bg-surface-container-highest hover:bg-outline-variant"
+                  }`}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Month Labels Axis */}
+        <div className="mt-3 flex justify-between gap-1 border-t border-outline-variant/60 pt-2 text-[10px] sm:text-[11px] font-semibold text-on-surface-variant">
+          {data.map((item, idx) => (
+            <span
+              key={item.label || idx}
+              className={`flex-1 text-center truncate ${
+                idx === activeIdx ? "text-primary font-bold" : "text-on-surface-variant"
+              }`}
+            >
+              {item.month}
+            </span>
+          ))}
+        </div>
+
+        {/* Informative notice if no subscriptions sold yet */}
+        {maxRevenue <= 1 && (
+          <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant bg-surface-container-low rounded-xl py-1.5 px-3">
+            <span className="material-symbols-outlined text-[15px] text-outline">info</span>
+            <span>No paid subscriptions sold yet — Genuine subscription revenue: ₹0</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Interactive 12-Month Society Growth Chart Component
+ */
+function SocietyGrowthChart({ data = [] }) {
+  const [activeIdx, setActiveIdx] = useState(data.length > 0 ? data.length - 1 : 0);
+  const maxCumulative = Math.max(1, ...data.map((d) => d.cumulative || 1));
+  const activeItem = data[activeIdx] || data[data.length - 1] || { cumulative: 0, newSocieties: 0, label: "" };
+
+  return (
+    <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-outline-variant/60">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-1 rounded-full bg-emerald-600 shrink-0" />
+            <h3 className="text-body-md font-bold text-on-surface">Society Growth — Last 12 Months</h3>
+          </div>
+          <p className="text-label-sm text-on-surface-variant mt-0.5">
+            Monthly society onboarding rate and cumulative platform footprint
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <Link
+            to="/admin/analytics?chart=growth"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2 text-label-sm font-bold text-on-surface no-underline shadow-xs hover:border-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+            title="Open full multi-year historical analytics and detailed monthly breakdown"
+          >
+            <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+            <span className="hidden xs:inline">View Expand</span>
+          </Link>
+          <div className="rounded-xl bg-emerald-50 px-3 py-1.5 text-right border border-emerald-200">
+            <span className="text-[11px] font-semibold text-emerald-800 block uppercase">
+              {activeItem.label} Total
+            </span>
+            <span className="text-headline-sm font-extrabold text-emerald-700">
+              {activeItem.cumulative || 0} Societies
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Chart Bars */}
+      <div className="mt-6">
+        <div className="flex h-52 items-end gap-2 sm:gap-3">
+          {data.map((item, idx) => {
+            const heightPercent = Math.max(10, Math.round(((item.cumulative || 0) / maxCumulative) * 100));
+            const isSelected = idx === activeIdx;
+            return (
+              <div
+                key={item.label || idx}
+                className="group relative flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
+                onMouseEnter={() => setActiveIdx(idx)}
+                onClick={() => setActiveIdx(idx)}
+              >
+                {/* Floating tooltip on hover */}
+                {isSelected && (
+                  <div className="absolute -top-10 z-20 whitespace-nowrap rounded-lg bg-emerald-950 px-2.5 py-1 text-[11px] font-bold text-white shadow-md animate-in fade-in zoom-in-95 duration-150">
+                    +{item.newSocieties} New · {item.cumulative} Total
+                  </div>
+                )}
+
+                {/* The Bar */}
+                <div
+                  style={{ height: `${heightPercent}%` }}
+                  className={`w-full rounded-t-lg transition-all duration-300 ${
+                    isSelected
+                      ? "bg-gradient-to-t from-emerald-600 via-emerald-500 to-teal-400 shadow-md"
+                      : "bg-emerald-100 hover:bg-emerald-200"
+                  }`}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Month Labels Axis */}
+        <div className="mt-3 flex justify-between gap-1 border-t border-outline-variant/60 pt-2 text-[10px] sm:text-[11px] font-semibold text-on-surface-variant">
+          {data.map((item, idx) => (
+            <span
+              key={item.label || idx}
+              className={`flex-1 text-center truncate ${
+                idx === activeIdx ? "text-emerald-700 font-bold" : "text-on-surface-variant"
+              }`}
+            >
+              {item.month}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Super Admin Master Platform Dashboard View
+ * Strictly structured according to platform hierarchy:
+ * 1. Platform Overview (Top 4 most prominent primary scale cards)
+ * 2. Society Overview (Clean clickable status cards with filters)
+ * 3. Action Required (Urgent actionable tasks with direct links)
+ * 4. Financial & Subscription Overview (8 key cards + 12-Month Revenue Chart)
+ * 5. Platform Growth (Growth KPIs + 12-Month Society Growth Chart)
+ * 6. Platform Usage (Compact volume statistics)
+ * 7. Recent Platform Activity (Chronological platform event feed)
+ */
 function SuperAdminDashboardView({ user }) {
   const firstName = user?.name?.split(" ")[0] || "Super Admin";
-  const enterSocietyAsSuperAdmin = useSocietyStore((state) => state.enterSocietyAsSuperAdmin);
 
   const statsQuery = useQuery({
     queryKey: ["superadmin-society-stats"],
     queryFn: async () => (await getSocietyStats()).data.data,
+    refetchInterval: 15000,
   });
-  const stats = statsQuery.data || { total: 0, pending: 0, active: 0, rejected: 0, suspended: 0, archived: 0, totalUnits: 0, totalUsers: 0 };
+  const stats = statsQuery.data || {};
 
-  const pendingSocietiesQuery = useQuery({
-    queryKey: ["superadmin-pending-societies"],
-    queryFn: async () => (await listSocieties({ status: "pending", limit: 5 })).data.data,
-  });
-  const pendingSocieties = pendingSocietiesQuery.data || [];
+  const overview = stats.overview || {
+    totalSocieties: stats.total || 0,
+    totalUnits: stats.totalUnits || 0,
+    totalResidents: 0,
+    activeUsers: stats.totalUsers || 0,
+  };
 
-  const recentSocietiesQuery = useQuery({
-    queryKey: ["superadmin-recent-societies"],
-    queryFn: async () => (await listSocieties({ limit: 6 })).data.data,
-  });
-  const recentSocieties = recentSocietiesQuery.data || [];
+  const societies = stats.societies || {
+    active: stats.active || 0,
+    pending: stats.pending || 0,
+    trial: 0,
+    suspended: stats.suspended || 0,
+    churned: stats.archived || 0,
+    newThisMonth: 0,
+    total: stats.total || 0,
+  };
 
-  const activePercent = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
-  const pendingPercent = stats.total > 0 ? Math.round((stats.pending / stats.total) * 100) : 0;
-  const suspendedPercent = stats.total > 0 ? Math.round((stats.suspended / stats.total) * 100) : 0;
-  const archivedPercent = stats.total > 0 ? Math.round(((stats.archived || 0) / stats.total) * 100) : 0;
+  const actionRequired = stats.actionRequired || {
+    pendingSocieties: stats.pending || 0,
+    pendingAdmins: stats.pending || 0,
+    pendingKyc: stats.pending || 0,
+    supportTickets: 0,
+    reportedIssues: 0,
+    paymentIssues: 0,
+  };
+
+  const financials = stats.financials || {
+    mrr: 0,
+    revenueThisMonth: 0,
+    totalRevenue: 0,
+    activeSubscriptions: societies.active || 0,
+    trialSubscriptions: societies.trial || 0,
+    expiringSubscriptions: 0,
+    overduePayments: 0,
+    failedPayments: 0,
+    revenueLast12Months: [],
+    plansBreakdown: {},
+  };
+
+  const [activePlanModal, setActivePlanModal] = useState(null); // 'starter' | 'professional' | 'enterprise' | null
+  const plansBreakdown = financials.plansBreakdown || {};
+
+  const growth = stats.growth || {
+    newSocietiesThisMonth: societies.newThisMonth || 0,
+    newResidentsThisMonth: 0,
+    newUnitsThisMonth: 0,
+    newSubscriptions: societies.active || 0,
+    churnedSocieties: societies.churned || 0,
+    societyGrowthRate: 0,
+    societyGrowthLast12Months: [],
+  };
+
+  const usage = stats.usage || {
+    activeResidents: overview.totalResidents || 0,
+    registeredUsers: overview.registeredUsers || 0,
+    dau: 0,
+    mau: 0,
+    visitorsLogged: 0,
+    deliveriesLogged: 0,
+    complaintsCreated: 0,
+    maintenanceTransactions: 0,
+    notificationsSent: 0,
+    otpEmailSent: 0,
+    otpSmsSent: 0,
+    otpTotalSent: 0,
+  };
+
+  const recentActivity = stats.recentActivity || [];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 sm:space-y-7">
-      {/* 1. Header & Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-6 text-white shadow-lg sm:p-8">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/10" />
-        <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 right-24 h-48 w-48 rounded-full bg-white/5" />
+    <div className="mx-auto max-w-7xl space-y-8 pb-16 animate-in fade-in duration-200">
+      {/* Platform Header & Hero Banner */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-6 text-white shadow-xl sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-white/10" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 right-32 h-56 w-56 rounded-full bg-white/5" />
 
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
           <div className="space-y-2">
@@ -277,12 +539,17 @@ function SuperAdminDashboardView({ user }) {
               </span>
               <span className="text-white/40">·</span>
               <RolePill isSuper={true} />
+              <span className="text-white/40">·</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-200 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Multi-Tenant Cluster
+              </span>
             </div>
             <h1 className="text-headline-md font-bold leading-tight sm:text-headline-lg">
               {firstName}
             </h1>
-            <p className="text-body-sm text-white/80 sm:text-body-md max-w-xl">
-              Platform Operations, Society Approvals & Multi-Tenant Infrastructure Control Center.
+            <p className="text-body-sm text-white/80 sm:text-body-md max-w-2xl">
+              ResidentOne Executive Command Center — Platform-wide footprint, society lifecycle, subscription revenue, and growth telemetry.
             </p>
           </div>
 
@@ -299,336 +566,1006 @@ function SuperAdminDashboardView({ user }) {
               className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-label-md font-semibold text-white backdrop-blur-sm no-underline transition-all hover:bg-white/25"
             >
               <span className="material-symbols-outlined text-[20px]">apartment</span>
-              All Societies
+              Societies Directory
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 2. Key Metric KPI Cards (Top 4 Structured Cards) */}
-      <section>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ========================================================================= */}
+      {/* 1. TOP-LEVEL PLATFORM STATISTICS (Primary Most Prominent Cards)           */}
+      {/* ========================================================================= */}
+      <section className="space-y-3">
+        <SectionTitle subtitle="Core platform magnitude across all residential complexes">
+          Platform Overview
+        </SectionTitle>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-1">
           {/* Total Societies */}
-          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
+          <div className="relative overflow-hidden rounded-3xl border-2 border-primary/20 bg-gradient-to-br from-surface-container-lowest via-surface-container-lowest to-primary/5 p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
             <div className="flex items-center justify-between">
-              <span className="text-label-md font-medium text-on-surface-variant">Total Societies</span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-[22px]">domain</span>
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                Total Societies
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-on-primary shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">domain</span>
               </span>
             </div>
-            <p className="mt-3 text-headline-md font-bold text-on-surface">
-              {statsQuery.isLoading ? "..." : stats.total}
+            <p className="mt-4 text-[38px] font-extrabold leading-none text-on-surface tracking-tight">
+              {statsQuery.isLoading ? "..." : (overview.totalSocieties || 0).toLocaleString("en-IN")}
             </p>
-            <div className="mt-2 flex items-center gap-2 text-label-sm text-on-surface-variant">
-              <span className="inline-flex items-center gap-1 font-semibold text-on-surface">
-                <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
-                {stats.active} Active
-              </span>
+            <div className="mt-3 flex items-center gap-2 text-label-sm text-on-surface-variant">
+              <span className="font-semibold text-emerald-600">{societies.active || 0} Paid</span>
               <span>·</span>
-              <span>{stats.suspended} Suspended</span>
+              <span className="font-medium text-primary">{societies.approved || 0} Approved</span>
+              <span>·</span>
+              <span>{societies.pending || 0} Pending</span>
             </div>
           </div>
 
-          {/* Pending Review Approvals */}
-          <Link
-            to="/admin/societies/pending"
-            className="group rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 no-underline shadow-sm transition-all hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md"
-          >
+          {/* Total Units */}
+          <div className="relative overflow-hidden rounded-3xl border-2 border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
             <div className="flex items-center justify-between">
-              <span className="text-label-md font-medium text-on-surface-variant">Pending Approvals</span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-[22px]">pending_actions</span>
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                Total Housing Units
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">apartment</span>
               </span>
             </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <p className="text-headline-md font-bold text-on-surface">
-                {statsQuery.isLoading ? "..." : stats.pending}
-              </p>
-              {stats.pending > 0 && (
-                <span className="rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-white uppercase">
-                  Action Required
-                </span>
-              )}
-            </div>
-            <p className="mt-2 text-label-sm text-on-surface-variant">
-              {stats.pending > 0 ? "Awaiting super-admin verification" : "All registrations reviewed"}
+            <p className="mt-4 text-[38px] font-extrabold leading-none text-on-surface tracking-tight">
+              {statsQuery.isLoading ? "..." : (overview.totalUnits || 0).toLocaleString("en-IN")}
             </p>
-          </Link>
-
-          {/* Total Managed Flats / Units */}
-          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-label-md font-medium text-on-surface-variant">Total Housing Units</span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-[22px]">apartment</span>
-              </span>
-            </div>
-            <p className="mt-3 text-headline-md font-bold text-on-surface">
-              {statsQuery.isLoading ? "..." : (stats.totalUnits ?? "-")}
-            </p>
-            <p className="mt-2 text-label-sm text-on-surface-variant">
-              Flats & villas across all societies
+            <p className="mt-3 text-label-sm text-on-surface-variant">
+              Flats, apartments & villas managed
             </p>
           </div>
 
-          {/* Total Registered Platform Users */}
-          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
+          {/* Total Residents */}
+          <div className="relative overflow-hidden rounded-3xl border-2 border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
             <div className="flex items-center justify-between">
-              <span className="text-label-md font-medium text-on-surface-variant">Registered Users</span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-[22px]">group</span>
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                Total Residents
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">groups</span>
               </span>
             </div>
-            <p className="mt-3 text-headline-md font-bold text-on-surface">
-              {statsQuery.isLoading ? "..." : (stats.totalUsers ?? "-")}
+            <p className="mt-4 text-[38px] font-extrabold leading-none text-on-surface tracking-tight">
+              {statsQuery.isLoading ? "..." : (overview.totalResidents || 0).toLocaleString("en-IN")}
             </p>
-            <p className="mt-2 text-label-sm text-on-surface-variant">
-              Admins, residents, and staff accounts
+            <p className="mt-3 text-label-sm text-on-surface-variant">
+              Owners & tenants registered on platform
             </p>
+          </div>
+
+          {/* Active Users */}
+          <div className="relative overflow-hidden rounded-3xl border-2 border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                Active Users
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">how_to_reg</span>
+              </span>
+            </div>
+            <p className="mt-4 text-[38px] font-extrabold leading-none text-on-surface tracking-tight">
+              {statsQuery.isLoading ? "..." : (overview.activeUsers || 0).toLocaleString("en-IN")}
+            </p>
+            <div className="mt-3 flex items-center gap-2 text-label-sm text-on-surface-variant">
+              <span className="font-semibold text-primary">Linked with societies</span>
+              <span>·</span>
+              <span>{(overview.registeredUsers || 0).toLocaleString("en-IN")} Registered</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 3. Main Operational Section (Two Column Layout: 8 / 4 Grid) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column (8 cols): Pending Approvals Queue + Recent Societies Table */}
-        <div className="space-y-6 lg:col-span-8">
-          {/* Pending Approvals Review Section */}
-          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+      {/* ========================================================================= */}
+      {/* 2. SOCIETY OVERVIEW (Clickable status filter cards)                       */}
+      {/* ========================================================================= */}
+      <section className="space-y-3">
+        <SectionTitle subtitle="Status distribution across society lifecycle (Click to filter directory)">
+          Society Overview
+        </SectionTitle>
+
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 pt-1">
+          {/* 1. Total Societies */}
+          <Link
+            to="/admin/societies"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-slate-500 hover:bg-slate-50/50 hover:shadow-md"
+          >
             <div className="flex items-center justify-between">
-              <SectionTitle subtitle="Registration requests awaiting verification & credential issuance">
-                Pending Society Registrations
-              </SectionTitle>
-              <Link
-                to="/admin/societies/pending"
-                className="inline-flex items-center gap-1 text-label-sm font-semibold text-primary no-underline hover:underline"
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-700" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-slate-700">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-on-surface">{societies.total || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Total Societies</p>
+            </div>
+          </Link>
+
+          {/* 2. Active (Paid) */}
+          <Link
+            to="/admin/societies?status=active_paid"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-emerald-500 hover:bg-emerald-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-emerald-600">{societies.active || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Active (Paid)</p>
+            </div>
+          </Link>
+
+          {/* 3. Approved (All Paid + Approved) */}
+          <Link
+            to="/admin/societies?status=approved"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-primary hover:bg-primary/5 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-primary">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-on-surface">{societies.approved || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Approved</p>
+            </div>
+          </Link>
+
+          {/* 4. Pending */}
+          <Link
+            to="/admin/societies?status=pending"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-amber-500 hover:bg-amber-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-amber-600">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-amber-600">{societies.pending || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Pending</p>
+            </div>
+          </Link>
+
+          {/* 5. Unpaid (Approved but Not Paid) */}
+          <Link
+            to="/admin/societies?status=unpaid"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-orange-600">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-orange-600">{societies.unpaid || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Unpaid</p>
+            </div>
+          </Link>
+
+          {/* 6. Suspended */}
+          <Link
+            to="/admin/societies?status=suspended"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-error hover:bg-rose-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-error" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-error">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-on-surface">{societies.suspended || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Suspended</p>
+            </div>
+          </Link>
+
+          {/* 7. Rejected */}
+          <Link
+            to="/admin/societies?status=rejected"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-red-600 hover:bg-red-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-red-600">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-on-surface">{societies.rejected || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Rejected</p>
+            </div>
+          </Link>
+
+          {/* 8. Freeze / Churned */}
+          <Link
+            to="/admin/societies?status=churned"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-stone-500 hover:bg-stone-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-stone-500" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-stone-700">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-on-surface">{societies.churned || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Freeze / Churned</p>
+            </div>
+          </Link>
+
+          {/* 9. Trial */}
+          <Link
+            to="/admin/societies?status=trial"
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-sky-500 hover:bg-sky-50/40 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+              <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-sky-600">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-on-surface">{societies.trial || 0}</p>
+              <p className="text-label-sm font-semibold text-on-surface-variant mt-0.5">Trial</p>
+            </div>
+          </Link>
+
+          {/* 10. New This Month */}
+          <Link
+            to="/admin/societies"
+            className="group flex flex-col justify-between rounded-2xl border border-primary/30 bg-primary/5 p-4 no-underline shadow-sm transition-all hover:border-primary hover:bg-primary/10 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
+              <span className="material-symbols-outlined text-primary text-[18px] transition-transform group-hover:translate-x-0.5">
+                arrow_forward
+              </span>
+            </div>
+            <div className="mt-3">
+              <p className="text-headline-md font-extrabold text-primary">+{societies.newThisMonth || 0}</p>
+              <p className="text-label-sm font-semibold text-primary mt-0.5">New This Month</p>
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. ACTION REQUIRED (Interactive Urgency Cards)                           */}
+      {/* ========================================================================= */}
+      <section className="space-y-3">
+        <SectionTitle subtitle="Critical queues and items awaiting Super Admin review or resolution">
+          Action Required
+        </SectionTitle>
+
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 pt-1">
+          {/* Pending Society Approvals */}
+          <Link
+            to="/admin/societies/pending"
+            className="group flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-amber-500 hover:bg-amber-50/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                <span className="material-symbols-outlined text-[24px]">pending_actions</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface group-hover:text-amber-800 truncate">
+                  Society Approvals
+                </h4>
+                <p className="text-[12px] text-on-surface-variant truncate">
+                  {actionRequired.pendingSocieties} registration applications waiting
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-label-sm font-bold text-amber-800">
+              {actionRequired.pendingSocieties}
+            </span>
+          </Link>
+
+          {/* Pending Admin Approvals */}
+          <Link
+            to="/admin/societies?status=pending"
+            className="group flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-sky-500 hover:bg-sky-50/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-800">
+                <span className="material-symbols-outlined text-[24px]">shield_person</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface group-hover:text-sky-800 truncate">
+                  Admin Approvals
+                </h4>
+                <p className="text-[12px] text-on-surface-variant truncate">
+                  {actionRequired.pendingAdmins} society admin appointments
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-sky-100 px-2.5 py-1 text-label-sm font-bold text-sky-800">
+              {actionRequired.pendingAdmins}
+            </span>
+          </Link>
+
+          {/* Pending Verification / KYC */}
+          <Link
+            to="/admin/societies?status=pending"
+            className="group flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-indigo-500 hover:bg-indigo-50/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-800">
+                <span className="material-symbols-outlined text-[24px]">verified_user</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface group-hover:text-indigo-800 truncate">
+                  Verification / KYC
+                </h4>
+                <p className="text-[12px] text-on-surface-variant truncate">
+                  {actionRequired.pendingKyc} society credentials to review
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-indigo-100 px-2.5 py-1 text-label-sm font-bold text-indigo-800">
+              {actionRequired.pendingKyc}
+            </span>
+          </Link>
+
+          {/* Support Tickets */}
+          <Link
+            to="/complaints"
+            className="group flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-primary hover:bg-emerald-50/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[24px]">support_agent</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface group-hover:text-primary truncate">
+                  Support Tickets
+                </h4>
+                <p className="text-[12px] text-on-surface-variant truncate">
+                  {actionRequired.supportTickets} active inquiries across societies
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-surface-container-low px-2.5 py-1 text-label-sm font-bold text-on-surface">
+              {actionRequired.supportTickets}
+            </span>
+          </Link>
+
+          {/* Reported Issues */}
+          <Link
+            to="/complaints"
+            className="group flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-rose-500 hover:bg-rose-50/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-800">
+                <span className="material-symbols-outlined text-[24px]">report_problem</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface group-hover:text-rose-800 truncate">
+                  Reported Issues
+                </h4>
+                <p className="text-[12px] text-on-surface-variant truncate">
+                  {actionRequired.reportedIssues} high-priority escalated complaints
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-rose-100 px-2.5 py-1 text-label-sm font-bold text-rose-800">
+              {actionRequired.reportedIssues}
+            </span>
+          </Link>
+
+          {/* Payment Issues */}
+          <Link
+            to="/admin/societies"
+            className="group flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 no-underline shadow-sm transition-all hover:border-amber-600 hover:bg-amber-50/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                <span className="material-symbols-outlined text-[24px]">error_outline</span>
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-body-sm font-bold text-on-surface group-hover:text-amber-800 truncate">
+                  Payment Issues
+                </h4>
+                <p className="text-[12px] text-on-surface-variant truncate">
+                  {actionRequired.paymentIssues} failed or disputed transactions
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-label-sm font-bold text-amber-800">
+              {actionRequired.paymentIssues}
+            </span>
+          </Link>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 4. FINANCIAL & SUBSCRIPTION OVERVIEW (+ 12-Month Revenue Chart)            */}
+      {/* ========================================================================= */}
+      <section className="space-y-4">
+        <SectionTitle subtitle="SaaS recurring revenues, active subscriptions and payment performance">
+          Financial & Subscription Overview
+        </SectionTitle>
+
+        {/* 8 Financial & Subscription KPI Cards */}
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 lg:grid-cols-8 pt-1">
+          {/* MRR */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">MRR</span>
+            <p className="mt-2 text-body-md font-extrabold text-primary truncate">
+              ₹{(financials.mrr || 0).toLocaleString("en-IN")}
+            </p>
+            <span className="text-[10px] text-outline">
+              {financials.projectedMrr && financials.mrr === 0
+                ? `₹${financials.projectedMrr.toLocaleString("en-IN")} Pipeline`
+                : "Monthly Recurring"}
+            </span>
+          </div>
+
+          {/* Revenue This Month */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">This Month</span>
+            <p className="mt-2 text-body-md font-extrabold text-on-surface truncate">
+              ₹{(financials.revenueThisMonth || 0).toLocaleString("en-IN")}
+            </p>
+            <span className="text-[10px] text-outline">Paid SaaS This Month</span>
+          </div>
+
+          {/* Total Revenue */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Total Revenue</span>
+            <p className="mt-2 text-body-md font-extrabold text-on-surface truncate">
+              ₹{(financials.totalRevenue || 0).toLocaleString("en-IN")}
+            </p>
+            <span className="text-[10px] text-outline">Paid SaaS All-Time</span>
+          </div>
+
+          {/* Active Subscriptions */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Active Subs</span>
+            <p className="mt-2 text-body-md font-extrabold text-emerald-700 truncate">
+              {financials.activeSubscriptions || 0}
+            </p>
+            <span className="text-[10px] text-outline">Paid Subscriptions</span>
+          </div>
+
+          {/* Trial Subscriptions */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Trial Subs</span>
+            <p className="mt-2 text-body-md font-extrabold text-sky-700 truncate">
+              {financials.trialSubscriptions || 0}
+            </p>
+            <span className="text-[10px] text-outline">Free Evaluation</span>
+          </div>
+
+          {/* Expiring Subscriptions */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Expiring</span>
+            <p className="mt-2 text-body-md font-extrabold text-amber-700 truncate">
+              {financials.expiringSubscriptions || 0}
+            </p>
+            <span className="text-[10px] text-outline">Next 14 Days</span>
+          </div>
+
+          {/* Overdue Payments */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Overdue</span>
+            <p className="mt-2 text-body-md font-extrabold text-amber-800 truncate">
+              {financials.overduePayments || 0}
+            </p>
+            <span className="text-[10px] text-outline">Pending Collect</span>
+          </div>
+
+          {/* Failed Payments */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Failed</span>
+            <p className="mt-2 text-body-md font-extrabold text-error truncate">
+              {financials.failedPayments || 0}
+            </p>
+            <span className="text-[10px] text-outline">Declined Dues</span>
+          </div>
+        </div>
+
+        {/* 3 Subscription Plans Breakdown: Starter/Basic, Professional/Standard, Enterprise/Premium */}
+        <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant/60 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-1 rounded-full bg-primary shrink-0" />
+                <h3 className="text-body-md font-bold text-on-surface">Subscription Plans & Society Footprint</h3>
+              </div>
+              <p className="text-label-sm text-on-surface-variant mt-0.5">
+                Distribution of paid societies across 3 SaaS tiers (Click any plan to view enrolled paid societies)
+              </p>
+            </div>
+            <span className="text-[12px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+              Paid SaaS Subscribers
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. Starter / Basic */}
+            {(() => {
+              const p = plansBreakdown.starter || { label: "Basic", rate: 6, societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
+              return (
+                <div
+                  onClick={() => setActivePlanModal("starter")}
+                  className="group rounded-2xl border border-outline-variant bg-surface-container-low/40 hover:bg-surface-container-low p-4 transition-all hover:border-primary cursor-pointer shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      <span className="text-body-sm font-bold text-on-surface">Starter (Basic)</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">₹{p.rate}/unit/mo</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-on-surface-variant">Essential billing & resident directories</p>
+                  
+                  <div className="mt-4 flex items-baseline justify-between border-t border-outline-variant/60 pt-3">
+                    <div>
+                      <p className="text-headline-sm font-black text-on-surface">{p.societiesCount} {p.societiesCount === 1 ? "Society" : "Societies"}</p>
+                      <p className="text-[11px] text-on-surface-variant">{p.totalUnits} managed units</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-body-sm font-black text-primary">₹{p.estimatedMRR.toLocaleString("en-IN")}/mo</p>
+                      <span className="text-[10px] font-bold text-primary group-hover:underline flex items-center justify-end gap-0.5">
+                        View Societies <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 2. Professional / Standard */}
+            {(() => {
+              const p = plansBreakdown.professional || { label: "Standard", rate: 10, societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
+              return (
+                <div
+                  onClick={() => setActivePlanModal("professional")}
+                  className="group rounded-2xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 p-4 transition-all hover:border-primary cursor-pointer shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                      <span className="text-body-sm font-bold text-primary">Professional (Standard)</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-primary uppercase tracking-wider">₹{p.rate}/unit/mo</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-on-surface-variant">Gate security, guard app & amenity bookings</p>
+                  
+                  <div className="mt-4 flex items-baseline justify-between border-t border-primary/20 pt-3">
+                    <div>
+                      <p className="text-headline-sm font-black text-primary">{p.societiesCount} {p.societiesCount === 1 ? "Society" : "Societies"}</p>
+                      <p className="text-[11px] text-on-surface-variant">{p.totalUnits} managed units</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-body-sm font-black text-primary">₹{p.estimatedMRR.toLocaleString("en-IN")}/mo</p>
+                      <span className="text-[10px] font-bold text-primary group-hover:underline flex items-center justify-end gap-0.5">
+                        View Societies <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 3. Enterprise / Premium */}
+            {(() => {
+              const p = plansBreakdown.enterprise || { label: "Premium", rate: 15, societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
+              return (
+                <div
+                  onClick={() => setActivePlanModal("enterprise")}
+                  className="group rounded-2xl border border-outline-variant bg-surface-container-low/40 hover:bg-surface-container-low p-4 transition-all hover:border-violet-600 cursor-pointer shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-violet-600" />
+                      <span className="text-body-sm font-bold text-on-surface">Enterprise (Premium)</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">₹{p.rate}/unit/mo</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-on-surface-variant">Full ledgers, elections, vault & dedicated manager</p>
+                  
+                  <div className="mt-4 flex items-baseline justify-between border-t border-outline-variant/60 pt-3">
+                    <div>
+                      <p className="text-headline-sm font-black text-on-surface">{p.societiesCount} {p.societiesCount === 1 ? "Society" : "Societies"}</p>
+                      <p className="text-[11px] text-on-surface-variant">{p.totalUnits} managed units</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-body-sm font-black text-violet-700">₹{p.estimatedMRR.toLocaleString("en-IN")}/mo</p>
+                      <span className="text-[10px] font-bold text-violet-700 group-hover:underline flex items-center justify-end gap-0.5">
+                        View Societies <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* 12-Month Revenue Chart */}
+        <RevenueTrendChart data={financials.revenueLast12Months || []} />
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 5. PLATFORM GROWTH (+ 12-Month Society Growth Chart)                       */}
+      {/* ========================================================================= */}
+      <section className="space-y-4">
+        <SectionTitle subtitle="Customer acquisition, resident onboarding velocity and expansion rates">
+          Platform Growth Analytics
+        </SectionTitle>
+
+        {/* Growth KPI Metrics */}
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6 pt-1">
+          {/* New Societies This Month */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">New Societies</span>
+            <p className="mt-2 text-headline-sm font-extrabold text-primary">
+              +{growth.newSocietiesThisMonth || 0}
+            </p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">Added this month</p>
+          </div>
+
+          {/* New Residents This Month */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">New Residents</span>
+            <p className="mt-2 text-headline-sm font-extrabold text-emerald-700">
+              +{growth.newResidentsThisMonth || 0}
+            </p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">Registered members</p>
+          </div>
+
+          {/* New Units This Month */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">New Units</span>
+            <p className="mt-2 text-headline-sm font-extrabold text-sky-700">
+              +{growth.newUnitsThisMonth || 0}
+            </p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">Configured flats</p>
+          </div>
+
+          {/* New Subscriptions */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">New Subs</span>
+            <p className="mt-2 text-headline-sm font-extrabold text-indigo-700">
+              +{growth.newSubscriptions || 0}
+            </p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">Activated plans</p>
+          </div>
+
+          {/* Churned Societies */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-on-surface-variant">Churned</span>
+            <p className="mt-2 text-headline-sm font-extrabold text-on-surface-variant">
+              {growth.churnedSocieties || 0}
+            </p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">Cancelled / inactive</p>
+          </div>
+
+          {/* Society Growth Rate */}
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
+            <span className="text-[11px] font-bold uppercase text-primary">Growth Rate</span>
+            <p className="mt-2 text-headline-sm font-extrabold text-primary">
+              {growth.societyGrowthRate >= 0 ? `+${growth.societyGrowthRate}%` : `${growth.societyGrowthRate}%`}
+            </p>
+            <p className="text-[11px] text-primary/80 mt-0.5">Month-over-month</p>
+          </div>
+        </div>
+
+        {/* 12-Month Society Growth Chart */}
+        <SocietyGrowthChart data={growth.societyGrowthLast12Months || []} />
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 6. PLATFORM USAGE (Compact Section)                                       */}
+      {/* ========================================================================= */}
+      <section className="space-y-3">
+        <SectionTitle subtitle="Cross-platform operational volume and active community activity">
+          Platform Usage
+        </SectionTitle>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 lg:grid-cols-5 xl:grid-cols-10 pt-1">
+          {/* Active Residents */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-primary">group</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.activeResidents || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Active Residents</p>
+          </div>
+
+          {/* DAU */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-emerald-600">bolt</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.dau || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Daily Active (DAU)</p>
+          </div>
+
+          {/* MAU */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-sky-600">trending_up</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.mau || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Monthly Active (MAU)</p>
+          </div>
+
+          {/* Visitors Logged */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-violet-600">badge</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.visitorsLogged || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Visitors Logged</p>
+          </div>
+
+          {/* Deliveries Logged */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-amber-600">package_2</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.deliveriesLogged || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Deliveries Logged</p>
+          </div>
+
+          {/* Complaints Created */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-rose-600">report_problem</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.complaintsCreated || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Complaints Raised</p>
+          </div>
+
+          {/* Maintenance Transactions */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-teal-600">receipt_long</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.maintenanceTransactions || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Transactions</p>
+          </div>
+
+          {/* Notifications Sent */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-indigo-600">notifications</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.notificationsSent || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Notifications</p>
+          </div>
+
+          {/* Email OTPs Sent */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-blue-600">mark_email_read</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.otpEmailSent || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">Email OTPs</p>
+          </div>
+
+          {/* SMS OTPs Sent */}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-sm text-center">
+            <span className="material-symbols-outlined text-[22px] text-emerald-600">sms</span>
+            <p className="mt-1 text-headline-sm font-extrabold text-on-surface">
+              {(usage.otpSmsSent || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] font-semibold text-on-surface-variant">SMS OTPs</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 7. RECENT PLATFORM ACTIVITY (Chronological Event Feed)                   */}
+      {/* ========================================================================= */}
+      <section className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 sm:p-7 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <SectionTitle subtitle="Real-time timeline of registrations, approvals, status updates and transactions">
+            Recent Platform Activity
+          </SectionTitle>
+          <Link
+            to="/admin/societies"
+            className="inline-flex items-center gap-1 text-label-sm font-semibold text-primary no-underline hover:underline"
+          >
+            All societies
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </Link>
+        </div>
+
+        <div className="mt-2 divide-y divide-outline-variant/60">
+          {recentActivity.length === 0 ? (
+            <div className="py-8 text-center text-on-surface-variant text-body-sm">
+              No recent platform activity logged.
+            </div>
+          ) : (
+            recentActivity.map((evt) => (
+              <div key={evt.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 hover:bg-surface-container-low/40 px-2 rounded-xl transition-colors">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[18px] ${
+                      evt.type === "society_approved"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : evt.type === "payment_recorded"
+                        ? "bg-primary/10 text-primary"
+                        : evt.type === "reported_issue"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-sky-100 text-sky-800"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {evt.type === "society_approved"
+                        ? "verified"
+                        : evt.type === "payment_recorded"
+                        ? "payments"
+                        : evt.type === "reported_issue"
+                        ? "report_problem"
+                        : "apartment"}
+                    </span>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-body-sm font-bold text-on-surface truncate">
+                        {evt.title}
+                      </h4>
+                      <span className="rounded-md bg-surface-container px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant truncate">
+                        {evt.societyName}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-on-surface-variant truncate mt-0.5">
+                      {evt.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pl-12 sm:pl-0">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize ${
+                      evt.status === "active" || evt.status === "success"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : evt.status === "failed"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {evt.status}
+                  </span>
+                  <span className="text-[12px] text-outline whitespace-nowrap">
+                    {timeAgo(evt.timestamp)}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* Subscription Plan Societies Modal / Drawer */}
+      {activePlanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3.5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-primary" />
+                  <h3 className="text-title-md font-extrabold text-on-surface">
+                    {plansBreakdown[activePlanModal]?.label || "Plan"} Tier Paid Societies
+                  </h3>
+                </div>
+                <p className="text-label-sm text-on-surface-variant mt-0.5">
+                  Societies with active, paid subscriptions in the {plansBreakdown[activePlanModal]?.label} tier (₹{plansBreakdown[activePlanModal]?.rate}/unit/mo)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePlanModal(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
               >
-                View all ({stats.pending})
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </Link>
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {pendingSocietiesQuery.isLoading ? (
-                <div className="h-24 animate-pulse rounded-xl bg-surface-container-high" />
-              ) : pendingSocieties.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
-                  <span className="material-symbols-outlined text-[32px] text-outline">verified</span>
-                  <p className="mt-2 text-body-sm font-semibold text-on-surface">All caught up!</p>
-                  <p className="text-label-sm text-on-surface-variant">
-                    There are no pending society applications requiring review at this time.
-                  </p>
+            {/* Modal Content / Society List */}
+            <div className="max-h-[380px] overflow-y-auto divide-y divide-outline-variant/60">
+              {(!plansBreakdown[activePlanModal]?.societies || plansBreakdown[activePlanModal]?.societies.length === 0) ? (
+                <div className="py-8 text-center text-body-sm text-on-surface-variant">
+                  No societies have paid for this subscription tier yet.
                 </div>
               ) : (
-                pendingSocieties.map((society) => (
-                  <div
-                    key={society.id || society._id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-all hover:border-primary/50 hover:bg-surface-container-low"
-                  >
-                    <div className="min-w-0 space-y-1">
+                plansBreakdown[activePlanModal].societies.map((s) => (
+                  <div key={s._id} className="flex items-center justify-between gap-4 py-3 hover:bg-surface-container-low/40 px-2 rounded-xl transition-colors">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="truncate text-body-md font-bold text-on-surface">
-                          {society.name}
-                        </h3>
-                        <StatusBadge status="pending" />
+                        <Link
+                          to={`/admin/societies/${s._id}`}
+                          className="text-body-md font-bold text-on-surface hover:text-primary no-underline truncate"
+                        >
+                          {s.name}
+                        </Link>
+                        <span className="rounded-md bg-surface-container px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+                          {s.city}
+                        </span>
                       </div>
-                      <p className="text-label-sm text-on-surface-variant truncate">
-                        {society.city}, {society.state} · {society.totalUnits} Units ({SOCIETY_TYPE_LABELS[society.societyType] || "Apartment"})
-                      </p>
-                      <p className="text-[12px] text-outline">
-                        Contact: <span className="font-semibold text-on-surface">{society.contactPersonName}</span> · {society.contactPhone}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-label-sm text-on-surface-variant">
+                          {s.totalUnits} Units · Billing: <span className="capitalize">{s.subscriptionBilling}</span>
+                        </span>
+                        {(() => {
+                          const meta = getSubscriptionRenewalMeta(s);
+                          if (!meta.formattedDate) return null;
+                          return (
+                            <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                              meta.isExpired
+                                ? "bg-red-100 text-red-800"
+                                : meta.isExpiringSoon
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}>
+                              <span className="material-symbols-outlined text-[12px]">
+                                {meta.isExpired ? "error" : "event"}
+                              </span>
+                              <span>
+                                {meta.isExpired
+                                  ? `Expired ${meta.formattedDate}`
+                                  : `Expires ${meta.formattedDate} (${meta.daysRemaining}d left)`}
+                              </span>
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
 
-                    <Link
-                      to={`/admin/societies/${society.id || society._id}`}
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-label-md font-semibold text-on-primary no-underline shadow-sm transition-all hover:bg-primary/90 active:scale-95"
-                    >
-                      Review & Approve
-                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                    </Link>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <span className="text-body-sm font-black text-primary block">
+                          ₹{s.monthlyFee.toLocaleString("en-IN")}/mo
+                        </span>
+                        <span className="text-[10px] text-outline capitalize">{s.status}</span>
+                      </div>
+                      <Link
+                        to={`/admin/societies/${s._id}`}
+                        className="rounded-lg bg-surface-container-low p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors no-underline"
+                        title="Open Society Console"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                      </Link>
+                    </div>
                   </div>
                 ))
               )}
             </div>
-          </section>
 
-          {/* Recent Societies Platform Directory Table */}
-          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <SectionTitle subtitle="Overview of newly registered and active societies">
-                Registered Societies
-              </SectionTitle>
-              <Link
-                to="/admin/societies"
-                className="inline-flex items-center gap-1 text-label-sm font-semibold text-primary no-underline hover:underline"
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-outline-variant/60 pt-3">
+              <span className="text-[12px] text-on-surface-variant">
+                Total: <strong>{plansBreakdown[activePlanModal]?.societiesCount || 0}</strong> societies (<strong>{plansBreakdown[activePlanModal]?.totalUnits || 0}</strong> units)
+              </span>
+              <button
+                type="button"
+                onClick={() => setActivePlanModal(null)}
+                className="rounded-xl bg-primary px-4 py-2 text-label-md font-bold text-white hover:bg-inverse-surface transition-colors cursor-pointer"
               >
-                Full directory
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </Link>
+                Done
+              </button>
             </div>
-
-            <div className="mt-4 overflow-hidden rounded-xl border border-outline-variant">
-              <div className="divide-y divide-outline-variant">
-                {recentSocietiesQuery.isLoading ? (
-                  <div className="p-6 text-center text-body-sm text-outline">Loading societies...</div>
-                ) : recentSocieties.length === 0 ? (
-                  <div className="p-6 text-center text-body-sm text-on-surface-variant">
-                    No societies registered yet.
-                  </div>
-                ) : (
-                  recentSocieties.map((soc) => (
-                    <div
-                      key={soc.id || soc._id}
-                      className="group flex items-center justify-between p-3.5 sm:p-4 text-on-surface transition-colors hover:bg-surface-container-low"
-                    >
-                      <div className="min-w-0 pr-3 space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            to={`/admin/societies/${soc.id || soc._id}`}
-                            className="truncate text-body-sm sm:text-body-md font-bold text-on-surface group-hover:text-primary no-underline"
-                          >
-                            {soc.name}
-                          </Link>
-                          <StatusBadge status={soc.status} />
-                        </div>
-                        <p className="text-label-sm text-on-surface-variant truncate">
-                          {soc.city}, {soc.state} · {SOCIETY_TYPE_LABELS[soc.societyType] || "Apartment"} · {soc.totalUnits} Units
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {soc.status === "active" && (
-                          <button
-                            type="button"
-                            onClick={() => enterSocietyAsSuperAdmin(soc)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-label-sm font-semibold text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
-                            title="Manage this society as Super Admin"
-                          >
-                            <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
-                            Manage
-                          </button>
-                        )}
-                        <Link
-                          to={`/admin/societies/${soc.id || soc._id}`}
-                          className="text-label-md text-on-surface-variant hover:text-primary no-underline font-medium"
-                        >
-                          Details
-                        </Link>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
-
-        {/* Right Column (4 cols): Quick Operations, Status Breakdown & Infrastructure Info */}
-        <div className="space-y-6 lg:col-span-4">
-          {/* Quick Management Actions Cards */}
-          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
-            <SectionTitle subtitle="Platform controls & shortcuts">
-              Administration Tools
-            </SectionTitle>
-            <div className="mt-4 space-y-2.5">
-              {superAdminCards.map((card) => {
-                const hasBadge = card.badgeKey === "pending" && stats.pending > 0;
-                return (
-                  <Link
-                    key={card.label}
-                    to={card.to}
-                    className="group flex items-center gap-3.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5 no-underline transition-all hover:border-primary/50 hover:bg-surface-container-low"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-105">
-                      <span className="material-symbols-outlined text-[22px]">{card.icon}</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-body-sm font-bold text-on-surface">{card.label}</h4>
-                        {hasBadge && (
-                          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
-                            {stats.pending}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[12px] text-on-surface-variant truncate">{card.desc}</p>
-                    </div>
-                    <span className="material-symbols-outlined text-outline text-[18px] transition-transform group-hover:translate-x-0.5 group-hover:text-primary">
-                      arrow_forward
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Platform Distribution & Status Breakdown */}
-          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
-            <SectionTitle subtitle="Status distribution across platform">
-              Society Status Ratio
-            </SectionTitle>
-            <div className="mt-4 space-y-4">
-              {/* Progress visual bar */}
-              <div className="h-3 w-full overflow-hidden rounded-full bg-surface-container flex">
-                <div style={{ width: `${activePercent}%` }} className="bg-primary h-full transition-all duration-500" title={`Active: ${activePercent}%`} />
-                <div style={{ width: `${pendingPercent}%` }} className="bg-outline h-full transition-all duration-500" title={`Pending: ${pendingPercent}%`} />
-                <div style={{ width: `${suspendedPercent}%` }} className="bg-error h-full transition-all duration-500" title={`Suspended: ${suspendedPercent}%`} />
-                <div style={{ width: `${archivedPercent}%` }} className="bg-surface-container-highest h-full transition-all duration-500" title={`Archived: ${archivedPercent}%`} />
-              </div>
-
-              <div className="space-y-2.5 divide-y divide-outline-variant/60 text-label-sm">
-                <div className="flex items-center justify-between pt-1">
-                  <span className="flex items-center gap-2 text-on-surface-variant">
-                    <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-                    Active Operational
-                  </span>
-                  <span className="font-bold text-on-surface">{stats.active} ({activePercent}%)</span>
-                </div>
-                <div className="flex items-center justify-between pt-2">
-                  <span className="flex items-center gap-2 text-on-surface-variant">
-                    <span className="h-2.5 w-2.5 rounded-full bg-outline" />
-                    Pending Verification
-                  </span>
-                  <span className="font-bold text-on-surface">{stats.pending} ({pendingPercent}%)</span>
-                </div>
-                <div className="flex items-center justify-between pt-2">
-                  <span className="flex items-center gap-2 text-on-surface-variant">
-                    <span className="h-2.5 w-2.5 rounded-full bg-error" />
-                    Suspended / Frozen
-                  </span>
-                  <span className="font-bold text-on-surface">{stats.suspended} ({suspendedPercent}%)</span>
-                </div>
-                {Boolean(stats.archived > 0) && (
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="flex items-center gap-2 text-on-surface-variant">
-                      <span className="h-2.5 w-2.5 rounded-full bg-surface-container-highest border border-outline-variant" />
-                      Archived / Soft-Deleted
-                    </span>
-                    <span className="font-bold text-on-surface">{stats.archived} ({archivedPercent}%)</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Infrastructure Health Card */}
-          <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-[20px]">dns</span>
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-body-sm font-bold text-on-surface">Platform Infrastructure</h4>
-                <p className="text-[11px] text-on-surface-variant">Multi-Tenant MongoDB & Socket Cluster</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2 text-[12px]">
-              <span className="text-on-surface-variant">Security & RBAC</span>
-              <span className="font-bold text-primary">14 Permissions Active</span>
-            </div>
-          </section>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1000,21 +1937,57 @@ export default function DashboardPage() {
     Boolean(activeSociety) &&
     (activeSociety.status === "suspended" || activeSociety.isActive === false);
 
+  const renewalMeta = getSubscriptionRenewalMeta(activeSociety);
+  const isSubscriptionExpired = Boolean(activeSociety?.isSubscriptionPaid) && renewalMeta.isExpired;
+  const isSubscriptionUnpaid =
+    Boolean(activeSociety) &&
+    !activeSociety.isSubscriptionPaid &&
+    !isSuperAdmin;
+
+  const isLocked = isSocietySuspended || isSubscriptionUnpaid || (isSubscriptionExpired && !isSuperAdmin);
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 sm:space-y-7">
-      {/* Demo / Under Development Banner */}
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-label-sm font-medium leading-snug text-amber-900 shadow-sm sm:gap-2.5 sm:py-3 sm:text-body-sm"
-      >
-        <span className="material-symbols-outlined shrink-0 text-[18px] text-amber-600 sm:text-[20px]">
-          construction
-        </span>
-        <p className="m-0">
-          <span className="font-semibold">Under Development:</span> You are viewing the demo mode. Some of the features are still under development — stay tuned.
-        </p>
-      </div>
+      {/* 🔒 Subscription Payment Required / Expired Warning Banner */}
+      {(isSubscriptionUnpaid || isSubscriptionExpired) && !isSuperAdmin && (
+        <div className="rounded-2xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-50 to-surface-container-lowest p-5 sm:p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${
+              isSubscriptionExpired ? "bg-red-600" : "bg-amber-600"
+            }`}>
+              <span className="material-symbols-outlined text-[26px]">lock</span>
+            </div>
+            <div className="space-y-1 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-body-lg font-bold text-on-surface">
+                  {isSubscriptionExpired ? "Subscription Expired" : "Subscription Payment Required"}
+                </h3>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white ${
+                  isSubscriptionExpired ? "bg-red-600" : "bg-amber-600"
+                }`}>
+                  Features Locked
+                </span>
+                {isSubscriptionExpired && renewalMeta.formattedDate && (
+                  <span className="inline-flex items-center rounded-full bg-red-100 text-red-800 border border-red-200 px-2.5 py-0.5 text-[11px] font-semibold">
+                    Expired on {renewalMeta.formattedDate}
+                  </span>
+                )}
+              </div>
+              <p className="text-body-sm text-on-surface-variant leading-relaxed">
+                {isSubscriptionExpired ? (
+                  <>
+                    Your subscription for <strong className="text-on-surface">{activeSociety?.name}</strong> expired on <strong className="text-on-surface">{renewalMeta.formattedDate}</strong>. Platform features are temporarily locked. Please renew below to restore uninterrupted access.
+                  </>
+                ) : (
+                  <>
+                    Your society (<strong className="text-on-surface">{activeSociety?.name}</strong>) is approved. Please activate and pay your subscription below to unlock management tools, maintenance billing, resident directories, and amenities.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Frozen / Suspended Society Warning Banner */}
       {isSocietySuspended && (
@@ -1077,16 +2050,46 @@ export default function DashboardPage() {
             <span className="material-symbols-outlined text-[24px] text-white sm:text-[28px]">apartment</span>
           </span>
           {activeSociety ? (
-            <div className="min-w-0">
-              <p className="truncate text-body-md font-semibold text-white sm:text-body-lg">
-                {activeSociety.name}
-              </p>
-              <p className="truncate text-[11px] text-white/75 sm:text-label-md">
-                {activeUnit ? `Unit ${activeUnit.label}` : "No unit assigned"}
-                {activeMembership?.units?.length > 1 && (
-                  <> · +{activeMembership.units.length - 1} more unit(s)</>
-                )}
-              </p>
+            <div className="min-w-0 flex-1 flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-body-md font-semibold text-white sm:text-body-lg">
+                  {activeSociety.name}
+                </p>
+                <p className="truncate text-[11px] text-white/75 sm:text-label-md">
+                  {activeUnit ? `Unit ${activeUnit.label}` : "No unit assigned"}
+                  {activeMembership?.units?.length > 1 && (
+                    <> · +{activeMembership.units.length - 1} more unit(s)</>
+                  )}
+                </p>
+              </div>
+
+              {/* Society Subscription Expiry Badge */}
+              {activeSociety.isSubscriptionPaid && renewalMeta.formattedDate && (
+                <div className={`shrink-0 rounded-xl px-3 py-1.5 backdrop-blur-md border text-right ${
+                  renewalMeta.isExpired
+                    ? "bg-red-500/25 border-red-400/40 text-white"
+                    : renewalMeta.isExpiringSoon
+                    ? "bg-amber-500/25 border-amber-400/40 text-white"
+                    : "bg-white/15 border-white/20 text-white"
+                }`}>
+                  <div className="flex items-center gap-1.5 justify-end">
+                    <span className="material-symbols-outlined text-[14px]">
+                      {renewalMeta.isExpired ? "error" : renewalMeta.isExpiringSoon ? "warning" : "event"}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider opacity-90">
+                      {renewalMeta.isExpired ? "Expired" : "Expires / Renews"}
+                    </span>
+                  </div>
+                  <span className="block text-[12px] font-extrabold leading-tight">
+                    {renewalMeta.formattedDate}
+                    {renewalMeta.daysRemaining > 0 && !renewalMeta.isExpired && (
+                      <span className="text-[10px] font-medium opacity-85 ml-1">
+                        ({renewalMeta.daysRemaining}d left)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-xs text-white/80 sm:text-body-sm">
@@ -1096,8 +2099,11 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* 💳 Subscription Activation & Status Card */}
+      <SubscriptionStatusCard isAdmin={isAdmin} />
+
       {/* 📦 Resident Parcel Waiting at Gate Banner */}
-      {!isSocietySuspended && waitingParcels.length > 0 && (
+      {!isLocked && waitingParcels.length > 0 && (
         <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/10 via-surface-container-lowest to-surface-container-lowest p-4 sm:p-5 shadow-sm space-y-3 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/60 pb-3">
             <div className="flex items-center gap-2.5">
@@ -1159,7 +2165,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!isSocietySuspended && maintenanceAlert && (
+      {!isLocked && maintenanceAlert && (
         <Link
           to="/maintenance"
           className={`group flex items-center gap-3 rounded-xl border px-4 py-3.5 no-underline shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
@@ -1193,22 +2199,22 @@ export default function DashboardPage() {
       )}
 
       {isWingOnly && filteredAdminCards.length > 0 && (
-        <CardSection title="Wing Admin" cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
+        <CardSection title="Wing Admin" cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isLocked} isSubscriptionUnpaid={isSubscriptionUnpaid} />
       )}
 
       {isCommitteeRole && roleTitle && filteredAdminCards.length > 0 && (
-        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
+        <CardSection title={roleTitle} cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isLocked} isSubscriptionUnpaid={isSubscriptionUnpaid} />
       )}
 
       {isAdmin && !isCommitteeRole && filteredAdminCards.length > 0 && (
-        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
+        <CardSection title="Society Admin" cards={filteredAdminCards} variant="admin" badges={badges} isLocked={isLocked} isSubscriptionUnpaid={isSubscriptionUnpaid} />
       )}
 
       {isAdminWithWing && filteredWingCards.length > 0 && (
-        <CardSection title="Wing Admin" cards={filteredWingCards} variant="admin" badges={badges} isLocked={isSocietySuspended} />
+        <CardSection title="Wing Admin" cards={filteredWingCards} variant="admin" badges={badges} isLocked={isLocked} isSubscriptionUnpaid={isSubscriptionUnpaid} />
       )}
 
-      <CardSection title="General" cards={generalCards} badges={badges} isLocked={isSocietySuspended} />
+      <CardSection title="General" cards={generalCards} badges={badges} isLocked={isLocked} isSubscriptionUnpaid={isSubscriptionUnpaid} />
 
       <section>
         <div className="flex items-center justify-between">
