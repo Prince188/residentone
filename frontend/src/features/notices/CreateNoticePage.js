@@ -35,7 +35,7 @@ export default function CreateNoticePage() {
 
   if (!canCreateNotice) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-6xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
           <h1 className="mt-3 text-headline-sm text-on-surface">No permission</h1>
@@ -68,7 +68,7 @@ export default function CreateNoticePage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/dashboard"

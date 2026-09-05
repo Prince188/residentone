@@ -56,7 +56,7 @@ export default function CreateSurveyPage() {
     onError: (e) => setError(extractApiError(e, "Failed to create survey")),
   });
 
-  if (!canCreateSurvey) return <div className="mx-auto max-w-2xl py-12 text-center"><p className="text-error">You don’t have permission to create surveys.</p><p className="text-body-sm text-on-surface-variant">Ask your Society Admin for <strong>Create Survey</strong> permission.</p><Link to="/surveys" className="mt-4 inline-block text-primary hover:underline">Back to Surveys</Link></div>;
+  if (!canCreateSurvey) return <div className="mx-auto max-w-6xl py-12 text-center"><p className="text-error">You don’t have permission to create surveys.</p><p className="text-body-sm text-on-surface-variant">Ask your Society Admin for <strong>Create Survey</strong> permission.</p><Link to="/surveys" className="mt-4 inline-block text-primary hover:underline">Back to Surveys</Link></div>;
 
   const updateQ = (idx, patch) => setQuestions((prev) => prev.map((q,i) => i===idx ? { ...q, ...patch } : q));
   const addQuestion = () => { if (questions.length < 10) setQuestions([...questions, { text: "", type: "single", options: ["",""] }]); };
@@ -94,7 +94,7 @@ export default function CreateSurveyPage() {
   const minDate = new Date().toISOString().slice(0,16);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link to="/surveys" className="inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-primary"><span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Surveys</Link>
       <div>
         <h1 className="page-title flex items-center gap-2"><span className="material-symbols-outlined text-primary">assignment</span> Create Survey</h1>

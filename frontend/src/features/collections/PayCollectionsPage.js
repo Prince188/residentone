@@ -12,45 +12,28 @@ import {
   CATEGORY_UI,
   STATUS_UI,
 } from "../../lib/collections";
+import HouseCard from "../../components/cards/HouseCard";
 
 function ResidentHouseCard({ detail, collectionId }) {
-  const status = STATUS_UI[detail.status] || STATUS_UI.pending;
   const isSettled = ["paid", "late_paid"].includes(detail.status);
   const dateLine = isSettled
     ? `Paid on ${formatDate(detail.paidOn)}${detail.receiptNo ? ` · #${detail.receiptNo}` : ""}`
     : `Due by ${formatDate(detail.collection?.dueDate)}`;
 
   return (
-    <Link
+    <HouseCard
+      house={{
+        label: detail.label,
+        block: detail.block,
+        floor: detail.floor,
+        ownerName: detail.isRenterOccupied ? "Renter" : "Owner",
+      }}
+      variant="billing"
+      status={detail.status || "pending"}
+      amount={detail.amount}
+      dateLine={dateLine}
       to={`/collections/${collectionId}/units/${detail.unitId}`}
-      className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${status.card || "border-outline-variant bg-surface-container-lowest"}`}
-    >
-      <span className={`absolute inset-y-0 left-0 w-1.5 ${status.stripe}`} />
-      <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox}`}>
-          <span className="material-symbols-outlined text-[22px]">
-            {detail.isRenterOccupied ? "home_work" : "home"}
-          </span>
-        </span>
-        <span
-          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-semibold ${status.pill}`}
-        >
-          <span className="material-symbols-outlined text-[13px]">{status.icon}</span>
-          {status.label}
-        </span>
-      </div>
-      <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">
-        House {detail.label}
-      </p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant flex items-center gap-1.5">
-        <span>{detail.isRenterOccupied ? "Renter" : "Owner"}</span>
-        <span>· {formatAmount(detail.amount)}</span>
-      </p>
-      <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-semibold text-on-surface-variant">
-        <span className="material-symbols-outlined shrink-0 text-[13px]">event</span>
-        {dateLine}
-      </p>
-    </Link>
+    />
   );
 }
 
@@ -62,79 +45,51 @@ function CollectionItemCard({ col, onClick, isHistory }) {
   return (
     <div
       onClick={onClick}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-outline-variant/70 bg-surface-container-lowest shadow-sm hover:shadow-xl hover:border-primary/50 transition-all duration-300 cursor-pointer"
+      className="group relative flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-surface-container-lowest p-5 sm:p-6 shadow-xs hover:shadow-lg hover:border-primary/60 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
     >
-      <div
-        className={`h-1.5 w-full ${
-          col.status === "closed" ? "bg-zinc-400" : isOverdue ? "bg-red-500" : "bg-primary"
-        }`}
-      />
-
-      <div className="p-5 sm:p-6 space-y-4 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                cat.pill.includes("pink")
-                  ? "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300"
-                  : cat.pill.includes("violet")
-                  ? "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
-                  : cat.pill.includes("emerald")
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[26px]">{cat.icon}</span>
+      <div className="space-y-4">
+        {/* Top Badges & Amount Row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${cat.pill}`}>
+              <span className="material-symbols-outlined text-[13px]">{cat.icon}</span>
+              {cat.label}
             </span>
-            <div className="min-w-0">
-              <h3 className="truncate text-title-md font-bold text-on-surface group-hover:text-primary transition-colors">
-                {col.title}
-              </h3>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label-sm">
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${cat.pill}`}>
-                  {cat.label}
-                </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${status.pill}`}>
-                  {status.label}
-                </span>
-              </div>
-            </div>
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${status.pill}`}>
+              {status.label}
+            </span>
           </div>
 
-          <div className="text-right shrink-0">
-            <span className="text-title-md font-bold text-on-surface block">{formatAmount(col.amount)}</span>
-            <span className="text-[11px] text-outline block">per house</span>
+          <div className="text-right">
+            <span className="text-title-lg font-extrabold text-primary block leading-none">
+              {formatAmount(col.amount)}
+            </span>
+            <span className="text-[10px] uppercase font-semibold text-outline tracking-wider">per house</span>
           </div>
         </div>
 
-        {col.description && (
-          <p className="text-body-sm text-on-surface-variant line-clamp-2">{col.description}</p>
-        )}
-
-        <div className="flex items-center justify-between text-label-sm border-t border-outline-variant/20 pt-3">
-          <span className="flex items-center gap-1 text-on-surface-variant font-medium">
-            <span className="material-symbols-outlined text-[16px] text-primary">event</span>
-            Due {formatDate(col.dueDate)}
-          </span>
-          {isOverdue && col.status !== "closed" && (
-            <span className="text-red-600 font-bold text-[11px] uppercase tracking-wider flex items-center gap-0.5">
-              <span className="material-symbols-outlined text-[14px]">warning</span> Overdue
-            </span>
-          )}
-          {col.status === "closed" && (
-            <span className="text-outline font-semibold text-[11px] uppercase tracking-wider">
-              Closed Fund
-            </span>
+        {/* Title & Description */}
+        <div>
+          <h3 className="text-title-md font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
+            {col.title}
+          </h3>
+          {col.description && (
+            <p className="mt-1 text-body-sm text-on-surface-variant line-clamp-2 leading-relaxed">
+              {col.description}
+            </p>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-outline-variant/30 bg-surface-container-low px-5 py-3.5">
-        <span className="text-label-sm font-semibold text-primary">
-          {col.status === "closed" ? "View Paid Houses" : "View Houses to Pay"}
+      {/* Bottom Metadata & CTA */}
+      <div className="mt-5 pt-3.5 border-t border-outline-variant/40 flex items-center justify-between text-label-sm">
+        <span className="flex items-center gap-1.5 text-on-surface-variant font-medium">
+          <span className="material-symbols-outlined text-[16px] text-outline">calendar_today</span>
+          <span>Due {formatDate(col.dueDate)}</span>
         </span>
-        <span className="inline-flex items-center gap-1 text-label-sm font-bold text-primary group-hover:translate-x-1 transition-transform">
-          <span>Select</span>
+
+        <span className="inline-flex items-center gap-1 font-bold text-primary group-hover:translate-x-1 transition-transform">
+          <span>{col.status === "closed" ? "View Details" : "Select Houses"}</span>
           <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
         </span>
       </div>

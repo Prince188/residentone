@@ -44,7 +44,7 @@ export default function MaintenanceDetailPage() {
 
   if (!cycleId) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <h1 className="page-title">Missing period</h1>
           <p className="page-subtitle">Open this page from the Maintenance grid.</p>
@@ -61,7 +61,7 @@ export default function MaintenanceDetailPage() {
 
   if (detailQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
         <div className="h-8 w-40 animate-pulse rounded bg-surface-container-high" />
         <div className="h-48 animate-pulse rounded-2xl bg-surface-container-high" />
       </div>
@@ -70,7 +70,7 @@ export default function MaintenanceDetailPage() {
 
   if (detailQuery.isError) {
     return (
-      <div className="mx-auto max-w-3xl space-y-3">
+      <div className="mx-auto max-w-6xl space-y-3">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
           {extractApiError(detailQuery.error, "Failed to load your dues.")}
         </div>
@@ -87,7 +87,7 @@ export default function MaintenanceDetailPage() {
   const history = historyQuery.data || [];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/maintenance"

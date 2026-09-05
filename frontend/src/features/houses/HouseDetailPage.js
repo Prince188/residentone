@@ -331,7 +331,7 @@ export default function HouseDetailPage() {
 
   if (houseQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl p-10 text-center text-body-sm text-on-surface-variant">
+      <div className="mx-auto max-w-6xl p-10 text-center text-body-sm text-on-surface-variant">
         Loading house...
       </div>
     );
@@ -339,7 +339,7 @@ export default function HouseDetailPage() {
 
   if (houseQuery.isError || !house) {
     return (
-      <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
         <div className="p-10 text-center text-body-md text-error">
           {extractApiError(houseQuery.error, "House not found.")}
         </div>
@@ -352,24 +352,47 @@ export default function HouseDetailPage() {
     );
   }
 
+  const isRented = Boolean(house.isRented);
+  const isAssigned = Boolean(house.isAssigned && !isRented);
+  const isVacant = !house.isAssigned && !house.isRented;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
+      {/* Top Header */}
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link
             to="/houses"
-            className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+            className="mb-1.5 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary transition-colors"
           >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Manage Houses
           </Link>
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[34px] text-primary">
-              {house.isAssigned ? "home" : "home_work"}
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-[28px]">
+                {isRented ? "key" : isAssigned ? "home" : "home_work"}
+              </span>
             </span>
             <div>
-              <h1 className="page-title">House {house.label}</h1>
-              <p className="text-body-sm text-on-surface-variant">
+              <div className="flex items-center gap-2">
+                <h1 className="page-title">House {house.label}</h1>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-bold ${
+                    isRented
+                      ? "bg-sky-100 text-sky-800"
+                      : isAssigned
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-zinc-100 text-zinc-700"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">
+                    {isRented ? "key" : isAssigned ? "verified" : "home"}
+                  </span>
+                  {isRented ? "Rented" : isAssigned ? "Owned" : "Vacant"}
+                </span>
+              </div>
+              <p className="text-body-sm text-on-surface-variant mt-0.5">
                 {house.societyName}
                 {house.block ? ` · Block ${house.block}` : ""}
                 {house.floor != null ? ` · Floor ${house.floor}` : ""}
@@ -386,7 +409,7 @@ export default function HouseDetailPage() {
                 setActionError("");
                 setEditingHouse(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer shadow-xs"
             >
               <span className="material-symbols-outlined text-[18px]">edit</span>
               Edit Details
@@ -397,7 +420,7 @@ export default function HouseDetailPage() {
                 setActionError("");
                 setDeletingHouse(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-error hover:bg-error-container transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-error hover:bg-error-container/40 transition-colors cursor-pointer shadow-xs"
             >
               <span className="material-symbols-outlined text-[18px]">delete</span>
               Delete
@@ -406,59 +429,137 @@ export default function HouseDetailPage() {
         )}
       </section>
 
-      {unassignError && <p className="text-body-sm text-error">{unassignError}</p>}
-      {actionError && <p className="text-body-sm text-error">{actionError}</p>}
+      {unassignError && (
+        <div className="rounded-xl bg-error-container p-3.5 text-body-sm text-on-error-container flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          <span>{unassignError}</span>
+        </div>
+      )}
+      {actionError && (
+        <div className="rounded-xl bg-error-container p-3.5 text-body-sm text-on-error-container flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          <span>{actionError}</span>
+        </div>
+      )}
 
+      {/* House Specifications Card */}
+      <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xs">
+        <h3 className="text-title-sm font-bold text-on-surface flex items-center gap-2 border-b border-outline-variant/60 pb-3">
+          <span className="material-symbols-outlined text-[20px] text-primary">domain</span>
+          Unit Specifications
+        </h3>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-body-sm">
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">door_front</span> Door No
+            </span>
+            <p className="mt-1 font-bold text-on-surface">{house.doorNo || house.label || "-"}</p>
+          </div>
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">apartment</span> Wing / Block
+            </span>
+            <p className="mt-1 font-bold text-on-surface">{house.block || "General"}</p>
+          </div>
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">layers</span> Floor Level
+            </span>
+            <p className="mt-1 font-bold text-on-surface">{house.floor != null ? `${house.floor}th Floor` : "Ground"}</p>
+          </div>
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">villa</span> Property Type
+            </span>
+            <p className="mt-1 font-bold text-on-surface capitalize">{house.propertyType || "Residential Flat"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Resident Info or Assign Form */}
       {house.isAssigned || house.isRented ? (
         <section className="space-y-4">
-          <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
-            <p className="flex items-center gap-1 text-label-sm font-semibold uppercase tracking-wide text-primary">
-              <span className="material-symbols-outlined text-[16px]">home</span> House {house.label}
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-body-sm">
-              <span className="text-on-surface-variant">Door: <b className="text-on-surface">{house.doorNo || "-"}</b></span>
-              {house.block && <span className="text-on-surface-variant">Block: <b className="text-on-surface">{house.block}</b></span>}
-              {house.floor != null && <span className="text-on-surface-variant">Floor: <b className="text-on-surface">{house.floor}</b></span>}
-              {house.propertyType && <span className="text-on-surface-variant">Type: <b className="text-on-surface capitalize">{house.propertyType}</b></span>}
-            </div>
-          </div>
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-headline-sm text-on-surface">{house.isAssigned ? "Current Owner" : "Current Renter"}</h3>
-                <p className="mt-2 text-body-lg font-semibold text-on-surface">{(house.owner || house.tenant)?.name}</p>
-                <p className="flex items-center gap-1 text-body-md text-on-surface-variant"><span className="material-symbols-outlined text-[16px]">call</span> {(house.owner || house.tenant)?.phone}</p>
-                {(house.owner || house.tenant)?.email && !(house.owner || house.tenant).email.endsWith("@residentone.local") && (
-                  <p className="flex items-center gap-1 text-body-sm text-on-surface-variant"><span className="material-symbols-outlined text-[14px]">mail</span> {(house.owner || house.tenant)?.email}</p>
-                )}
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xs">
+            <div className="flex items-start justify-between gap-3 border-b border-outline-variant/60 pb-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold text-title-md">
+                  {(house.owner || house.tenant)?.name?.charAt(0)?.toUpperCase() || "R"}
+                </div>
+                <div>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.2 text-[11px] font-bold ${isRented ? "bg-sky-100 text-sky-800" : "bg-emerald-100 text-emerald-800"}`}>
+                    {isRented ? "Current Renter / Tenant" : "Current Registered Owner"}
+                  </span>
+                  <h3 className="text-title-md font-bold text-on-surface mt-0.5">
+                    {(house.owner || house.tenant)?.name}
+                  </h3>
+                  <p className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[15px] text-primary">call</span>
+                    {(house.owner || house.tenant)?.phone}
+                  </p>
+                  {(house.owner || house.tenant)?.email && !(house.owner || house.tenant).email.endsWith("@residentone.local") && (
+                    <p className="flex items-center gap-1.5 text-body-sm text-on-surface-variant mt-0.5">
+                      <span className="material-symbols-outlined text-[15px] text-primary">mail</span>
+                      {(house.owner || house.tenant)?.email}
+                    </p>
+                  )}
+                </div>
               </div>
-              <span className="material-symbols-outlined text-[40px] text-success">verified_user</span>
+
+              <span className="material-symbols-outlined text-[36px] text-success">verified_user</span>
             </div>
-            <div className="mt-4 grid gap-2 rounded-lg bg-surface-container-lowest p-3 text-body-sm">
-              <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">work</span> Occupation: <b>{(house.owner || house.tenant)?.occupation || "—"}</b></p>
-              <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-primary">group</span> Family Members: <b>{(house.owner || house.tenant)?.familyMembers ?? "—"}</b></p>
-              <div className="flex items-start gap-2"><span className="material-symbols-outlined text-[16px] text-primary mt-0.5">directions_car</span><div><p>Vehicles ({(house.owner || house.tenant)?.vehicles?.length || 0}):</p>{(house.owner || house.tenant)?.vehicles?.length ? (house.owner || house.tenant).vehicles.map((v,i)=><span key={i} className="mr-1 mt-1 inline-block rounded-full bg-secondary-fixed px-2 py-0.5 font-mono text-label-sm font-bold tracking-widest">{v}</span>) : <b>— No vehicles</b>}</div></div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl bg-surface-container-low/60 p-3.5 text-body-sm">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">work</span> Occupation
+                </span>
+                <p className="mt-1 font-bold text-on-surface">{(house.owner || house.tenant)?.occupation || "—"}</p>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">group</span> Family Members
+                </span>
+                <p className="mt-1 font-bold text-on-surface">{(house.owner || house.tenant)?.familyMembers ?? "—"}</p>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">directions_car</span> Registered Vehicles
+                </span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {(house.owner || house.tenant)?.vehicles?.length ? (
+                    (house.owner || house.tenant).vehicles.map((v, i) => (
+                      <span key={i} className="rounded-md bg-surface-container-high px-2 py-0.5 font-mono text-[11px] font-bold text-on-surface">
+                        {v}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="font-bold text-outline text-[12px]">None</p>
+                  )}
+                </div>
+              </div>
             </div>
-          {canManageHouses && (
-          <button
-            type="button"
-            onClick={() => setConfirmUnassign(true)}
-            className="mt-5 flex items-center gap-2 rounded-lg border border-error px-4 py-2 text-label-md text-error hover:bg-surface-container-low cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]">person_remove</span>
-            Remove {house.isAssigned ? "Owner" : "Renter"}
-          </button>
-          )}
-          {!canManageHouses && (
-            <p className="mt-3 text-label-sm text-outline">No permission to remove. Ask your Society Admin for <strong>Manage Houses</strong> permission.</p>
-          )}
+
+            {canManageHouses && (
+              <div className="mt-5 flex justify-end border-t border-outline-variant/60 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnassign(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-error/50 px-4 py-2 text-label-md font-semibold text-error hover:bg-error-container/30 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">person_remove</span>
+                  Remove {house.isAssigned ? "Owner" : "Renter"}
+                </button>
+              </div>
+            )}
           </div>
 
           <ConfirmDialog
             open={confirmUnassign}
-            title={`Remove owner from House ${house.label}?`}
-            message={`${house.owner?.name} will lose access to this house. Their account remains active.`}
-            confirmLabel="Remove Owner"
+            title={`Remove resident from House ${house.label}?`}
+            message={`${(house.owner || house.tenant)?.name} will lose access to this house. Their account remains active.`}
+            confirmLabel="Remove Resident"
             danger
             busy={unassignMutation.isPending}
             onConfirm={() => unassignMutation.mutate()}
@@ -468,7 +569,7 @@ export default function HouseDetailPage() {
       ) : canManageHouses ? (
         <OwnerForm house={house} />
       ) : (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
+        <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
           <h3 className="mt-3 text-headline-sm text-on-surface">No permission</h3>
           <p className="mt-1 text-body-md text-on-surface-variant">You don’t have permission to manage houses. Ask your Society Admin to grant you <strong>Manage Houses</strong> permission.</p>

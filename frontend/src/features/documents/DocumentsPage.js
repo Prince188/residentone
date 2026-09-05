@@ -2,69 +2,96 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
-import { getDocuments, uploadDocument, updateDocument, downloadDocument, deleteDocument, extractApiError, formatFileSize, formatDate, DOCUMENT_CATEGORIES } from "../../lib/documents";
+import { getDocuments, uploadDocument, updateDocument, downloadDocument, deleteDocument, extractApiError, formatFileSize, formatDate, DOCUMENT_CATEGORIES, getFileTypeMeta } from "../../lib/documents";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 function DocumentCard({ doc, canManage, onEdit, onDelete, onDownload, downloadingId }) {
-  const isPdf = doc.fileType === "application/pdf" || doc.fileName?.toLowerCase().endsWith(".pdf");
   const cat = DOCUMENT_CATEGORIES.find((c) => c.value === doc.category) || DOCUMENT_CATEGORIES[4];
+  const fileMeta = getFileTypeMeta(doc.fileType, doc.fileName);
+  const isDownloading = downloadingId === doc.id;
+
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition-shadow hover:shadow-md">
+    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      {/* Category colored left accent stripe */}
+      <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${cat.stripe || "bg-primary"}`} />
+
       <div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isPdf ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700"}`}>
-              <span className="material-symbols-outlined text-[22px]">{isPdf ? "picture_as_pdf" : "image"}</span>
-            </span>
-            <div className="min-w-0">
-              <h3 className="truncate text-body-md font-semibold text-on-surface">{doc.title}</h3>
-              <p className="mt-0.5 flex items-center gap-1.5 text-label-sm">
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">{cat.label}</span>
-                <span className="text-outline">{formatFileSize(doc.fileSize)}</span>
-              </p>
-            </div>
-          </div>
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-label-sm font-medium ${isPdf ? "bg-red-50 text-red-700 border border-red-200" : "bg-sky-50 text-sky-700 border border-sky-200"}`}>
-            {isPdf ? "PDF" : "Image"}
+        {/* Top bar: Category badge & File Extension Pill */}
+        <div className="flex items-center justify-between gap-2 pl-1">
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold border ${cat.pill || "bg-primary/10 text-primary border-primary/20"}`}>
+            <span className="material-symbols-outlined text-[13px]">{cat.icon}</span>
+            {cat.label}
+          </span>
+          <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${fileMeta.badge}`}>
+            {fileMeta.typeLabel}
           </span>
         </div>
 
-        {doc.description && <p className="mt-2 line-clamp-2 text-body-sm text-on-surface-variant">{doc.description}</p>}
+        {/* File icon preview and title */}
+        <div className="mt-3.5 flex items-start gap-3 pl-1">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${fileMeta.iconBox}`}>
+            <span className="material-symbols-outlined text-[24px]">{fileMeta.icon}</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-1 text-body-lg font-bold text-on-surface" title={doc.title}>
+              {doc.title}
+            </h3>
+            <p className="mt-0.5 flex items-center gap-1.5 text-label-sm text-outline">
+              <span>{formatFileSize(doc.fileSize)}</span>
+              <span>•</span>
+              <span className="truncate">{formatDate(doc.createdAt)}</span>
+            </p>
+          </div>
+        </div>
 
-        <p className="mt-2 truncate text-label-sm text-outline">by {doc.uploadedByName} · {formatDate(doc.createdAt)}</p>
+        {/* Optional Description */}
+        {doc.description && (
+          <p className="mt-2.5 line-clamp-2 pl-1 text-body-sm text-on-surface-variant bg-surface-container-low/50 p-2 rounded-lg border border-outline-variant/40">
+            {doc.description}
+          </p>
+        )}
+
+        <p className="mt-2.5 pl-1 truncate text-[11px] text-outline flex items-center gap-1">
+          <span className="material-symbols-outlined text-[13px]">person</span>
+          Uploaded by <strong className="font-semibold text-on-surface-variant">{doc.uploadedByName || "Admin"}</strong>
+        </p>
       </div>
 
-      <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/50 pt-3">
+      {/* Action Footer */}
+      <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/60 pt-3.5 pl-1">
         <button
           type="button"
           onClick={() => onDownload(doc)}
-          disabled={downloadingId === doc.id}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+          disabled={isDownloading}
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-label-md font-semibold text-on-primary shadow-xs hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[16px]">{downloadingId === doc.id ? "hourglass_top" : "download"}</span>
-          {downloadingId === doc.id ? "Downloading..." : "Download"}
+          <span className="material-symbols-outlined text-[17px]">
+            {isDownloading ? "hourglass_top" : "download"}
+          </span>
+          {isDownloading ? "Downloading..." : "Download"}
         </button>
+
         {canManage && (
-          <>
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => onEdit(doc)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
               title="Edit Details"
             >
-              <span className="material-symbols-outlined text-[16px]">edit</span>
+              <span className="material-symbols-outlined text-[17px]">edit</span>
             </button>
             <button
               type="button"
               onClick={() => onDelete(doc)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-outline hover:border-error hover:text-error hover:bg-error-container/50 transition-colors cursor-pointer"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-error/30 bg-surface-container-lowest text-error hover:bg-error/10 transition-colors cursor-pointer"
               title="Delete File"
             >
-              <span className="material-symbols-outlined text-[16px]">delete</span>
+              <span className="material-symbols-outlined text-[17px]">delete</span>
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -86,59 +113,91 @@ function EditDocumentModal({ doc, open, onClose, onSave, isSaving, error }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={isSaving ? undefined : onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-title-md font-bold text-on-surface">Edit Document Details</h3>
-          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={isSaving ? undefined : onClose} />
+      <div className="relative w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xl space-y-5">
+        <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-[20px]">edit_document</span>
+            </span>
+            <div>
+              <h3 className="text-title-md font-bold text-on-surface">Edit Document Details</h3>
+              <p className="text-[12px] text-outline">Update file name, classification or note</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
-        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+        {error && (
+          <div className="rounded-xl border border-error/30 bg-error-container/50 p-3 text-label-md text-on-error-container">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-label-md font-medium text-on-surface">Title *</label>
+            <label className="mb-1 block text-label-sm font-semibold text-on-surface">Document Title *</label>
             <input
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+              placeholder="e.g. Navratri 2026 Expense Bill"
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-label-md font-medium text-on-surface">Category</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
-            >
+            <label className="mb-1 block text-label-sm font-semibold text-on-surface">Category</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {DOCUMENT_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setCategory(c.value)}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-label-sm font-semibold transition-all cursor-pointer ${
+                    category === c.value
+                      ? "border-primary bg-primary text-on-primary shadow-xs"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
+                  <span className="truncate">{c.label}</span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-label-md font-medium text-on-surface">Description (optional)</label>
+            <label className="mb-1 block text-label-sm font-semibold text-on-surface">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none"
+              rows={3}
+              placeholder="Optional notes or details for residents..."
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-outline-variant/60">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer"
+            >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving || !title.trim()}
-              className="rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              className="rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
             >
               {isSaving ? "Saving..." : "Save Changes"}
             </button>
@@ -154,18 +213,54 @@ function UploadModal({ onClose, onSuccess }) {
   const [category, setCategory] = useState("bill");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState("");
   const queryClient = useQueryClient();
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0];
+      setFile(droppedFile);
+      if (!title.trim()) {
+        const nameWithoutExt = droppedFile.name.replace(/\.[^/.]+$/, "");
+        setTitle(nameWithoutExt);
+      }
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const selected = e.target.files[0];
+      setFile(selected);
+      if (!title.trim()) {
+        const nameWithoutExt = selected.name.replace(/\.[^/.]+$/, "");
+        setTitle(nameWithoutExt);
+      }
+    }
+  };
 
   const uploadMut = useMutation({
     mutationFn: async () => {
       if (!title.trim() || title.trim().length < 3) throw new Error("Title must be at least 3 characters");
-      if (!file) throw new Error("Select a PDF or image (max 10MB)");
-      if (file.size > 10 * 1024 * 1024) throw new Error("File too large. Max 10MB");
+      if (!file) throw new Error("Select a PDF or image file (max 10MB)");
+      if (file.size > 10 * 1024 * 1024) throw new Error("File too large. Maximum size is 10MB");
       const allowed = ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/webp"];
       const ext = file.name.toLowerCase().split(".").pop();
       const allowedExt = ["pdf", "jpg", "jpeg", "png", "webp"];
-      if (!allowed.includes(file.type) && !allowedExt.includes(ext)) throw new Error("Only PDF and images (jpg, png, webp) allowed");
+      if (!allowed.includes(file.type) && !allowedExt.includes(ext)) throw new Error("Only PDF and images (jpg, png, webp) are allowed");
       const fd = new FormData();
       fd.append("title", title.trim());
       fd.append("category", category);
@@ -184,88 +279,157 @@ function UploadModal({ onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="flex items-center gap-2 text-body-lg font-semibold text-on-surface">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-on-primary">
-                <span className="material-symbols-outlined text-[18px]">upload</span>
-              </span>
-              Upload Bill / Sheet
-            </h3>
-            <p className="mt-1 text-body-sm text-on-surface-variant">PDF or image, max 10MB. Everyone can download.</p>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-on-primary">
+              <span className="material-symbols-outlined text-[20px]">upload_file</span>
+            </span>
+            <div>
+              <h3 className="text-title-md font-bold text-on-surface">Upload Document / Bill</h3>
+              <p className="text-[12px] text-outline">Upload bills, vouchers, or statements (max 10MB)</p>
+            </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
-            <span className="material-symbols-outlined">close</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
-        <div className="mt-4 space-y-4">
+        {error && (
+          <div className="rounded-xl border border-error/30 bg-error-container/50 p-3 text-label-md text-on-error-container">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {/* Drag & Drop Zone */}
           <div>
-            <label className="mb-1 block text-label-md font-medium text-on-surface">Title *</label>
+            <label className="mb-1.5 block text-label-sm font-semibold text-on-surface">File *</label>
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
+                dragActive
+                  ? "border-primary bg-primary/10"
+                  : file
+                  ? "border-emerald-400 bg-emerald-50/20"
+                  : "border-outline-variant bg-surface-container-low/50 hover:border-primary/50 hover:bg-surface-container-low"
+              }`}
+            >
+              <input
+                id="doc-file-input"
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                className="sr-only"
+              />
+
+              {file ? (
+                <div className="space-y-2">
+                  <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                    <span className="material-symbols-outlined text-[28px]">
+                      {file.type === "application/pdf" ? "picture_as_pdf" : "image"}
+                    </span>
+                  </span>
+                  <div>
+                    <p className="text-body-md font-bold text-on-surface truncate max-w-xs">{file.name}</p>
+                    <p className="text-[12px] text-outline">{formatFileSize(file.size)}</p>
+                  </div>
+                  <label
+                    htmlFor="doc-file-input"
+                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    Change File
+                  </label>
+                </div>
+              ) : (
+                <label htmlFor="doc-file-input" className="cursor-pointer space-y-2">
+                  <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <span className="material-symbols-outlined text-[28px]">cloud_upload</span>
+                  </span>
+                  <div>
+                    <p className="text-body-md font-semibold text-on-surface">
+                      <span className="text-primary font-bold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-[12px] text-outline mt-0.5">PDF or image (JPG, PNG, WEBP) up to 10MB</p>
+                  </div>
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="mb-1 block text-label-sm font-semibold text-on-surface">Document Title *</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Navratri Collection Bill, Expense Sheet Aug"
+              placeholder="e.g. Navratri Tent Bill, Lift AMC Receipt"
               maxLength={100}
-              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-label-md font-medium text-on-surface">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm focus:border-primary focus:outline-none">
-                {DOCUMENT_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-label-md font-medium text-on-surface">File *</label>
-              <input
-                type="file"
-                accept=".pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-1 file:text-label-sm file:text-on-primary hover:file:opacity-90"
-              />
+          {/* Category Pill Buttons */}
+          <div>
+            <label className="mb-1.5 block text-label-sm font-semibold text-on-surface">Category *</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {DOCUMENT_CATEGORIES.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setCategory(c.value)}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-label-sm font-semibold transition-all cursor-pointer ${
+                    category === c.value
+                      ? "border-primary bg-primary text-on-primary shadow-xs"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
+                  <span className="truncate">{c.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {file && (
-            <p className="rounded-lg bg-primary/10 px-3 py-2 text-label-sm text-primary">
-              Selected: {file.name} · {formatFileSize(file.size)} {file.size > 10*1024*1024 && <span className="text-error font-semibold">— too large (max 10MB)</span>}
-            </p>
-          )}
-
+          {/* Description */}
           <div>
-            <label className="mb-1 block text-label-md font-medium text-on-surface">Description (optional)</label>
+            <label className="mb-1 block text-label-sm font-semibold text-on-surface">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional note — e.g., Navratri 2026 expense, Aug maintenance bill"
+              placeholder="Optional notes or details for residents..."
               rows={2}
               maxLength={500}
-              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
-          {error && <p className="rounded-lg bg-error-container px-3 py-2 text-label-sm text-on-error-container">{error}</p>}
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:border-primary cursor-pointer">Cancel</button>
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-outline-variant/60">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               onClick={() => uploadMut.mutate()}
-              disabled={uploadMut.isPending}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              disabled={uploadMut.isPending || !file}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 transition-opacity shadow-xs cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">upload</span>
-              {uploadMut.isPending ? "Uploading..." : "Upload"}
+              {uploadMut.isPending ? "Uploading..." : "Upload Document"}
             </button>
           </div>
-          <p className="text-label-sm text-outline text-center">Only PDF and images allowed. Max 10MB. Stored securely for this society.</p>
         </div>
       </div>
     </div>
@@ -356,73 +520,183 @@ export default function DocumentsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
+      {/* Header */}
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Dashboard
+          <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span> Dashboard
           </Link>
           <h1 className="page-title flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">folder_open</span> Documents
+            <span className="material-symbols-outlined text-primary text-[28px]">folder_open</span>
+            Documents & Bills
           </h1>
-          <p className="page-subtitle">{activeSociety ? `${activeSociety.name} · ` : ""}Bills, Navratri collections & expense sheets — everyone can download</p>
+          <p className="page-subtitle">
+            {activeSociety ? `${activeSociety.name} · ` : ""}
+            Official bills, collection vouchers, expense statements, and society records.
+          </p>
         </div>
         {canManage && (
-          <button type="button" onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md text-on-primary hover:opacity-90 cursor-pointer shadow-sm">
-            <span className="material-symbols-outlined text-[18px]">upload</span> Upload Bill
+          <button
+            type="button"
+            onClick={() => setShowUpload(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-label-md font-semibold text-on-primary hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[20px]">upload</span> Upload Document
           </button>
         )}
       </section>
 
-
-
-      {msg && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-body-sm text-emerald-800">{msg}</div>}
-      {err && <div className="rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">{err}</div>}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm">
-            <option value="all">All categories</option>
-            {DOCUMENT_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-          <span className="text-label-sm text-outline hidden sm:inline">{docs.length} file{docs.length!==1?"s":""}</span>
+      {/* Notifications */}
+      {msg && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200/60 px-4 py-3 text-body-sm font-medium text-emerald-800 shadow-xs">
+          <span className="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span>
+          {msg}
         </div>
-        <div className="relative w-full sm:w-72 sm:shrink-0">
-          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">search</span>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search bills..." className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+      )}
+      {err && (
+        <div className="flex items-center gap-2 rounded-xl bg-error-container/50 border border-error/30 px-4 py-3 text-body-sm font-medium text-on-error-container">
+          <span className="material-symbols-outlined text-[18px] text-error">error</span>
+          {err}
+        </div>
+      )}
+
+      {/* Overview Banner */}
+      <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+        <div className="bg-gradient-to-br from-primary via-primary-container to-on-primary-fixed p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-label-md uppercase tracking-[0.14em] text-white/70">Vault Overview</p>
+              <h2 className="mt-1 text-headline-sm font-bold text-white">Society Document Vault</h2>
+              <p className="mt-1 text-label-md text-white/80">Search, view and download financial records and invoices</p>
+            </div>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm">
+              <span className="material-symbols-outlined text-[24px]">description</span>
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="rounded-xl bg-white/10 p-3 text-center backdrop-blur-sm">
+              <p className="text-headline-sm font-bold text-white">{docs.length}</p>
+              <p className="text-label-sm text-white/70">Total Files</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3 text-center backdrop-blur-sm">
+              <p className="text-headline-sm font-bold text-white">
+                {docs.filter((d) => d.fileType === "application/pdf" || d.fileName?.toLowerCase().endsWith(".pdf")).length}
+              </p>
+              <p className="text-label-sm text-white/70">PDF Documents</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3 text-center backdrop-blur-sm">
+              <p className="text-headline-sm font-bold text-white">
+                {docs.filter((d) => d.category === "bill" || d.category === "expense").length}
+              </p>
+              <p className="text-label-sm text-white/70">Bills & Expenses</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3 text-center backdrop-blur-sm">
+              <p className="text-headline-sm font-bold text-white">
+                {docs.filter((d) => d.category === "collection" || d.category === "navratri").length}
+              </p>
+              <p className="text-label-sm text-white/70">Collections</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Filter Tabs & Search Bar */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            className={`rounded-full px-3.5 py-1.5 text-label-sm font-semibold border transition-all cursor-pointer ${
+              category === "all"
+                ? "bg-primary text-on-primary border-primary shadow-xs"
+                : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container-low"
+            }`}
+          >
+            All Files
+          </button>
+          {DOCUMENT_CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setCategory(c.value)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-label-sm font-semibold border transition-all cursor-pointer ${
+                category === c.value
+                  ? "bg-primary text-on-primary border-primary shadow-xs"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container-low"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[15px]">{c.icon}</span>
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-80 sm:shrink-0">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-outline">
+            search
+          </span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search documents by title..."
+            className="w-full rounded-full border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-9 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-outline hover:text-on-surface cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Loading Skeleton */}
       {docsQuery.isLoading && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-xl bg-surface-container-high" />
+            <div key={i} className="h-44 animate-pulse rounded-2xl bg-surface-container-high" />
           ))}
         </div>
       )}
 
+      {/* Error state */}
       {docsQuery.isError && (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
+        <div className="rounded-2xl border border-error/30 bg-error-container/40 p-6 text-center text-body-md text-error">
           {extractApiError(docsQuery.error, "Failed to load documents.")}
         </div>
       )}
 
+      {/* Empty State */}
       {docsQuery.isSuccess && docs.length === 0 && (
-        <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-10 text-center">
-          <span className="material-symbols-outlined text-[40px] text-on-surface-variant">folder_open</span>
-          <p className="mt-3 text-body-md font-semibold text-on-surface">No bills yet</p>
-          <p className="mt-1 text-body-sm text-on-surface-variant">{canManage ? "Upload a Navratri collection or expense bill — PDF or image, max 10MB." : "No documents uploaded yet."}</p>
-          {canManage && (
-            <button type="button" onClick={() => setShowUpload(true)} className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md text-on-primary hover:opacity-90">
-              <span className="material-symbols-outlined text-[18px]">upload</span> Upload First Bill
+        <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest p-10 text-center shadow-xs">
+          <span className="material-symbols-outlined text-[48px] text-outline">folder_open</span>
+          <h3 className="mt-3 text-title-md font-semibold text-on-surface">No documents found</h3>
+          <p className="mt-1 text-body-sm text-on-surface-variant max-w-md mx-auto">
+            {search || category !== "all"
+              ? "No files match your search criteria. Try changing filters or search keywords."
+              : canManage
+              ? "Upload bills, receipts, or festival collection sheets for residents to view."
+              : "No documents have been uploaded to the society vault yet."}
+          </p>
+          {canManage && !search && category === "all" && (
+            <button
+              type="button"
+              onClick={() => setShowUpload(true)}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-label-md font-semibold text-on-primary hover:opacity-90 shadow-sm transition-opacity cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">upload</span> Upload First Document
             </button>
           )}
         </div>
       )}
 
+      {/* Documents Grid */}
       {docs.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {docs.map((d) => (
             <DocumentCard
               key={d.id}

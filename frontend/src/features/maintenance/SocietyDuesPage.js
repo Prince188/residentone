@@ -14,55 +14,34 @@ import {
 } from "../../lib/maintenance";
 import api from "../../lib/api";
 import { hasPermission, isPureWingAdmin, getMembershipRoles } from "../../lib/permissions";
+import HouseCard from "../../components/cards/HouseCard";
 
 function DuesCard({ unit, cycle }) {
-  const status = STATUS_UI[unit.status] || STATUS_UI.pending;
   const isSettled = ["paid", "late_paid"].includes(unit.status);
   const dateLine = isSettled
     ? `Paid on ${formatDate(unit.paidOn)}`
     : `Due by ${formatDate(cycle.dueDate)}`;
 
+  const residentDisplay = unit.ownerName
+    ? unit.isRenterOccupied
+      ? `${unit.ownerName} (Renter)`
+      : unit.ownerName
+    : "No resident assigned";
+
   return (
-    <Link
+    <HouseCard
+      house={{
+        label: unit.label,
+        block: unit.block,
+        floor: unit.floor,
+        ownerName: residentDisplay,
+      }}
+      variant="billing"
+      status={unit.status || "pending"}
+      amount={unit.amount || unit.totalAmount}
+      dateLine={dateLine}
       to={`/dues/${unit.unitId}?cycle=${cycle.id}`}
-      className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${status.card}`}
-    >
-      <span className={`absolute inset-y-0 left-0 w-1.5 ${status.stripe}`} />
-      <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox}`}>
-          <span className="material-symbols-outlined text-[22px]">
-            {unit.isOccupied ? "home" : "home_work"}
-          </span>
-        </span>
-        <span
-          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-semibold ${status.pill}`}
-        >
-          <span className="material-symbols-outlined text-[13px]">{status.icon}</span>
-          {status.label}
-        </span>
-      </div>
-      <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">
-        House {unit.label}
-      </p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant flex items-center gap-1.5">
-        {unit.ownerName ? (
-          <>
-            <span>{unit.ownerName}</span>
-            {unit.isRenterOccupied && (
-              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                Renter
-              </span>
-            )}
-          </>
-        ) : (
-          "No resident assigned"
-        )}
-      </p>
-      <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-semibold text-on-surface-variant">
-        <span className="material-symbols-outlined shrink-0 text-[13px]">event</span>
-        {dateLine}
-      </p>
-    </Link>
+    />
   );
 }
 
@@ -869,8 +848,8 @@ export default function SocietyDuesPage() {
               <section>
 
                 {unitsQuery.isLoading ? (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                    {Array.from({ length: 10 }).map((_, i) => (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
                       <div key={i} className="h-36 animate-pulse rounded-xl bg-surface-container-high" />
                     ))}
                   </div>
@@ -879,7 +858,7 @@ export default function SocietyDuesPage() {
                     No houses match your search or filter.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {filtered.map((unit) => (
                       <DuesCard key={unit.unitId} unit={unit} cycle={cycle} />
                     ))}

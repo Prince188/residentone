@@ -67,7 +67,7 @@ export default function SocietyDueDetailPage() {
 
   if (!canManageMaintenance) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <span className="material-symbols-outlined text-error text-[40px]">lock</span>
           <h1 className="page-title mt-3">No permission</h1>
@@ -85,7 +85,7 @@ export default function SocietyDueDetailPage() {
 
   if (!cycleId) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center">
           <h1 className="page-title">Missing period</h1>
           <p className="page-subtitle">Open this page from the Manage Maintenance grid.</p>
@@ -102,7 +102,7 @@ export default function SocietyDueDetailPage() {
 
   if (detailQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
         <div className="h-8 w-40 animate-pulse rounded bg-surface-container-high" />
         <div className="h-48 animate-pulse rounded-2xl bg-surface-container-high" />
       </div>
@@ -111,7 +111,7 @@ export default function SocietyDueDetailPage() {
 
   if (detailQuery.isError) {
     return (
-      <div className="mx-auto max-w-3xl space-y-3">
+      <div className="mx-auto max-w-6xl space-y-3">
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
           {extractApiError(detailQuery.error, "Failed to load house dues.")}
         </div>
@@ -129,7 +129,7 @@ export default function SocietyDueDetailPage() {
   const busy = payMutation.isPending || unpayMutation.isPending;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to={`/dues?period=${record.cycle.id}`}

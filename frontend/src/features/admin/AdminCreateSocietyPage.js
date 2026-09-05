@@ -52,7 +52,7 @@ export default function AdminCreateSocietyPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <div>
         <Link
           to="/admin/societies"

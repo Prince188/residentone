@@ -19,41 +19,28 @@ import {
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
+import HouseCard from "../../components/cards/HouseCard";
 
 function UnitCard({ unit, collectionId }) {
-  const status = STATUS_UI[unit.status] || STATUS_UI.pending;
   const isSettled = ["paid", "late_paid"].includes(unit.status);
   const dateLine = isSettled
     ? `Paid on ${formatDate(unit.paidOn)}${unit.receiptNo ? ` · #${unit.receiptNo}` : ""}`
     : `Due by ${formatDate(unit.collection?.dueDate)}`;
 
   return (
-    <Link
+    <HouseCard
+      house={{
+        label: unit.label,
+        block: unit.block,
+        floor: unit.floor,
+        ownerName: unit.ownerName || "No resident",
+      }}
+      variant="billing"
+      status={unit.status || "pending"}
+      amount={unit.amount}
+      dateLine={dateLine}
       to={`/collections/${collectionId}/units/${unit.unitId}?from=admin`}
-      className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${status.card || "border-outline-variant bg-surface-container-lowest"}`}
-    >
-      <span className={`absolute inset-y-0 left-0 w-1.5 ${status.stripe || "bg-outline-variant"}`} />
-      <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox || "bg-surface-container-high"}`}>
-          <span className="material-symbols-outlined text-[22px]">{unit.isOccupied ? "home" : "home_work"}</span>
-        </span>
-        <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-semibold ${status.pill}`}>
-          <span className="material-symbols-outlined text-[13px]">{status.icon}</span>
-          {status.label}
-        </span>
-      </div>
-      <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">House {unit.label}</p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant flex items-center gap-1.5">
-        <span>{unit.ownerName || "No resident"}</span>
-        {unit.amount ? <span>· {formatAmount(unit.amount)}</span> : null}
-      </p>
-      {dateLine && (
-        <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-semibold text-on-surface-variant">
-          <span className="material-symbols-outlined shrink-0 text-[13px]">event</span>
-          {dateLine}
-        </p>
-      )}
-    </Link>
+    />
   );
 }
 

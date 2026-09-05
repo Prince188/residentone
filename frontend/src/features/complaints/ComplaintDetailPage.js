@@ -44,11 +44,11 @@ export default function ComplaintDetailPage() {
   });
 
   if (query.isLoading) {
-    return <div className="mx-auto max-w-3xl p-10 text-center text-body-md text-on-surface-variant">Loading complaint...</div>;
+    return <div className="mx-auto max-w-6xl p-10 text-center text-body-md text-on-surface-variant">Loading complaint...</div>;
   }
   if (query.isError) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="mx-auto max-w-6xl space-y-4">
         <Link to="/complaints" className="inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
           <span className="material-symbols-outlined text-[16px]">arrow_back</span> Complaints
         </Link>
@@ -64,7 +64,7 @@ export default function ComplaintDetailPage() {
   const canReopen = !canManageComplaints && (c.status === "resolved" || c.status === "closed");
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <Link to="/complaints" className="inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
         <span className="material-symbols-outlined text-[16px]">arrow_back</span> Complaints
       </Link>

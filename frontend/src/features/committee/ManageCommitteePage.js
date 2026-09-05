@@ -191,7 +191,7 @@ export default function ManageCommitteePage() {
   });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
@@ -330,69 +330,193 @@ export default function ManageCommitteePage() {
                 {ROLE_LABELS[roleKey] || roleKey} :-
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-semibold normal-case text-primary">{members.length}</span>
               </h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {members.map((m) => {
                   const name = m.userId?.name || "Unknown";
+                  const phone = m.userId?.phone || "";
                   const isEditing = editingId === String(m._virtualKey || m._id);
+                  const initial = name.charAt(0).toUpperCase();
+
                   return (
-                    <div key={m._virtualKey || m._id} className="flex flex-col items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-md">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-on-primary font-bold text-body-md">{name.charAt(0).toUpperCase()}</span>
-                      <p className="w-full truncate text-body-sm font-semibold text-on-surface sm:text-body-md">{name}</p>
-                      {!isEditing ? (
-                        <>
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold capitalize text-primary sm:text-label-sm">{m.role.replace("_", " ")}</span>
-                          {m._isAdditional && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">+ Wing Admin (additional)</span>}
-                          {!m._isAdditional && m.additionalRoles && m.additionalRoles.includes("wing_admin") && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Also Wing Admin • { (m.assignedWings||[]).join(", ")}</span>
-                          )}
-                        </>
-                      ) : (
-                        <select value={editRole} onChange={(e) => { setEditRole(e.target.value); if (e.target.value !== "wing_admin") setEditWings([]); }} disabled={m._isAdditional} className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm disabled:opacity-60 disabled:cursor-not-allowed">
-                          {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
-                          ))}
-                        </select>
-                      )}
-                      {m.role === "wing_admin" && !isEditing && m.assignedWings && m.assignedWings.length > 0 && (
-                        <span className="mt-1 inline-flex flex-wrap gap-1 justify-center">
-                          {m.assignedWings.map((w) => <span key={w} className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">Wing {w}</span>)}
-                        </span>
-                      )}
-                      {m._isAdditional && !isEditing && <span className="text-[10px] text-amber-700 font-semibold">Additional • Society Admin retained</span>}
-                      {isEditing && editRole === "wing_admin" && (
-                        <div className="w-full mt-1">
-                          <p className="text-[11px] font-semibold mb-1">Wings</p>
-                          {availableWings.length === 0 ? <p className="text-[11px] text-outline">No wings</p> : (
-                            <div className="flex flex-wrap gap-1 justify-center">
-                              {availableWings.map((w) => (
-                                <label key={w} className={`flex items-center gap-1 border rounded-full px-2 py-0.5 text-[11px] cursor-pointer ${editWings.includes(w) ? "bg-primary text-on-primary border-primary" : "bg-white border-outline-variant"}`}>
-                                  <input type="checkbox" className="sr-only" checked={editWings.includes(w)} onChange={(e) => {
-                                    if (e.target.checked) setEditWings((p) => [...p, w]);
-                                    else setEditWings((p) => p.filter((x) => x !== w));
-                                  }} />
-                                  {w}
-                                </label>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {!isEditing ? (
-                        canManageCommittee ? (
-                          <div className="mt-1 flex gap-1">
-                            <button type="button" onClick={() => { setEditingId(String(m._virtualKey || m._id)); setEditRole(m.role); setEditWings(m.assignedWings || []); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary">Change</button>
-                            <button type="button" onClick={() => { const confirmMsg = m._isAdditional ? `Remove Wing Admin from ${name}? Society Admin will be retained.` : `Remove ${name} from committee? Will become Owner.`; if (window.confirm(confirmMsg)) removeMut.mutate({ id: m._id, virtualRole: m.role, isAdditional: !!m._isAdditional, originalRole: m.originalRole }); }} className="rounded-full border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-error hover:text-error">Remove</button>
+                    <div
+                      key={m._virtualKey || m._id}
+                      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 min-h-[175px]"
+                    >
+                      {/* Left colored accent stripe */}
+                      <span
+                        aria-hidden="true"
+                        className={`absolute inset-y-0 left-0 w-1.5 ${
+                          m.role === "society_admin" || m.role === "super_admin"
+                            ? "bg-primary"
+                            : m.role === "wing_admin"
+                            ? "bg-amber-500"
+                            : "bg-teal-600"
+                        }`}
+                      />
+
+                      <div className="pl-1">
+                        {/* Header: Avatar + Role Badge */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-black text-body-md border border-primary/20 shadow-xs">
+                            {initial}
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-outline">View only</span>
-                        )
-                      ) : (
-                        <div className="mt-1 flex gap-1">
-                          <button type="button" onClick={() => updateMut.mutate({ id: m._id, newRole: editRole, wings: editWings })} disabled={updateMut.isPending || !canManageCommittee} className="rounded-full bg-primary px-2 py-1 text-[11px] text-on-primary disabled:opacity-50">Save</button>
-                          <button type="button" onClick={() => setEditingId(null)} className="rounded-full border border-outline-variant px-2 py-1 text-[11px]">Cancel</button>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-outline-variant bg-surface-container-low px-2 py-0.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider truncate max-w-[130px]">
+                            <span className="material-symbols-outlined text-[12px] text-primary">verified_user</span>
+                            <span className="truncate">{ROLE_LABELS[m.role] || m.role.replace("_", " ")}</span>
+                          </span>
                         </div>
-                      )}
-                      )}
+
+                        {/* Name & Phone */}
+                        <h4 className="mt-2.5 truncate text-body-md font-extrabold text-on-surface group-hover:text-primary transition-colors">
+                          {name}
+                        </h4>
+                        {phone && (
+                          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-outline truncate">
+                            <span className="material-symbols-outlined text-[13px]">call</span>
+                            <span className="truncate">{phone}</span>
+                          </p>
+                        )}
+
+                        {/* Badges / Wings Info */}
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {m._isAdditional && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                              + Wing Admin (additional)
+                            </span>
+                          )}
+                          {!m._isAdditional && m.additionalRoles && m.additionalRoles.includes("wing_admin") && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                              Also Wing Admin • {(m.assignedWings || []).join(", ")}
+                            </span>
+                          )}
+                          {m.role === "wing_admin" && !isEditing && m.assignedWings && m.assignedWings.length > 0 && (
+                            m.assignedWings.map((w) => (
+                              <span key={w} className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[10px] font-bold">
+                                Wing {w}
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Edit Role Mode */}
+                        {isEditing && (
+                          <div className="mt-3 space-y-2 pt-2 border-t border-outline-variant/60">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">
+                                Change Role
+                              </label>
+                              <select
+                                value={editRole}
+                                onChange={(e) => {
+                                  setEditRole(e.target.value);
+                                  if (e.target.value !== "wing_admin") setEditWings([]);
+                                }}
+                                disabled={m._isAdditional}
+                                className="w-full rounded-lg border border-primary bg-white px-2 py-1 text-label-sm font-medium text-on-surface focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {COMMITTEE_ROLES.concat([{ value: "society_admin", label: "Society Admin" }]).map((r) => (
+                                  <option key={r.value} value={r.value}>{r.label}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {editRole === "wing_admin" && (
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-outline mb-1">Select Wings</p>
+                                {availableWings.length === 0 ? (
+                                  <p className="text-[11px] text-outline">No wings found</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1">
+                                    {availableWings.map((w) => (
+                                      <label
+                                        key={w}
+                                        className={`flex items-center gap-1 border rounded-md px-1.5 py-0.5 text-[11px] font-bold cursor-pointer transition-colors ${
+                                          editWings.includes(w)
+                                            ? "bg-primary text-on-primary border-primary"
+                                            : "bg-surface-container-low border-outline-variant text-on-surface"
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          className="sr-only"
+                                          checked={editWings.includes(w)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) setEditWings((p) => [...p, w]);
+                                            else setEditWings((p) => p.filter((x) => x !== w));
+                                          }}
+                                        />
+                                        {w}
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="w-full border-t border-outline-variant/60 pt-2.5 mt-3 pl-1">
+                        {!isEditing ? (
+                          canManageCommittee ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingId(String(m._virtualKey || m._id));
+                                  setEditRole(m.role);
+                                  setEditWings(m.assignedWings || []);
+                                }}
+                                className="inline-flex items-center gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[11px] font-bold text-on-surface hover:border-primary hover:text-primary transition-colors cursor-pointer"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">edit</span>
+                                Change
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const confirmMsg = m._isAdditional
+                                    ? `Remove Wing Admin from ${name}? Society Admin will be retained.`
+                                    : `Remove ${name} from committee? Will become Owner.`;
+                                  if (window.confirm(confirmMsg)) {
+                                    removeMut.mutate({
+                                      id: m._id,
+                                      virtualRole: m.role,
+                                      isAdditional: !!m._isAdditional,
+                                      originalRole: m.originalRole,
+                                    });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[11px] font-bold text-error hover:bg-error-container/30 hover:border-error transition-colors cursor-pointer"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">delete</span>
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-outline italic">View only</span>
+                          )
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => updateMut.mutate({ id: m._id, newRole: editRole, wings: editWings })}
+                              disabled={updateMut.isPending || !canManageCommittee}
+                              className="rounded-lg bg-primary px-3 py-1 text-[11px] font-bold text-on-primary hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="rounded-lg border border-outline-variant px-2.5 py-1 text-[11px] font-medium text-on-surface hover:border-outline transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

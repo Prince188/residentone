@@ -10,33 +10,28 @@ import {
   periodLabel,
 } from "../../lib/maintenance";
 
+import HouseCard from "../../components/cards/HouseCard";
+
 function UnitCard({ unit, cycleId }) {
-  const status = STATUS_UI[unit.status] || STATUS_UI.pending;
   const displayAmount = unit.amount || unit.totalAmount;
+  const isSettled = ["paid", "late_paid"].includes(unit.status);
+  const dateLine = isSettled && unit.paidOn ? `Paid on ${formatDate(unit.paidOn)}` : null;
+  const roleLabel = unit.isOwner ? "Owner" : unit.isTenant ? "Renter" : unit.houseRole === "owner" ? "Owner" : "Renter";
+
   return (
-    <Link
+    <HouseCard
+      house={{
+        label: unit.label,
+        block: unit.block,
+        floor: unit.floor,
+        ownerName: roleLabel,
+      }}
+      variant="billing"
+      status={unit.status || "pending"}
+      amount={displayAmount}
+      dateLine={dateLine}
       to={`/maintenance/${unit.unitId}?cycle=${cycleId}`}
-      className={`relative block overflow-hidden rounded-xl border p-4 pl-5 no-underline transition-transform hover:-translate-y-0.5 hover:shadow-md ${status.card}`}
-    >
-      <span className={`absolute inset-y-0 left-0 w-1.5 ${status.stripe}`} />
-      <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${status.iconBox}`}>
-          <span className="material-symbols-outlined text-[22px]">
-            {unit.isOwner ? "home" : "home_work"}
-          </span>
-        </span>
-        <span
-          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-semibold ${status.pill}`}
-        >
-          <span className="material-symbols-outlined text-[13px]">{status.icon}</span>
-          {status.label}
-        </span>
-      </div>
-      <p className="mt-3 truncate text-headline-sm font-semibold text-on-surface">House {unit.label}</p>
-      <p className="mt-0.5 truncate text-body-sm text-on-surface-variant">
-        {unit.isOwner ? "Owner" : unit.isTenant ? "Renter" : unit.houseRole === "owner" ? "Owner" : "Renter"} {displayAmount ? `· ${formatAmount(displayAmount)}` : ""}
-      </p>
-    </Link>
+    />
   );
 }
 
@@ -51,7 +46,7 @@ export default function MaintenancePage() {
 
   if (!units.length) {
     return (
-      <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+      <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
         <section>
           <h1 className="page-title">Maintenance</h1>
           <p className="page-subtitle">Track dues and manage your maintenance payments.</p>
@@ -69,7 +64,7 @@ export default function MaintenancePage() {
   const cycle = latestQuery.data;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <section>
         <Link
           to="/dashboard"

@@ -44,6 +44,7 @@ import FamilyMembersPage from "./features/family-members/FamilyMembersPage";
 import DocumentsPage from "./features/documents/DocumentsPage";
 import PollsPage from "./features/polls/PollsPage";
 import CreatePollPage from "./features/polls/CreatePollPage";
+import PollHistoryPage from "./features/polls/PollHistoryPage";
 import DirectoryPage from "./features/directory/DirectoryPage";
 import ChatPage from "./features/chat/ChatPage";
 import SurveysPage from "./features/surveys/SurveysPage";
@@ -131,6 +132,7 @@ function App() {
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/polls" element={<PollsPage />} />
               <Route path="/polls/new" element={<CreatePollPage />} />
+              <Route path="/polls/history" element={<PollHistoryPage />} />
               <Route path="/directory" element={<DirectoryPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/surveys" element={<SurveysPage />} />

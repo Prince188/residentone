@@ -10,6 +10,7 @@ export const PATH_TO_FEATURE = {
   "/complaints/new": "complaints",
   "/polls": "polls",
   "/polls/new": "polls",
+  "/polls/history": "polls",
   "/surveys": "surveys",
   "/surveys/new": "surveys",
 };

@@ -161,8 +161,8 @@ export default function SurveyDetailPage() {
     },
   });
 
-  if (q.isLoading) return <div className="mx-auto max-w-2xl p-6 text-center">Loading...</div>;
-  if (q.isError) return <div className="mx-auto max-w-2xl p-6 text-center text-error">{extractApiError(q.error,"Failed to load")}</div>;
+  if (q.isLoading) return <div className="mx-auto max-w-6xl p-6 text-center">Loading...</div>;
+  if (q.isError) return <div className="mx-auto max-w-6xl p-6 text-center text-error">{extractApiError(q.error,"Failed to load")}</div>;
   if (!survey) return null;
 
   const handleSingle = (qid, idx) => setAnswers((prev) => ({ ...prev, [qid]: { selectedOptions: [idx], textAnswer: "" } }));
@@ -187,7 +187,7 @@ export default function SurveyDetailPage() {
   const showResults = survey.isClosed || survey.hasResponded;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link to="/surveys" className="inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-primary"><span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Surveys</Link>
       
       {actionError && <p className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">{actionError}</p>}

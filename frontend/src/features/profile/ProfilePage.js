@@ -312,7 +312,7 @@ export default function ProfilePage() {
 
   if (profileQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-4xl p-12 text-center text-on-surface-variant">
+      <div className="mx-auto max-w-6xl p-12 text-center text-on-surface-variant">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         <p className="mt-3 text-body-md font-medium">Loading profile...</p>
       </div>
@@ -326,7 +326,7 @@ export default function ProfilePage() {
   const totalUnits = memberships.reduce((acc, m) => acc + (m.units?.length || 0), 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       {/* Top Navigation Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

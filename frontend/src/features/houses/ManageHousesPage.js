@@ -12,6 +12,7 @@ import EditHouseModal from "./EditHouseModal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import api from "../../lib/api";
 import { hasPermissionForMembership, isPureWingAdmin } from "../../lib/permissions";
+import HouseCard from "../../components/cards/HouseCard";
 
 const STATUS_FILTERS = [
   { id: "all", label: "All" },
@@ -19,81 +20,6 @@ const STATUS_FILTERS = [
   { id: "renter", label: "Rented" },
   { id: "vacant", label: "Vacant" },
 ];
-
-function HouseCard({ house, familyMembers = [], onClick }) {
-  const status = house.isRented
-    ? "Rented"
-    : house.isAssigned
-      ? "Owned"
-      : "Vacant";
-  const vehicles = (house.tenant || house.owner)?.vehicles || [];
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`block w-full rounded-xl border p-3 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md h-[148px] sm:h-[156px] flex flex-col justify-between ${
-        house.isAssigned || house.isRented
-          ? "border-success bg-secondary-fixed"
-          : "border-outline-variant bg-surface-container-lowest"
-      }`}
-    >
-      <div className="w-full">
-        <div className="flex items-center justify-between gap-2">
-          <span className="material-symbols-outlined text-[22px] text-primary">
-            {house.isAssigned || house.isRented ? "home" : "home_work"}
-          </span>
-          <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              house.isAssigned || house.isRented
-                ? "bg-primary-fixed text-on-primary-fixed"
-                : "bg-surface-container-high text-on-surface-variant"
-            }`}
-          >
-            {status}
-          </span>
-        </div>
-        <p className="mt-2 text-title-md font-bold text-on-surface leading-tight truncate">
-          {house.label}
-        </p>
-        <p className="mt-0.5 truncate text-body-sm text-on-surface-variant font-medium">
-          {(house.tenant || house.owner)?.name || "No resident assigned"}
-        </p>
-      </div>
-
-      <div className="w-full space-y-1 border-t border-outline-variant/30 pt-2 mt-auto">
-        {/* Vehicles row */}
-        <div className="flex items-center gap-1 text-label-sm text-on-surface-variant truncate h-4">
-          {vehicles.length > 0 ? (
-            <>
-              <span className="material-symbols-outlined text-[14px]">directions_car</span>
-              <span className="truncate">{vehicles[0]}{vehicles.length > 1 ? ` +${vehicles.length - 1}` : ""}</span>
-            </>
-          ) : (
-            <span className="text-outline/50 text-[11px]">— No vehicles</span>
-          )}
-        </div>
-
-        {/* Family members / Invite row */}
-        <div className="flex items-center gap-1 text-label-sm text-primary truncate h-4">
-          {familyMembers.length > 0 ? (
-            <>
-              <span className="material-symbols-outlined text-[14px]">group</span>
-              <span className="truncate">{familyMembers.length} family member{familyMembers.length > 1 ? "s" : ""}</span>
-            </>
-          ) : house.hasPendingInvite && !house.isAssigned && !house.isRented ? (
-            <>
-              <span className="material-symbols-outlined text-[14px]">link</span>
-              <span className="font-semibold text-[11px] uppercase tracking-wider text-primary">Invite sent</span>
-            </>
-          ) : (
-            <span className="text-outline/50 text-[11px]">— No family</span>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-}
 
 export default function ManageHousesPage() {
   const queryClient = useQueryClient();
@@ -264,92 +190,153 @@ export default function ManageHousesPage() {
     );
   }
 
+  const totalOwned = houses.filter((h) => h.isAssigned && !h.isRented).length;
+  const totalRented = houses.filter((h) => h.isRented).length;
+  const totalVacant = houses.filter((h) => !h.isAssigned && !h.isRented).length;
+  const occupancyPercent = houses.length > 0 ? Math.round(((totalOwned + totalRented) / houses.length) * 100) : 0;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
-      <section className="flex flex-wrap items-end justify-between gap-3">
+    <div className="mx-auto max-w-6xl space-y-6">
+      {/* Top Header */}
+      <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link
             to="/dashboard"
-            className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
+            className="mb-1.5 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary transition-colors"
           >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Dashboard
           </Link>
-          <h1 className="page-title">Manage Houses</h1>
-          <p className="page-subtitle">
-            {activeSociety ? activeSociety.name : ""} ·{" "}
-            {housesQuery.isLoading
-              ? "Loading houses..."
-              : isWingAdmin ? `Wing ${ (activeMembership.assignedWings||[]).join(", ") } • ${displayedCount} houses (of ${houses.length}) • ${assignedCount} assigned total` : `${assignedCount} of ${houses.length} houses assigned`}
+          <div className="flex items-center gap-3">
+            <h1 className="page-title">Manage Houses & Units</h1>
+            <span className="rounded-full bg-primary/10 px-3 py-0.5 text-label-sm font-bold text-primary">
+              {houses.length} Total Units
+            </span>
+          </div>
+          <p className="page-subtitle mt-0.5">
+            {activeSociety?.name} · {isWingAdmin ? `Assigned to Wing ${(activeMembership.assignedWings || []).join(", ")}` : "Society-wide housing directory & resident assignments"}
           </p>
         </div>
-        <div className="w-full max-w-md space-y-2">
-          {/* Desktop Filter buttons */}
-          <div className="hidden flex-wrap gap-1.5 sm:flex">
-            {STATUS_FILTERS.map((filter) => (
+
+        <div className="flex items-center gap-2">
+          <Link
+            to="/my-unit"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary">home_work</span>
+            My Residence
+          </Link>
+        </div>
+      </section>
+
+      {/* Occupancy Overview Stats */}
+      {houses.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
+            <div className="flex items-center justify-between text-outline">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Total Units</span>
+              <span className="material-symbols-outlined text-[20px] text-primary">domain</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-black text-on-surface">{houses.length}</p>
+            <div className="mt-1 flex items-center justify-between text-[11px] text-on-surface-variant">
+              <span>{occupancyPercent}% Occupied</span>
+              <span className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-container-high">
+                <span className="block h-full bg-primary" style={{ width: `${occupancyPercent}%` }} />
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-emerald-800">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Owned</span>
+              <span className="material-symbols-outlined text-[20px] text-emerald-600">verified</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-black text-emerald-950">{totalOwned}</p>
+            <p className="mt-1 text-[11px] font-medium text-emerald-800">Owner residing</p>
+          </div>
+
+          <div className="rounded-2xl border border-sky-200/80 bg-sky-50/40 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-sky-800">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Rented</span>
+              <span className="material-symbols-outlined text-[20px] text-sky-600">key</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-black text-sky-950">{totalRented}</p>
+            <p className="mt-1 text-[11px] font-medium text-sky-800">Active tenants</p>
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-zinc-700">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Vacant</span>
+              <span className="material-symbols-outlined text-[20px] text-zinc-500">home_work</span>
+            </div>
+            <p className="mt-2 text-headline-sm font-black text-zinc-900">{totalVacant}</p>
+            <p className="mt-1 text-[11px] font-medium text-zinc-600">Ready for assignment</p>
+          </div>
+        </div>
+      )}
+
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 shadow-xs">
+        {/* Status Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          {STATUS_FILTERS.map((filter) => {
+            const isActive = statusFilter === filter.id;
+            const count =
+              filter.id === "all"
+                ? houses.length
+                : filter.id === "owner"
+                ? totalOwned
+                : filter.id === "renter"
+                ? totalRented
+                : totalVacant;
+
+            return (
               <button
                 key={filter.id}
                 type="button"
                 onClick={() => setStatusFilter(filter.id)}
-                className={`rounded-full border px-3 py-1 text-label-md transition-colors ${
-                  statusFilter === filter.id
-                    ? "border-inverse-surface bg-inverse-surface text-white"
-                    : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-secondary-fixed"
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-label-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? "bg-primary text-on-primary shadow-xs"
+                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"
                 }`}
               >
-                {filter.label}
-                 {filter.id === "owner" &&
-                  ` (${houses.filter((h) => h.isAssigned && !h.isRented).length})`}
-                {filter.id === "renter" &&
-                  ` (${houses.filter((h) => h.isRented).length})`}
-                {filter.id === "vacant" &&
-                  ` (${houses.filter((h) => !h.isAssigned && !h.isRented).length})`}
+                <span>{filter.label}</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                    isActive ? "bg-white/20 text-white" : "bg-surface-container text-outline"
+                  }`}
+                >
+                  {count}
+                </span>
               </button>
-            ))}
-          </div>
-
-          {/* Search bar & Mobile filter select */}
-          <div className="flex items-center gap-2 w-full">
-            <div className="relative flex-1">
-              <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
-                search
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search house, resident or vehicle..."
-                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Filter houses"
-              className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden min-w-[110px] max-w-[140px]"
-            >
-              {STATUS_FILTERS.map((filter) => (
-                <option key={filter.id} value={filter.id}>
-                  {filter.label} (
-                  {filter.id === "all" && houses.length}
-                  {filter.id === "owner" &&
-                    houses.filter((h) => h.isAssigned && !h.isRented).length}
-                  {filter.id === "renter" &&
-                    houses.filter((h) => h.isRented).length}
-                  {filter.id === "vacant" &&
-                    houses.filter((h) => !h.isAssigned && !h.isRented).length}
-                  )
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="mt-1 flex items-center gap-1 text-[11px] text-outline">
-            <span className="material-symbols-outlined text-[13px]">directions_car</span>
-            Try GJ01AB1234
-          </p>
+            );
+          })}
         </div>
-      </section>
+
+        {/* Search Bar */}
+        <div className="relative min-w-[260px] sm:w-80">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
+            search
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search house, resident or vehicle..."
+            className="w-full rounded-xl border border-outline-variant bg-surface-container-low/60 py-2 pl-9 pr-8 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          )}
+        </div>
+      </div>
 
       {housesQuery.isError && (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
@@ -418,7 +405,7 @@ export default function ManageHousesPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {filtered.map((house) => (
                 <HouseCard
                   key={house.id}

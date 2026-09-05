@@ -69,7 +69,7 @@ export default function CreatePollPage() {
 
   if (!canCreatePoll) {
     return (
-      <div className="mx-auto max-w-2xl py-12 text-center">
+      <div className="mx-auto max-w-6xl py-12 text-center">
         <p className="text-body-md text-error">You don’t have permission to create polls.</p>
         <p className="text-body-sm text-on-surface-variant">Ask your Society Admin for <strong>Create Poll</strong> permission.</p>
         <Link to="/polls" className="mt-4 inline-block text-primary hover:underline">Back to Polls</Link>
@@ -107,7 +107,7 @@ export default function CreatePollPage() {
   const minDate = new Date().toISOString().slice(0, 16);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link to="/polls" className="inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
         <span className="material-symbols-outlined text-[16px]">arrow_back</span>
         Back to Polls

@@ -215,94 +215,183 @@ function PollCard({ poll, onVote, votingId, onClose, closingId, onEdit, onDelete
   const isClosed = poll.isClosed || poll.status === "closed";
   const isSecret = poll.type === "secret";
   const isWing = poll.scope === "wing" && poll.wing;
+  const isSubmitting = votingId === poll.id;
+  const endFormatted = formatPollEndDate(poll.endDate);
 
   return (
-    <article className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="flex-1 text-body-lg font-semibold text-on-surface">{poll.question}</h3>
+    <article className="group relative overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1.5 ${
+          isClosed ? "bg-zinc-400" : hasVoted ? "bg-emerald-500" : "bg-primary"
+        }`}
+      />
+
+      {/* Badges Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pl-1">
         <div className="flex items-center gap-2 flex-wrap">
-          {isWing && <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-2.5 py-1 text-label-sm font-bold">Wing {poll.wing}</span>}
-          {!isWing && <span className="shrink-0 rounded-full bg-sky-100 text-sky-800 px-2.5 py-1 text-label-sm font-bold">Society</span>}
-          <span className={`shrink-0 rounded-full px-2.5 py-1 text-label-sm font-semibold ${isClosed ? "bg-outline-variant text-on-surface-variant" : "bg-primary-fixed text-on-primary-fixed"}`}>
+          {isWing ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 px-2.5 py-0.5 text-label-sm font-semibold">
+              <span className="material-symbols-outlined text-[14px]">domain</span>
+              Wing {poll.wing}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200/60 px-2.5 py-0.5 text-label-sm font-semibold">
+              <span className="material-symbols-outlined text-[14px]">apartment</span>
+              Society
+            </span>
+          )}
+
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-sm font-semibold ${
+              isClosed
+                ? "bg-zinc-100 text-zinc-700"
+                : "bg-emerald-50 text-emerald-800 border border-emerald-200/60"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[14px]">
+              {isClosed ? "check_circle" : "radio_button_checked"}
+            </span>
             {isClosed ? "Closed" : "Active"}
           </span>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-label-sm ${isSecret ? "bg-secondary-fixed text-on-secondary-fixed" : "bg-surface-container-high text-on-surface-variant"}`}>
-            {isSecret ? "Secret" : "Open"}
+
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 text-label-sm font-medium">
+            <span className="material-symbols-outlined text-[13px]">{isSecret ? "lock" : "visibility"}</span>
+            {isSecret ? "Secret Poll" : "Open Poll"}
           </span>
         </div>
+
+        {endFormatted && (
+          <span className={`text-[12px] font-medium flex items-center gap-1 ${
+            isClosed ? "text-outline" : "text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/50"
+          }`}>
+            <span className="material-symbols-outlined text-[14px]">
+              {isClosed ? "event_available" : "schedule"}
+            </span>
+            {endFormatted}
+          </span>
+        )}
       </div>
 
-      <p className="mt-1 text-label-sm text-outline">
-        {isWing ? `Wing ${poll.wing} • ` : ""}{formatPollEndDate(poll.endDate)} · {poll.totalVotesHidden ? "Results hidden till close" : `${poll.totalVotes} vote${poll.totalVotes === 1 ? "" : "s"}`} · by {poll.createdByName}
-      </p>
+      {/* Question */}
+      <h3 className="mt-3.5 pl-1 text-title-md font-bold text-on-surface">
+        {poll.question}
+      </h3>
 
-      <div className="mt-4 space-y-2.5">
+      {/* Options */}
+      <div className="mt-4 space-y-2.5 pl-1">
         {poll.options.map((opt) => {
           const isVoted = opt.isVoted;
           const showResult = !isSecret || isClosed;
+          const canClick = !isClosed && !hasVoted && !isSubmitting;
+
           return (
             <button
               key={opt.index}
-              onClick={() => !isClosed && !hasVoted && onVote(poll.id, opt.index)}
-              disabled={isClosed || hasVoted}
-              className={`relative w-full overflow-hidden rounded-lg border px-4 py-3 text-left transition-colors ${
+              type="button"
+              onClick={() => canClick && onVote(poll.id, opt.index)}
+              disabled={!canClick}
+              className={`group/opt relative w-full overflow-hidden rounded-xl border p-3.5 text-left transition-all duration-150 ${
                 isVoted
-                  ? "border-primary bg-primary-fixed/60"
-                  : isClosed || hasVoted
-                  ? "border-outline-variant bg-surface-container-low cursor-default"
-                  : "border-outline-variant bg-surface-container-lowest hover:border-primary/40 hover:bg-surface-container-low cursor-pointer"
+                  ? "border-primary bg-primary-fixed/30 ring-1 ring-primary/40"
+                  : canClick
+                  ? "border-outline-variant/80 bg-surface-container-lowest hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                  : "border-outline-variant/60 bg-surface-container-low/50 cursor-default"
               }`}
             >
+              {/* Animated Progress background */}
               {showResult && poll.totalVotes > 0 && (
                 <div
-                  className="absolute inset-y-0 left-0 bg-primary/10 transition-all"
+                  className={`absolute inset-y-0 left-0 transition-all duration-500 ${
+                    isVoted ? "bg-primary/15" : "bg-primary/8"
+                  }`}
                   style={{ width: `${opt.percent}%` }}
                 />
               )}
-              <span className="relative flex items-center justify-between gap-2">
-                <span className={`flex items-center gap-2 text-body-md ${isVoted ? "font-semibold text-on-surface" : "text-on-surface"}`}>
+
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[12px] ${
-                      isVoted ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest"
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] transition-colors ${
+                      isVoted
+                        ? "border-primary bg-primary text-on-primary font-bold shadow-xs"
+                        : "border-outline-variant bg-surface-container-lowest group-hover/opt:border-primary"
                     }`}
                   >
-                    {isVoted ? "✓" : ""}
+                    {isVoted ? "✓" : opt.index + 1}
                   </span>
-                  {opt.text}
-                </span>
+                  <span className={`text-body-md truncate ${isVoted ? "font-bold text-primary" : "font-medium text-on-surface"}`}>
+                    {opt.text}
+                  </span>
+                  {isVoted && (
+                    <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                      Your Vote
+                    </span>
+                  )}
+                </div>
+
                 {showResult && (
-                  <span className="shrink-0 text-label-md font-semibold text-on-surface">
-                    {opt.votes} · {opt.percent}%
+                  <div className="shrink-0 flex items-center gap-2">
+                    <span className="text-body-sm font-semibold text-on-surface">
+                      {opt.votes} {opt.votes === 1 ? "vote" : "votes"}
+                    </span>
+                    <span className={`rounded-md px-1.5 py-0.5 text-label-sm font-bold ${
+                      isVoted ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant"
+                    }`}>
+                      {opt.percent}%
+                    </span>
+                  </div>
+                )}
+
+                {!showResult && isSecret && (
+                  <span className="shrink-0 rounded-md bg-surface-container-high px-2 py-0.5 text-[11px] font-medium text-outline">
+                    Votes hidden
                   </span>
                 )}
-                {!showResult && isSecret && <span className="text-label-sm text-outline">hidden</span>}
-              </span>
+              </div>
             </button>
           );
         })}
       </div>
 
-      {hasVoted && !isClosed && <p className="mt-3 text-label-sm font-medium text-primary">You voted {isSecret ? "(secret)" : `- ${poll.options.find((o) => o.isVoted)?.text}`}</p>}
-      {votingId === poll.id && <p className="mt-2 text-label-sm text-outline">Submitting vote...</p>}
-
-      {!isSecret && poll.totalVotes > 0 && (
-        <button onClick={() => onViewVoters(poll)} className="mt-3 inline-flex items-center gap-1.5 text-label-md font-medium text-primary hover:underline cursor-pointer">
-          <span className="material-symbols-outlined text-[18px]">visibility</span>
-          View votes ({poll.totalVotes})
-        </button>
+      {/* Submitting indicator */}
+      {isSubmitting && (
+        <p className="mt-2 pl-1 text-label-sm text-primary flex items-center gap-1.5 font-medium animate-pulse">
+          <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
+          Recording your vote...
+        </p>
       )}
-      {isSecret && !isClosed && <p className="mt-3 text-label-sm text-outline">Votes hidden until poll closes.</p>}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-variant pt-3">
-        {poll.isClosed ? (
-          <span className="text-label-sm text-outline">Poll closed</span>
-        ) : hasVoted ? (
-          <span className="text-label-sm text-outline">Waiting for others to vote</span>
-        ) : (
-          <span className="text-label-sm text-outline">Tap an option to vote</span>
-        )}
-        <div className="ml-auto flex gap-2">
-          <AdminActions poll={poll} onClose={onClose} closingId={closingId} onEdit={onEdit} onDelete={onDelete} />
+      {/* Footer Info & Actions */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/60 pt-3.5 pl-1">
+        <div className="flex items-center gap-3 text-label-sm text-outline flex-wrap">
+          <span className="flex items-center gap-1 font-medium text-on-surface-variant">
+            <span className="material-symbols-outlined text-[16px] text-primary">how_to_vote</span>
+            {poll.totalVotesHidden ? "Results hidden till close" : `${poll.totalVotes} total ${poll.totalVotes === 1 ? "vote" : "votes"}`}
+          </span>
+          <span>•</span>
+          <span>By {poll.createdByName}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!isSecret && poll.totalVotes > 0 && (
+            <button
+              type="button"
+              onClick={() => onViewVoters(poll)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-3 py-1 text-label-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">group</span>
+              View Voters
+            </button>
+          )}
+
+          <AdminActions
+            poll={poll}
+            onClose={onClose}
+            closingId={closingId}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         </div>
       </div>
     </article>
@@ -320,29 +409,32 @@ function AdminActions({ poll, onClose, closingId, onEdit, onDelete }) {
   const canCreatePoll = hasPermissionForMembership(membership, "create_poll", permissionsQuery.data);
   if (!canCreatePoll) return null;
   return (
-    <>
+    <div className="flex items-center gap-1.5">
       <button
+        type="button"
         onClick={() => onEdit(poll)}
-        className="rounded-full border border-outline-variant px-3 py-1.5 text-label-sm font-medium text-on-surface-variant hover:bg-surface-container-high cursor-pointer"
+        className="rounded-full border border-outline-variant bg-surface-container-lowest px-3 py-1 text-label-sm font-semibold text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
       >
         Edit
       </button>
       {poll.status === "active" && !poll.isClosed && (
         <button
+          type="button"
           onClick={() => onClose(poll)}
           disabled={closingId === poll.id}
-          className="rounded-full border border-outline-variant px-3 py-1.5 text-label-sm font-medium text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50 cursor-pointer"
+          className="rounded-full border border-amber-300 bg-amber-50/50 px-3 py-1 text-label-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors cursor-pointer"
         >
-          {closingId === poll.id ? "Closing..." : "Close"}
+          {closingId === poll.id ? "Closing..." : "Close Poll"}
         </button>
       )}
       <button
+        type="button"
         onClick={() => onDelete(poll)}
-        className="rounded-full border border-error/30 px-3 py-1.5 text-label-sm font-medium text-error hover:bg-error/10 cursor-pointer"
+        className="rounded-full border border-error/30 bg-surface-container-lowest px-3 py-1 text-label-sm font-semibold text-error hover:bg-error/10 transition-colors cursor-pointer"
       >
         Delete
       </button>
-    </>
+    </div>
   );
 }
 
@@ -416,106 +508,166 @@ export default function PollsPage() {
 
   const [scopeFilter, setScopeFilter] = useState("all");
   const polls = pollsQuery.data || [];
-  const scopeFiltered = polls.filter((p) => {
+  const activePollsList = polls.filter((p) => !p.isClosed && p.status === "active");
+  const closedPollsList = polls.filter((p) => p.isClosed || p.status === "closed");
+
+  const scopeFilteredActive = activePollsList.filter((p) => {
     if (scopeFilter === "society") return !p.wing && (p.scope === "society" || !p.scope);
     if (scopeFilter === "wing") return p.scope === "wing" && !!p.wing;
     return true;
   });
-  const activePolls = scopeFiltered.filter((p) => !p.isClosed);
-  const closedPolls = scopeFiltered.filter((p) => p.isClosed);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Dashboard
           </Link>
           <h1 className="page-title flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">how_to_vote</span>
+            <span className="material-symbols-outlined text-primary text-[28px]">how_to_vote</span>
             Polls & Voting
           </h1>
           <p className="page-subtitle">
             {activeSociety ? `${activeSociety.name} · ` : ""}
-            {canCreatePoll ? "Create polls for society decisions." : "Vote on society decisions."}
+            {canCreatePoll ? "Create community polls and view live voting progress." : "Vote on community proposals and view live progress."}
           </p>
         </div>
-        {canCreatePoll && (
-          <Link to="/polls/new" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md text-on-primary no-underline hover:opacity-90">
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            Create Poll
+
+        <div className="flex items-center gap-2">
+          <Link
+            to="/polls/history"
+            className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-semibold text-on-surface no-underline hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary">history_edu</span>
+            Polls History
+            {closedPollsList.length > 0 && (
+              <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-bold text-on-surface-variant">
+                {closedPollsList.length}
+              </span>
+            )}
           </Link>
-        )}
+
+          {canCreatePoll && (
+            <Link
+              to="/polls/new"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary no-underline hover:opacity-90 shadow-sm transition-opacity"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Create Poll
+            </Link>
+          )}
+        </div>
       </section>
 
-      {actionError && <p className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">{actionError}</p>}
+      {actionError && (
+        <div className="rounded-xl border border-error/30 bg-error-container/40 p-4 text-body-sm text-error">
+          {actionError}
+        </div>
+      )}
 
       {pollsQuery.isLoading && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-xl bg-surface-container-high" />
+            <div key={i} className="h-44 animate-pulse rounded-2xl bg-surface-container-high" />
           ))}
         </div>
       )}
 
       {pollsQuery.isError && (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-md text-error">
+        <div className="rounded-2xl border border-error/30 bg-error-container/40 p-6 text-center text-body-md text-error">
           {extractApiError(pollsQuery.error, "Failed to load polls.")}
         </div>
       )}
 
-      {pollsQuery.isSuccess && polls.length === 0 && (
-        <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-10 text-center">
-          <span className="material-symbols-outlined text-[40px] text-on-surface-variant">how_to_vote</span>
-          <p className="mt-3 text-body-md font-semibold text-on-surface">No polls yet</p>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
-            {canCreatePoll ? "Create the first poll for your society." : "Your admin has not created any polls."}
+      {pollsQuery.isSuccess && activePollsList.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest p-10 text-center shadow-xs">
+          <span className="material-symbols-outlined text-[48px] text-outline">
+            {closedPollsList.length > 0 ? "done_all" : "how_to_vote"}
+          </span>
+          <h3 className="mt-3 text-title-md font-semibold text-on-surface">
+            {closedPollsList.length > 0 ? "No active polls right now" : "No polls yet"}
+          </h3>
+          <p className="mt-1 text-body-sm text-on-surface-variant max-w-md mx-auto">
+            {closedPollsList.length > 0
+              ? "All previous community polls have concluded and moved to Polls History."
+              : canCreatePoll
+              ? "Create the first poll to make decisions together with residents."
+              : "Your society committee has not published any polls yet."}
           </p>
-          {canCreatePoll && (
-            <Link to="/polls/new" className="mt-4 inline-flex items-center gap-1 text-label-md text-primary hover:underline">
-              Create Poll →
-            </Link>
-          )}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            {closedPollsList.length > 0 && (
+              <Link
+                to="/polls/history"
+                className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-semibold text-primary hover:bg-surface-container-high transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">history_edu</span>
+                View Polls History ({closedPollsList.length})
+              </Link>
+            )}
+            {canCreatePoll && (
+              <Link
+                to="/polls/new"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary no-underline hover:opacity-90"
+              >
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Create Poll
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
-      {scopeFiltered.length > 0 && (
-        <div className="flex gap-2">
-          <button onClick={() => setScopeFilter("all")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border cursor-pointer ${scopeFilter==="all" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>All ({polls.length})</button>
-          <button onClick={() => setScopeFilter("society")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border cursor-pointer ${scopeFilter==="society" ? "bg-primary text-on-primary border-primary" : "bg-white text-on-surface-variant border-outline-variant"}`}>Society ({polls.filter((p)=>!p.wing && (p.scope==="society"||!p.scope)).length})</button>
-          <button onClick={() => setScopeFilter("wing")} className={`rounded-full px-3 py-1 text-label-sm font-semibold border cursor-pointer ${scopeFilter==="wing" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-on-surface-variant border-outline-variant"}`}>Wing ({polls.filter((p)=>p.scope==="wing").length})</button>
-        </div>
-      )}
-
-      {polls.length > 0 && (
+      {activePollsList.length > 0 && (
         <>
-          {activePolls.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-title-sm font-semibold text-on-surface">Active ({activePolls.length})</h2>
-              {activePolls.map((poll) => (
-                <PollCard
-                  key={poll.id}
-                  poll={poll}
-                  onVote={handleVote}
-                  votingId={votingId}
-                  onClose={(p) => setClosingPoll(p)}
-                  closingId={closingId}
-                  onEdit={(p) => {
-                    setActionError("");
-                    setEditingPoll(p);
-                  }}
-                  onDelete={(p) => setDeletingPoll(p)}
-                  onViewVoters={setVotersModalPoll}
-                />
-              ))}
-            </section>
-          )}
+          <div className="flex gap-2 flex-wrap items-center">
+            <button
+              onClick={() => setScopeFilter("all")}
+              className={`rounded-full px-3.5 py-1.5 text-label-sm font-semibold border cursor-pointer transition-colors ${
+                scopeFilter === "all"
+                  ? "bg-primary text-on-primary border-primary shadow-xs"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container-low"
+              }`}
+            >
+              All Active ({activePollsList.length})
+            </button>
+            <button
+              onClick={() => setScopeFilter("society")}
+              className={`rounded-full px-3.5 py-1.5 text-label-sm font-semibold border cursor-pointer transition-colors ${
+                scopeFilter === "society"
+                  ? "bg-primary text-on-primary border-primary shadow-xs"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container-low"
+              }`}
+            >
+              Society ({activePollsList.filter((p) => !p.wing && (p.scope === "society" || !p.scope)).length})
+            </button>
+            <button
+              onClick={() => setScopeFilter("wing")}
+              className={`rounded-full px-3.5 py-1.5 text-label-sm font-semibold border cursor-pointer transition-colors ${
+                scopeFilter === "wing"
+                  ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container-low"
+              }`}
+            >
+              Wing ({activePollsList.filter((p) => p.scope === "wing").length})
+            </button>
+          </div>
 
-          {closedPolls.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-title-sm font-semibold text-on-surface">Closed ({closedPolls.length})</h2>
-              {closedPolls.map((poll) => (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-title-sm font-semibold text-on-surface flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                Active Polls ({scopeFilteredActive.length})
+              </h2>
+              <span className="text-label-sm text-outline">Tap an option to cast your vote</span>
+            </div>
+            {scopeFilteredActive.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
+                <p className="text-body-sm text-on-surface-variant">No active polls found for this filter.</p>
+              </div>
+            ) : (
+              scopeFilteredActive.map((poll) => (
                 <PollCard
                   key={poll.id}
                   poll={poll}
@@ -530,9 +682,10 @@ export default function PollsPage() {
                   onDelete={(p) => setDeletingPoll(p)}
                   onViewVoters={setVotersModalPoll}
                 />
-              ))}
-            </section>
-          )}
+              ))
+            )}
+          </section>
+
           {votersModalPoll && <VotersModal poll={votersModalPoll} onClose={() => setVotersModalPoll(null)} />}
         </>
       )}

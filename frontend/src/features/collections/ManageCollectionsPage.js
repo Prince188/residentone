@@ -23,118 +23,95 @@ function ActiveCollectionCard({ col, onCloseClick }) {
   const progress = col.progressPercent || 0;
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-outline-variant/60 bg-surface-container-lowest shadow-sm hover:shadow-xl hover:border-primary/50 transition-all duration-300">
-      {/* Top Stripe Indicator */}
-      <div className={`h-1.5 w-full ${isOverdue ? "bg-red-500" : "bg-primary"}`} />
-
-      <div className="p-6 space-y-4 flex-1">
-        {/* Header: Icon, Category & Status Badges */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                cat.pill.includes("pink")
-                  ? "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300"
-                  : cat.pill.includes("violet")
-                    ? "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
-                    : cat.pill.includes("emerald")
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                      : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[26px]">{cat.icon}</span>
+    <div className="group relative flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-surface-container-lowest p-5 sm:p-6 shadow-xs hover:shadow-lg hover:border-primary/60 transition-all duration-200">
+      <div className="space-y-4">
+        {/* Top Badges & Amount Row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${cat.pill}`}>
+              <span className="material-symbols-outlined text-[13px]">{cat.icon}</span>
+              {cat.label}
             </span>
-            <div className="min-w-0">
-              <Link
-                to={`/collections/${col.id}`}
-                className="truncate block text-title-lg font-bold text-on-surface hover:text-primary transition-colors no-underline"
-              >
-                {col.title}
-              </Link>
-              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-label-sm">
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${cat.pill}`}>
-                  {cat.label}
-                </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${status.pill}`}>
-                  {status.label}
-                </span>
-              </div>
-            </div>
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${status.pill}`}>
+              {status.label}
+            </span>
           </div>
 
-          <div className="text-right shrink-0">
-            <span className="text-title-md font-bold text-on-surface block">{formatAmount(col.amount)}</span>
-            <span className="text-[11px] text-outline block">/ house</span>
+          <div className="text-right">
+            <span className="text-title-lg font-extrabold text-on-surface block leading-none">
+              {formatAmount(col.amount)}
+            </span>
+            <span className="text-[10px] uppercase font-semibold text-outline tracking-wider">/ house</span>
           </div>
         </div>
 
-        {/* Description snippet */}
-        {col.description && (
-          <p className="text-body-sm text-on-surface-variant line-clamp-2">{col.description}</p>
-        )}
+        {/* Title & Description */}
+        <div>
+          <Link
+            to={`/collections/${col.id}`}
+            className="text-title-md font-bold text-on-surface hover:text-primary transition-colors line-clamp-1 block no-underline"
+          >
+            {col.title}
+          </Link>
+          {col.description && (
+            <p className="mt-1 text-body-sm text-on-surface-variant line-clamp-2 leading-relaxed">
+              {col.description}
+            </p>
+          )}
+        </div>
 
-        {/* Financial Progress Block */}
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-4 space-y-2.5">
+        {/* Progress & Stats Box */}
+        <div className="rounded-xl border border-outline-variant/40 bg-surface-container-low p-3.5 space-y-2">
           <div className="flex items-center justify-between text-body-sm">
-            <span className="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px] text-primary">payments</span> Total Collected
+            <span className="text-[12px] font-semibold text-on-surface-variant flex items-center gap-1">
+              <span className="material-symbols-outlined text-[15px] text-primary">payments</span> Total Collected
             </span>
-            <span className="font-bold text-emerald-700 dark:text-emerald-400 text-title-sm">
+            <span className="font-extrabold text-emerald-700 dark:text-emerald-400 text-title-sm">
               {formatAmount(col.totalCollected)}
             </span>
           </div>
 
-          {/* Progress Bar */}
           <div className="h-2 w-full overflow-hidden rounded-full bg-outline-variant/30">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 progress >= 100 ? "bg-emerald-600" : "bg-primary"
               }`}
-              style={{ width: `${progress}%` }}
+              style={{ width: `${Math.min(100, progress)}%` }}
             />
           </div>
 
-          <div className="flex items-center justify-between text-[11px] font-semibold text-on-surface-variant">
+          <div className="flex items-center justify-between text-[11px] font-medium text-on-surface-variant">
             <span>{progress}% of {formatAmount(col.targetGoal || 0)}</span>
-            <span>{col.paidCount || 0} / {col.totalUnits || 0} Houses Paid</span>
+            <span>{col.paidCount || 0} / {col.totalUnits || 0} Houses</span>
           </div>
-        </div>
-
-        {/* Metadata Footer: Due Date & Stats */}
-        <div className="flex items-center justify-between text-label-sm border-t border-outline-variant/20 pt-3">
-          <span className="flex items-center gap-1 text-on-surface-variant font-medium">
-            <span className="material-symbols-outlined text-[16px] text-primary">event</span>
-            Due {formatDate(col.dueDate)}
-          </span>
-          {isOverdue ? (
-            <span className="text-red-600 font-bold text-[11px] uppercase tracking-wider flex items-center gap-0.5">
-              <span className="material-symbols-outlined text-[14px]">warning</span> Overdue
-            </span>
-          ) : (
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] uppercase tracking-wider">
-              Accepting Payments
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Card Action Buttons */}
-      <div className="flex items-center justify-between border-t border-outline-variant/30 bg-surface-container-low px-6 py-3.5">
-        <button
-          type="button"
-          onClick={() => onCloseClick(col)}
-          className="inline-flex items-center gap-1 text-label-sm font-semibold text-on-surface-variant hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[16px]">task_alt</span> Close Fund
-        </button>
+      {/* Due Date & Action Links */}
+      <div className="mt-5 pt-3.5 border-t border-outline-variant/40 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-label-sm text-on-surface-variant font-medium">
+          <span className="material-symbols-outlined text-[16px] text-outline">calendar_today</span>
+          <span>Due {formatDate(col.dueDate)}</span>
+        </span>
 
-        <Link
-          to={`/collections/${col.id}`}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-label-sm font-bold text-on-primary hover:opacity-90 shadow-sm no-underline transition-transform group-hover:translate-x-0.5"
-        >
-          <span>Manage Houses</span>
-          <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onCloseClick(col)}
+            className="rounded-full px-2.5 py-1 text-[12px] font-semibold text-on-surface-variant hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors cursor-pointer"
+            title="Close this collection fund"
+          >
+            Close
+          </button>
+
+          <Link
+            to={`/collections/${col.id}`}
+            className="inline-flex items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-bold text-on-primary hover:opacity-90 shadow-xs no-underline transition-transform group-hover:translate-x-0.5"
+          >
+            <span>Manage</span>
+            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

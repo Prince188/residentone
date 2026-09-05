@@ -153,7 +153,7 @@ export default function ManageSocietyPage() {
   if (!activeSociety) return <div className="p-6 text-body-md">No society selected.</div>;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link to="/dashboard" className="mb-1 inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary">
