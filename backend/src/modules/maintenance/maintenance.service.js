@@ -265,37 +265,71 @@ class MaintenanceService {
   }
 
   // All units of the society (or wing-specific if cycle is tied to a wing) with their payment state
-  // FIX: populate both owner/tenant and expose IDs so isOwner comes from DB (ownerId == userId), not hardcoded
-  async getCycleUnits(societyId, cycle) {
+  // FIX: populate both owner/tenant, expose block/floor/unitNumber and cycleId, support allWings
+  async getCycleUnits(societyId, cycle, options = {}) {
+    const allWings = options.allWings === true;
+    let periodCycles = [cycle];
+
     const unitQuery = { societyId, isActive: true };
-    if (cycle && cycle.wing) {
+    if (!allWings && cycle && cycle.wing) {
       unitQuery.block = new RegExp(`^${cycle.wing}$`, "i");
+    } else if (allWings && cycle) {
+      // Find all cycles in the society for the same month and year
+      periodCycles = await MaintenanceCycle.find({
+        societyId,
+        month: cycle.month,
+        year: cycle.year,
+        isActive: true,
+      }).lean();
     }
 
     const units = await Unit.find(unitQuery)
       .populate("ownerId", "name phone")
       .populate("tenantId", "name phone")
-      .sort({ unitNumber: 1, label: 1 })
+      .sort({ block: 1, unitNumber: 1, label: 1 })
       .lean();
 
+    const cycleIds = periodCycles.map((c) => c._id);
     const payments = await MaintenancePayment.find({
       societyId,
-      cycleId: cycle._id,
+      cycleId: { $in: cycleIds },
       isActive: true,
     }).lean();
 
-    const paymentByUnit = new Map(
-      payments.map((p) => [String(p.unitId), p])
-    );
+    // Index payments by `${cycleId}_${unitId}` and fallback by `unitId`
+    const paymentMap = new Map();
+    payments.forEach((p) => {
+      paymentMap.set(`${String(p.cycleId)}_${String(p.unitId)}`, p);
+      if (!paymentMap.has(String(p.unitId))) {
+        paymentMap.set(String(p.unitId), p);
+      }
+    });
+
+    // Map cycles by uppercase wing
+    const cycleByWing = new Map();
+    let societyWideCycle = null;
+    periodCycles.forEach((c) => {
+      if (c.wing) {
+        cycleByWing.set(String(c.wing).toUpperCase().trim(), c);
+      } else {
+        societyWideCycle = c;
+      }
+    });
 
     return units.map((unit) => {
-      const payment = paymentByUnit.get(String(unit._id));
+      const uBlock = unit.block ? String(unit.block).toUpperCase().trim() : null;
+      // Best matching cycle: specific wing cycle > society-wide cycle > base cycle
+      const effectiveCycle = (uBlock && cycleByWing.get(uBlock)) || societyWideCycle || cycle;
+
+      const paymentKey = `${String(effectiveCycle._id)}_${String(unit._id)}`;
+      const payment = paymentMap.get(paymentKey) || paymentMap.get(String(unit._id));
+
       const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
       const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
-      const unitAmount = this.getAmountForUnit(cycle, unit);
-      const status = this.statusFor(payment, cycle);
+      const unitAmount = this.getAmountForUnit(effectiveCycle, unit);
+      const status = this.statusFor(payment, effectiveCycle);
       const isLate = ["overdue", "late_paid"].includes(status);
-      const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+      const appliedLateCharge = isLate ? (effectiveCycle.lateCharge || 0) : 0;
       const finalAmount = payment ? (payment.amount || unitAmount) : (unitAmount + appliedLateCharge);
       // Renter priority for display
       const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
@@ -303,6 +337,9 @@ class MaintenanceService {
       return {
         unitId: unit._id,
         label: unit.label,
+        block: unit.block || null,
+        floor: unit.floor || null,
+        unitNumber: unit.unitNumber || null,
         ownerName: displayName,
         ownerPhone: displayPhone,
         ownerId: ownerIdStr,
@@ -314,8 +351,10 @@ class MaintenanceService {
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
-        cycleOwnerAmount: cycle.ownerAmount,
-        cycleRenterAmount: cycle.renterAmount,
+        cycleId: effectiveCycle._id,
+        cycleWing: effectiveCycle.wing || null,
+        cycleOwnerAmount: effectiveCycle.ownerAmount,
+        cycleRenterAmount: effectiveCycle.renterAmount,
       };
     });
   }
@@ -349,15 +388,20 @@ class MaintenanceService {
     const myUnitIds = (membership.units || []).map((id) => String(id));
     const isMyUnit = myUnitIds.includes(String(unitId));
 
-    if (!isAdmin && !isMyUnit) {
-      throw new AppError("This house is not assigned to you", 403);
-    }
-
     const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true })
       .populate("ownerId", "name phone")
       .populate("tenantId", "name phone")
       .lean();
     if (!unit) throw new AppError("House not found", 404);
+
+    const roles = [membership.role, ...(membership.additionalRoles || [])].filter(Boolean);
+    const isWingAdmin = roles.includes("wing_admin");
+    const assignedWings = (membership.assignedWings || []).map((w) => String(w).toUpperCase().trim());
+    const isAssignedWing = isWingAdmin && unit.block && assignedWings.includes(String(unit.block).toUpperCase().trim());
+
+    if (!isAdmin && !isMyUnit && !isAssignedWing) {
+      throw new AppError("This house is not assigned to you", 403);
+    }
 
     const payment = await MaintenancePayment.findOne({
       societyId,

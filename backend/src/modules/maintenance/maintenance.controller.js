@@ -48,7 +48,8 @@ class MaintenanceController {
       }
       const allUnits = await maintenanceService.getCycleUnits(
         req.societyId,
-        cycle
+        cycle,
+        { allWings: true }
       );
       const myUnitIds = (req.membership.units || []).map((id) => String(id));
       const userIdStr = String(req.userId);
@@ -85,9 +86,14 @@ class MaintenanceController {
         req.societyId,
         req.params.cycleId
       );
+      const allWings =
+        req.query.allWings === "true" ||
+        req.query.scope === "society" ||
+        req.query.scope === "all";
       const units = await maintenanceService.getCycleUnits(
         req.societyId,
-        cycle
+        cycle,
+        { allWings }
       );
       res.json({ success: true, data: units });
     } catch (error) {

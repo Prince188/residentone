@@ -250,11 +250,62 @@ class MembershipService {
   }
 
   async findUserSocieties(userId) {
-    const memberships = await Membership.find({ userId, isActive: true })
+    let memberships = await Membership.find({ userId, isActive: true })
       .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt")
       .populate("units")
       .sort({ createdAt: 1 })
       .lean();
+
+    // Auto-detect if user is registered as a family member in any society and auto-link membership
+    try {
+      const { User } = require("../user/user.model");
+      const currentUser = await User.findById(userId).select("phone").lean();
+      if (currentUser?.phone) {
+        const digits = String(currentUser.phone).replace(/\D/g, "").slice(-10);
+        const { FamilyMember } = require("../family-member/family-member.model");
+        const familyLinks = await FamilyMember.find({
+          isActive: true,
+          societyId: { $ne: null },
+          $or: [
+            { userId },
+            { phone: new RegExp(`${digits}$`) },
+          ],
+        }).lean();
+
+        for (const fl of familyLinks) {
+          if (!fl.societyId) continue;
+          const socIdStr = String(fl.societyId);
+          const existingMem = memberships.find(
+            (m) => String(m.societyId?._id || m.societyId) === socIdStr
+          );
+
+          if (!existingMem) {
+            const newMem = await Membership.create({
+              userId,
+              societyId: fl.societyId,
+              role: "resident",
+              units: fl.unitId ? [fl.unitId] : [],
+              isActive: true,
+            });
+            if (!fl.userId) {
+              await FamilyMember.findByIdAndUpdate(fl._id, { userId });
+            }
+            const populated = await Membership.findById(newMem._id)
+              .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt")
+              .populate("units")
+              .lean();
+            if (populated) memberships.push(populated);
+          } else {
+            if (!fl.userId) {
+              await FamilyMember.findByIdAndUpdate(fl._id, { userId });
+            }
+            if (fl.unitId && (!existingMem.units || !existingMem.units.some((u) => String(u._id || u) === String(fl.unitId)))) {
+              await Membership.findByIdAndUpdate(existingMem._id, { $addToSet: { units: fl.unitId } });
+            }
+          }
+        }
+      }
+    } catch (_) {}
 
     return memberships
       .filter((membership) => membership.societyId && membership.societyId.status !== "archived" && membership.societyId.status !== "rejected")

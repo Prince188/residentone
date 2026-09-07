@@ -18,8 +18,12 @@ class ChatService {
   async isAdmin(societyId, userId) {
     const membership = await Membership.findOne({ societyId, userId, isActive: true }).lean();
     if (!membership) return false;
-    if (["super_admin", "society_admin"].includes(membership.role)) return true;
-    return hasChatAdminPermission(societyId, membership.role);
+    const roles = [membership.role, ...(membership.additionalRoles || [])];
+    if (roles.includes("super_admin") || roles.includes("society_admin")) return true;
+    for (const r of roles) {
+      if (await hasChatAdminPermission(societyId, r)) return true;
+    }
+    return false;
   }
 
   async ensureMember(societyId, groupId, userId) {
@@ -31,14 +35,43 @@ class ChatService {
   }
 
   async createGroup(societyId, adminId, data) {
-    // Validate all members belong to society
-    const memberIds = [...new Set(data.memberIds.map(String))];
-    // Ensure admin is included
-    if (!memberIds.includes(String(adminId))) memberIds.push(String(adminId));
+    const mongoose = require("mongoose");
+    const rawIds = [...new Set((data.memberIds || []).map(String))];
+    if (!rawIds.includes(String(adminId))) rawIds.push(String(adminId));
+
+    const memberIds = [];
+    const fmIds = [];
+    for (const id of rawIds) {
+      if (id.startsWith("fm-")) {
+        fmIds.push(id.replace(/^fm-/, ""));
+      } else if (mongoose.Types.ObjectId.isValid(id)) {
+        memberIds.push(id);
+      }
+    }
+
+    if (fmIds.length > 0) {
+      try {
+        const { FamilyMember } = require("../family-member/family-member.model");
+        const fms = await FamilyMember.find({ _id: { $in: fmIds }, isActive: true }).select("phone addedBy").lean();
+        const { User } = require("../user/user.model");
+        for (const fm of fms) {
+          let foundUserId = null;
+          if (fm.phone) {
+            const u = await User.findOne({ phone: fm.phone }).select("_id").lean();
+            if (u) foundUserId = String(u._id);
+          }
+          if (!foundUserId && fm.addedBy) {
+            foundUserId = String(fm.addedBy);
+          }
+          if (foundUserId && !memberIds.includes(foundUserId)) {
+            memberIds.push(foundUserId);
+          }
+        }
+      } catch (_) {}
+    }
 
     const memberships = await Membership.find({ societyId, userId: { $in: memberIds }, isActive: true }).lean();
     const validUserIds = new Set(memberships.map((m) => String(m.userId)));
-    // Filter to only valid society members
     const filteredMembers = memberIds.filter((id) => validUserIds.has(String(id)));
     if (filteredMembers.length === 0) throw new AppError("No valid society members for group", 400);
 
@@ -74,10 +107,11 @@ class ChatService {
   }
 
   async deleteGroup(societyId, groupId, adminId) {
-    const isAdmin = await this.isAdmin(societyId, adminId);
-    if (!isAdmin) throw new AppError("Only society admins can delete group channels", 403);
     const group = await ChatGroup.findOne({ _id: groupId, societyId, isActive: true });
     if (!group) throw new AppError("Group not found", 404);
+    const isAdmin = await this.isAdmin(societyId, adminId);
+    const isCreator = String(group.createdBy) === String(adminId);
+    if (!isAdmin && !isCreator) throw new AppError("Only society admins or group creator can delete group channels", 403);
     group.isActive = false;
     await group.save();
     try {
@@ -211,10 +245,44 @@ class ChatService {
     if (String(group.createdBy) !== String(adminId) && !(await this.isAdmin(societyId, adminId))) {
       throw new AppError("Only group owner or society admin can add members", 403);
     }
-    const ids = [...new Set(memberIds.map(String))];
+    const mongoose = require("mongoose");
+    const rawIds = [...new Set((memberIds || []).map(String))];
+    const ids = [];
+    const fmIds = [];
+    for (const id of rawIds) {
+      if (id.startsWith("fm-")) {
+        fmIds.push(id.replace(/^fm-/, ""));
+      } else if (mongoose.Types.ObjectId.isValid(id)) {
+        ids.push(id);
+      }
+    }
+
+    if (fmIds.length > 0) {
+      try {
+        const { FamilyMember } = require("../family-member/family-member.model");
+        const fms = await FamilyMember.find({ _id: { $in: fmIds }, isActive: true }).select("phone addedBy").lean();
+        const { User } = require("../user/user.model");
+        for (const fm of fms) {
+          let foundUserId = null;
+          if (fm.phone) {
+            const u = await User.findOne({ phone: fm.phone }).select("_id").lean();
+            if (u) foundUserId = String(u._id);
+          }
+          if (!foundUserId && fm.addedBy) {
+            foundUserId = String(fm.addedBy);
+          }
+          if (foundUserId && !ids.includes(foundUserId)) {
+            ids.push(foundUserId);
+          }
+        }
+      } catch (_) {}
+    }
+
     const memberships = await Membership.find({ societyId, userId: { $in: ids }, isActive: true }).lean();
     const valid = memberships.map((m) => String(m.userId));
-    await ChatGroup.updateOne({ _id: groupId }, { $addToSet: { members: { $each: valid } } });
+    if (valid.length > 0) {
+      await ChatGroup.updateOne({ _id: groupId }, { $addToSet: { members: { $each: valid } } });
+    }
     try { const s = require("../../socket"); s.emitToSociety(String(societyId), "chat:change", { groupId, action: "add" }); } catch (_) {}
     return ChatGroup.findById(groupId).lean();
   }

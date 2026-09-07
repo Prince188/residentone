@@ -61,7 +61,14 @@ class FamilyMemberService {
     if (data.unitId && societyId) {
       const targetId = String(data.unitId).trim();
       if (targetId) {
-        if (!isAdmin && !myUnitIds.includes(targetId)) {
+        const userOwnsOrRents = await Unit.exists({
+          _id: targetId,
+          societyId,
+          isActive: true,
+          $or: [{ ownerId: userId }, { tenantId: userId }],
+        });
+
+        if (!isAdmin && !myUnitIds.includes(targetId) && !userOwnsOrRents) {
           throw new AppError("You can only add members to your own house", 403);
         }
         const unit = await Unit.findOne({ _id: targetId, societyId, isActive: true });
@@ -70,19 +77,78 @@ class FamilyMemberService {
       }
     }
 
-    if (!unitId && membership?.units?.length > 0) {
-      unitId = membership.units[0]?._id || membership.units[0];
+    if (!unitId) {
+      if (membership?.units?.length > 0) {
+        unitId = membership.units[0]?._id || membership.units[0];
+      } else if (societyId) {
+        const userUnit = await Unit.findOne({
+          societyId,
+          isActive: true,
+          $or: [{ ownerId: userId }, { tenantId: userId }],
+        }).select("_id");
+        if (userUnit) {
+          unitId = userUnit._id;
+        }
+      }
+    }
+
+    if (unitId && membership?._id) {
+      try {
+        const { Membership } = require("../membership/membership.model");
+        await Membership.findByIdAndUpdate(membership._id, {
+          $addToSet: { units: unitId },
+        });
+      } catch (_) {}
+    }
+
+    let linkedUser = null;
+    if (data.phone) {
+      try {
+        linkedUser = await this.createOrFindUserForFamilyMember(data.name, data.phone, data.occupation);
+      } catch (err) {
+        console.warn("[family-member] failed to auto-provision user account:", err.message);
+      }
     }
 
     const member = await FamilyMember.create({
       societyId: societyId || membership?.societyId || null,
-      unitId,
+      unitId: unitId || null,
+      userId: linkedUser?._id || null,
       addedBy: userId,
       name: data.name.trim(),
       relation: data.relation || "other",
-      phone: data.phone || "",
+      phone: data.phone ? data.phone.trim() : "",
       occupation: (data.occupation || "").trim(),
     });
+
+    // Auto-create/sync resident Membership in this society for the family member's user account
+    const activeSocId = societyId || membership?.societyId;
+    if (linkedUser && activeSocId) {
+      try {
+        const { Membership } = require("../membership/membership.model");
+        let userMem = await Membership.findOne({ userId: linkedUser._id, societyId: activeSocId });
+        if (!userMem) {
+          await Membership.create({
+            userId: linkedUser._id,
+            societyId: activeSocId,
+            role: "resident",
+            units: unitId ? [unitId] : [],
+            isActive: true,
+          });
+        } else {
+          userMem.isActive = true;
+          if (unitId) {
+            if (!userMem.units) userMem.units = [];
+            if (!userMem.units.some((u) => String(u) === String(unitId))) {
+              userMem.units.push(unitId);
+            }
+          }
+          await userMem.save();
+        }
+      } catch (err) {
+        console.warn("[family-member] failed to link membership:", err.message);
+      }
+    }
 
     try {
       const { User } = require("../user/user.model");
@@ -91,6 +157,32 @@ class FamilyMemberService {
     } catch (_) {}
 
     return member;
+  }
+
+  async createOrFindUserForFamilyMember(name, phone, occupation = "") {
+    if (!phone) return null;
+    const cleanPhone = String(phone).replace(/\D/g, "");
+    if (cleanPhone.length < 10) return null;
+
+    const digits = cleanPhone.slice(-10);
+    const { User } = require("../user/user.model");
+    let user = await User.findOne({ phone: new RegExp(`${digits}$`) });
+    if (user) return user;
+
+    const email = `${digits}@residentone.local`;
+    const existingEmail = await User.findOne({ email });
+    const finalEmail = existingEmail ? `${digits}_${Date.now()}@residentone.local` : email;
+
+    user = await User.create({
+      name: (name || "Resident").trim(),
+      email: finalEmail,
+      phone: digits,
+      occupation: occupation || "",
+      role: ["resident"],
+      passwordHash: digits, // Default password is phone number
+    });
+
+    return user;
   }
 
   async update(societyId, id, userId, membership, data) {
@@ -104,8 +196,42 @@ class FamilyMemberService {
 
     if (data.name !== undefined) doc.name = data.name.trim();
     if (data.relation !== undefined) doc.relation = data.relation;
-    if (data.phone !== undefined) doc.phone = data.phone.trim();
     if (data.occupation !== undefined) doc.occupation = data.occupation.trim();
+    if (data.phone !== undefined) {
+      const cleanPhone = data.phone.trim();
+      doc.phone = cleanPhone;
+      if (cleanPhone) {
+        try {
+          const linkedUser = await this.createOrFindUserForFamilyMember(doc.name, cleanPhone, doc.occupation);
+          if (linkedUser) {
+            doc.userId = linkedUser._id;
+            const socId = societyId || doc.societyId;
+            if (socId) {
+              const { Membership } = require("../membership/membership.model");
+              let userMem = await Membership.findOne({ userId: linkedUser._id, societyId: socId });
+              if (!userMem) {
+                await Membership.create({
+                  userId: linkedUser._id,
+                  societyId: socId,
+                  role: "resident",
+                  units: doc.unitId ? [doc.unitId] : [],
+                  isActive: true,
+                });
+              } else {
+                userMem.isActive = true;
+                if (doc.unitId) {
+                  if (!userMem.units) userMem.units = [];
+                  if (!userMem.units.some((u) => String(u) === String(doc.unitId))) {
+                    userMem.units.push(doc.unitId);
+                  }
+                }
+                await userMem.save();
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
     await doc.save();
     return doc;
   }
@@ -122,6 +248,24 @@ class FamilyMemberService {
     doc.isActive = false;
     await doc.save();
 
+    const socId = societyId || doc.societyId;
+    if (doc.userId && socId) {
+      try {
+        const { Membership } = require("../membership/membership.model");
+        if (doc.unitId) {
+          await Membership.updateOne(
+            { userId: doc.userId, societyId: socId },
+            { $pull: { units: doc.unitId } }
+          );
+        }
+        const userMem = await Membership.findOne({ userId: doc.userId, societyId: socId });
+        if (userMem && userMem.role === "resident" && (!userMem.units || userMem.units.length === 0)) {
+          userMem.isActive = false;
+          await userMem.save();
+        }
+      } catch (_) {}
+    }
+
     try {
       const { User } = require("../user/user.model");
       const count = await FamilyMember.countDocuments({ addedBy: userId, isActive: true });
@@ -136,6 +280,7 @@ class FamilyMemberService {
       id: doc._id,
       unitId: doc.unitId?._id || doc.unitId || null,
       unitLabel: doc.unitId?.label || null,
+      userId: doc.userId?._id || doc.userId || null,
       name: doc.name,
       relation: doc.relation,
       phone: doc.phone,

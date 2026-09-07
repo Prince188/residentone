@@ -16,6 +16,13 @@ const familyMemberSchema = new mongoose.Schema(
       required: false,
       default: null,
     },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      default: null,
+      index: true,
+    },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

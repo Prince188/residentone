@@ -3,7 +3,7 @@ const { z } = require("zod");
 const createGroupSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80, "Name cannot exceed 80 characters"),
   description: z.string().trim().max(300).optional().default(""),
-  memberIds: z.array(z.string().min(1)).min(1, "Add at least 1 member").max(200),
+  memberIds: z.array(z.string().min(1)).optional().default([]),
 });
 
 const sendGroupMessageSchema = z.object({

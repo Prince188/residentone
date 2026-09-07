@@ -10,6 +10,7 @@ const SOCIETY_ROLES = [
   "auditor",
   "owner",
   "tenant",
+  "resident",
   "staff",
   "security_guard",
 ];
@@ -46,6 +47,7 @@ const ROLE_HIERARCHY = {
   auditor: 40,
   owner: 40,
   tenant: 20,
+  resident: 10,
   security_guard: 15,
   staff: 10,
 };
