@@ -7,8 +7,8 @@ export const MONTHS = [
 
 export const getCycles = (config = {}) => api.get("/maintenance/cycles", config);
 export const getLatestCycle = (config = {}) => api.get("/maintenance/cycles/latest", config);
-export const getCycleUnits = (cycleId) =>
-  api.get(`/maintenance/cycles/${cycleId}/units`);
+export const getCycleUnits = (cycleId, config = {}) =>
+  api.get(`/maintenance/cycles/${cycleId}/units`, config);
 export const getCycleUnitDetail = (cycleId, unitId) =>
   api.get(`/maintenance/cycles/${cycleId}/units/${unitId}`);
 export const exportMaintenanceExcel = (cycleId) =>

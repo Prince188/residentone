@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
@@ -40,7 +40,7 @@ function DuesCard({ unit, cycle }) {
       status={unit.status || "pending"}
       amount={unit.amount || unit.totalAmount}
       dateLine={dateLine}
-      to={`/dues/${unit.unitId}?cycle=${cycle.id}`}
+      to={`/dues/${unit.unitId}?cycle=${unit.cycleId || cycle.id}`}
     />
   );
 }
@@ -529,6 +529,19 @@ export default function SocietyDuesPage() {
   const paramWing = searchParams.get("wing") || (isPureWing && assignedWings.length ? assignedWings[0] : "");
   const [selectedWingFilter, setSelectedWingFilter] = useState(paramWing);
 
+  // Synchronize wing filter when navigating between Society Admin (/dues) and Wing Admin (/dues?wing=...)
+  useEffect(() => {
+    const qWing = searchParams.get("wing");
+    if (qWing) {
+      setSelectedWingFilter(qWing);
+    } else if (isPureWing && assignedWings.length) {
+      setSelectedWingFilter(assignedWings[0]);
+    } else {
+      // From Society Admin section: ALWAYS show All Wings!
+      setSelectedWingFilter("");
+    }
+  }, [searchParams, isPureWing, assignedWings]);
+
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
@@ -567,7 +580,9 @@ export default function SocietyDuesPage() {
   const cycles = useMemo(() => {
     let list = cyclesQuery.data || [];
     if (selectedWingFilter) {
-      list = list.filter((c) => (c.wing || "").toUpperCase() === selectedWingFilter.toUpperCase());
+      list = list.filter(
+        (c) => !c.wing || (c.wing || "").toUpperCase() === selectedWingFilter.toUpperCase()
+      );
     }
     return list;
   }, [cyclesQuery.data, selectedWingFilter]);
@@ -576,23 +591,33 @@ export default function SocietyDuesPage() {
     cycles.find((c) => c.id === selectedCycleId) || cycles[0] || null;
 
   const unitsQuery = useQuery({
-    queryKey: ["maintenance", "cycle-units", cycle?.id],
-    queryFn: async () => (await getCycleUnits(cycle.id)).data.data,
+    queryKey: ["maintenance", "cycle-units", cycle?.id, !selectedWingFilter ? "allWings" : selectedWingFilter],
+    queryFn: async () =>
+      (await getCycleUnits(cycle.id, { params: { allWings: !selectedWingFilter } })).data.data,
     enabled: Boolean(cycle),
   });
 
   const units = useMemo(() => unitsQuery.data || [], [unitsQuery.data]);
 
+  // When selectedWingFilter is set (e.g. from Wing Admin section), filter units to that wing.
+  // When empty (from Society Admin section), show all units.
+  const displayedUnits = useMemo(() => {
+    if (!selectedWingFilter) return units;
+    return units.filter(
+      (u) => String(u.block || "").toUpperCase().trim() === selectedWingFilter.toUpperCase().trim()
+    );
+  }, [units, selectedWingFilter]);
+
   const counts = useMemo(() => {
     const base = { paid: 0, pending: 0, overdue: 0, late_paid: 0 };
-    units.forEach((u) => {
+    displayedUnits.forEach((u) => {
       if (base[u.status] !== undefined) base[u.status] += 1;
     });
     return base;
-  }, [units]);
+  }, [displayedUnits]);
 
   const filtered = useMemo(() => {
-    let list = units;
+    let list = displayedUnits;
     if (filter !== "all") list = list.filter((u) => u.status === filter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -604,7 +629,7 @@ export default function SocietyDuesPage() {
       );
     }
     return list;
-  }, [units, search, filter]);
+  }, [displayedUnits, search, filter]);
 
   const createMutation = useMutation({
     mutationFn: (payload) => createCycle(payload).then((r) => r.data.data),
@@ -640,7 +665,7 @@ export default function SocietyDuesPage() {
   }
 
   const filterOptions = [
-    { key: "all", label: "All", count: units.length },
+    { key: "all", label: "All", count: displayedUnits.length },
     ...Object.keys(STATUS_UI).map((key) => ({
       key,
       label: STATUS_UI[key].label,
