@@ -31,9 +31,9 @@ const createSurveySchema = z.object({
 const submitSurveySchema = z.object({
   answers: z.array(z.object({
     questionId: z.string().min(1),
-    selectedOptions: z.array(z.number().int().min(0).max(10)).optional().default([]),
+    selectedOptions: z.array(z.coerce.number().int().min(0).max(10)).optional().default([]),
     textAnswer: z.string().trim().max(500).optional().default(""),
-    rating: z.number().int().min(1).max(5).optional(),
+    rating: z.coerce.number().int().min(1).max(5).optional(),
   })).min(1),
 });
 

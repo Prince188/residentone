@@ -2,6 +2,7 @@ const { Survey, SurveyResponse } = require("./survey.model");
 const { Membership } = require("../membership/membership.model");
 const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
+const ExcelJS = require("exceljs");
 
 class SurveyService {
   async getPrimaryUnit(societyId, userId) {
@@ -310,6 +311,172 @@ class SurveyService {
     await survey.save();
     try { const s = require("../../socket"); s.emitToSociety(String(societyId), "survey:change", { id: surveyId, action: "update" }); } catch (_) {}
     return survey;
+  }
+
+  async reopen(societyId, surveyId, newEndDate) {
+    const survey = await Survey.findOne({ _id: surveyId, societyId, isActive: true });
+    if (!survey) throw new AppError("Survey not found", 404);
+
+    survey.status = "active";
+    if (newEndDate && !isNaN(Date.parse(newEndDate))) {
+      survey.endDate = new Date(newEndDate);
+    } else {
+      const now = new Date();
+      survey.endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // default +7 days
+    }
+
+    await survey.save();
+    try {
+      const s = require("../../socket");
+      s.emitToSociety(String(societyId), "survey:change", { id: surveyId, action: "reopen" });
+    } catch (_) {}
+    return survey;
+  }
+
+  async generateExcelBuffer(societyId, surveyId) {
+    const survey = await Survey.findOne({ _id: surveyId, societyId, isActive: true }).lean();
+    if (!survey) throw new AppError("Survey not found", 404);
+
+    const responses = await SurveyResponse.find({ societyId, surveyId, isActive: true })
+      .populate("userId", "name phone email")
+      .populate("unitId", "label")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "ResidentOne";
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet("Survey Responses", {
+      properties: { tabColor: { argb: "FF006948" } },
+      pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    });
+
+    const questions = survey.questions || [];
+    const baseHeaders = ["Timestamp", "House / Flat", "Resident Name", "Phone"];
+    const questionHeaders = questions.map((q, idx) => `Q${idx + 1}: ${q.text}`);
+    const headers = [...baseHeaders, ...questionHeaders];
+    const totalCols = headers.length;
+
+    // Title Row
+    sheet.mergeCells(1, 1, 1, totalCols);
+    const titleCell = sheet.getCell("A1");
+    titleCell.value = survey.title;
+    titleCell.font = { size: 16, bold: true, color: { argb: "FFFFFFFF" } };
+    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF006948" } };
+    titleCell.alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getRow(1).height = 34;
+
+    // Subtitle Row
+    sheet.mergeCells(2, 1, 2, totalCols);
+    const subCell = sheet.getCell("A2");
+    const endStr = survey.endDate ? new Date(survey.endDate).toLocaleDateString("en-IN") : "-";
+    subCell.value = `Total Responses: ${responses.length}  •  Status: ${survey.status?.toUpperCase()}  •  Closing Date: ${endStr}`;
+    subCell.font = { size: 10, italic: true, color: { argb: "FF334155" } };
+    subCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
+    subCell.alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getRow(2).height = 20;
+
+    // Spacer Row
+    sheet.mergeCells(3, 1, 3, totalCols);
+    sheet.getCell("A3").value = "";
+    sheet.getRow(3).height = 8;
+
+    // Header Row (Row 4)
+    const headerRow = sheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    headerRow.height = 28;
+
+    // Add response rows
+    responses.forEach((r, rowIdx) => {
+      const rowNum = rowIdx + 5;
+      const row = sheet.getRow(rowNum);
+
+      const timestamp = r.createdAt
+        ? new Date(r.createdAt).toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "-";
+
+      const flat = r.unitLabel || r.unitId?.label || "-";
+      const name = r.userId?.name || "Resident";
+      const phone = r.userId?.phone || "-";
+
+      const qAnswers = questions.map((q) => {
+        const ans = (r.answers || []).find((a) => String(a.questionId) === String(q._id));
+        if (!ans) return "-";
+
+        if (q.type === "text") {
+          return ans.textAnswer || "-";
+        }
+
+        if (q.type === "rating") {
+          const rating =
+            ans.rating ||
+            (ans.selectedOptions?.[0] != null ? ans.selectedOptions[0] + 1 : null) ||
+            (ans.textAnswer ? parseInt(ans.textAnswer, 10) : null);
+          return rating ? `${rating} ⭐` : "-";
+        }
+
+        if (q.type === "single") {
+          const idx = ans.selectedOptions?.[0];
+          if (idx != null && q.options && q.options[idx]) {
+            return q.options[idx].text || q.options[idx] || "-";
+          }
+          return ans.textAnswer || "-";
+        }
+
+        if (q.type === "multiple") {
+          const picked = (ans.selectedOptions || [])
+            .map((idx) => q.options?.[idx]?.text || q.options?.[idx])
+            .filter(Boolean);
+          return picked.length ? picked.join(", ") : "-";
+        }
+
+        return "-";
+      });
+
+      row.values = [timestamp, flat, name, phone, ...qAnswers];
+      row.height = 22;
+      row.font = { size: 10 };
+
+      // Alternating background
+      const bg = rowIdx % 2 === 0 ? "FFFFFFFF" : "FFF8FAFC";
+      row.eachCell((cell, colNum) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE2E8F0" } },
+          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+          left: { style: "thin", color: { argb: "FFE2E8F0" } },
+          right: { style: "thin", color: { argb: "FFE2E8F0" } },
+        };
+        // Center-align metadata, left-align answers
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: colNum <= 4 ? "center" : "left",
+          wrapText: true,
+        };
+      });
+    });
+
+    // Set column widths
+    sheet.getColumn(1).width = 22; // Timestamp
+    sheet.getColumn(2).width = 16; // Flat
+    sheet.getColumn(3).width = 22; // Name
+    sheet.getColumn(4).width = 16; // Phone
+    questions.forEach((q, idx) => {
+      const col = sheet.getColumn(idx + 5);
+      col.width = Math.min(Math.max((q.text || "").length * 0.9, 25), 45);
+    });
+
+    return await workbook.xlsx.writeBuffer();
   }
 }
 

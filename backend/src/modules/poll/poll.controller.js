@@ -72,6 +72,16 @@ class PollController {
       next(error);
     }
   }
+
+  async reopen(req, res, next) {
+    try {
+      await pollService.reopenPoll(req.societyId, req.params.id, req.body?.endDate);
+      const poll = await pollService.getById(req.societyId, req.params.id, req.userId);
+      res.json({ success: true, data: poll });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PollController();

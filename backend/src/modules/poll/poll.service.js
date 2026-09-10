@@ -268,6 +268,27 @@ class PollService {
     return poll;
   }
 
+  async reopenPoll(societyId, pollId, newEndDate) {
+    const poll = await Poll.findOne({ _id: pollId, societyId, isActive: true });
+    if (!poll) throw new AppError("Poll not found", 404);
+
+    poll.status = "active";
+    if (newEndDate && !isNaN(Date.parse(newEndDate))) {
+      poll.endDate = new Date(newEndDate);
+    } else {
+      const now = new Date();
+      poll.endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // default +7 days
+    }
+
+    await poll.save();
+    try {
+      const socketHelper = require("../../socket");
+      socketHelper.emitToSociety(String(societyId), "poll:change", { id: pollId, action: "reopen" });
+    } catch (_) {}
+
+    return poll;
+  }
+
   async deletePoll(societyId, pollId) {
     const poll = await Poll.findOne({ _id: pollId, societyId, isActive: true });
     if (!poll) throw new AppError("Poll not found", 404);

@@ -40,6 +40,24 @@ class SurveyController {
       res.json({ success: true, data: survey });
     } catch (e) { next(e); }
   }
+  async reopen(req, res, next) {
+    try {
+      await surveyService.reopen(req.societyId, req.params.id, req.body?.endDate);
+      const survey = await surveyService.getById(req.societyId, req.params.id, req.userId);
+      res.json({ success: true, data: survey });
+    } catch (e) { next(e); }
+  }
+  async exportExcel(req, res, next) {
+    try {
+      const buffer = await surveyService.generateExcelBuffer(req.societyId, req.params.id);
+      const filename = `Survey_Responses_${req.params.id.slice(-6)}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+    } catch (e) { next(e); }
+  }
   async remove(req, res, next) {
     try {
       await surveyService.deleteSurvey(req.societyId, req.params.id);

@@ -31,6 +31,12 @@ router.post(
   (req, res, next) => pollController.close(req, res, next)
 );
 
+router.post(
+  "/:id/reopen",
+  requirePermission("create_poll"),
+  (req, res, next) => pollController.reopen(req, res, next)
+);
+
 router.patch(
   "/:id",
   requirePermission("create_poll"),
