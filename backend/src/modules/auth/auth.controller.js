@@ -29,6 +29,16 @@ class AuthController {
       next(error);
     }
   }
+
+  async forgotPassword(req, res, next) {
+    try {
+      const { identifier, newPassword } = req.body;
+      const result = await authService.forgotPassword(identifier, newPassword);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

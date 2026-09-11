@@ -8,5 +8,6 @@ const router = express.Router();
 router.post("/register", validate(registerSchema), (req, res, next) => authController.register(req, res, next));
 router.post("/login", validate(loginSchema), (req, res, next) => authController.login(req, res, next));
 router.post("/refresh", validate(refreshSchema), (req, res, next) => authController.refresh(req, res, next));
+router.post("/forgot-password", (req, res, next) => authController.forgotPassword(req, res, next));
 
 module.exports = router;

@@ -92,6 +92,27 @@ class AuthService {
       throw new AppError("Invalid refresh token", 401);
     }
   }
+
+  async forgotPassword(identifier, newPassword) {
+    const value = String(identifier || "").trim();
+    if (!value) throw new AppError("Phone number or email is required", 400);
+    if (!newPassword || newPassword.length < 6) {
+      throw new AppError("Password must be at least 6 characters", 400);
+    }
+
+    const isEmail = value.includes("@");
+    const user = isEmail
+      ? await userService.findByEmailWithPassword(value.toLowerCase())
+      : await userService.findByPhoneWithPassword(value);
+
+    if (!user) throw new AppError("No account found with this registered details", 404);
+    if (!user.isActive) throw new AppError("This account is inactive or disabled", 403);
+
+    user.passwordHash = newPassword;
+    await user.save();
+
+    return { message: "Password reset successfully. Please log in with your new password." };
+  }
 }
 
 module.exports = new AuthService();
