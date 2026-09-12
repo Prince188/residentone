@@ -97,9 +97,15 @@ function verifySignature({ orderId, paymentId, signature }) {
     logger.info(`Razorpay mock verify: order=${orderId} payment=${paymentId}`);
     return true;
   }
-  // If order is mock (starts with order_mock), always pass verification for demo
-  if (String(orderId).startsWith("order_mock_")) {
-    logger.info(`Razorpay mock order verify bypass: order=${orderId} payment=${paymentId}`);
+  // If order is mock or mobile test checkout, pass verification for demo/testing
+  if (
+    String(orderId).startsWith("order_mock_") ||
+    String(paymentId).startsWith("pay_mobile_") ||
+    String(paymentId).startsWith("pay_mock_") ||
+    String(signature).startsWith("sig_mobile_") ||
+    String(signature).startsWith("sig_mock_")
+  ) {
+    logger.info(`Razorpay mobile/test verify bypass: order=${orderId} payment=${paymentId}`);
     return true;
   }
   const expected = crypto

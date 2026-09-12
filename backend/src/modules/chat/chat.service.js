@@ -1,4 +1,4 @@
-const { ChatGroup, ChatMessage, DirectMessage } = require("./chat.model");
+const { ChatGroup, ChatMessage, DirectMessage, ChatRead } = require("./chat.model");
 const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
@@ -128,7 +128,7 @@ class ChatService {
       .sort({ updatedAt: -1 })
       .lean();
 
-    // Attach last message preview (optional)
+    // Attach last message preview
     const groupIds = groups.map((g) => g._id);
     const lastMessages = groupIds.length
       ? await ChatMessage.aggregate([
@@ -139,6 +139,32 @@ class ChatService {
       : [];
     const lastMap = new Map(lastMessages.map((m) => [String(m._id), m]));
 
+    // Query user read markers
+    const readDocs = groupIds.length
+      ? await ChatRead.find({ societyId, userId, groupId: { $in: groupIds } }).lean()
+      : [];
+    const readMap = new Map(readDocs.map((r) => [String(r.groupId), r.lastReadAt]));
+
+    // Calculate unread count per group
+    const unreadCounts = await Promise.all(
+      groups.map(async (g) => {
+        const gid = String(g._id);
+        const lastRead = readMap.get(gid);
+        const query = {
+          societyId,
+          groupId: g._id,
+          senderId: { $ne: userId },
+          isActive: true,
+        };
+        if (lastRead) {
+          query.createdAt = { $gt: lastRead };
+        }
+        const count = await ChatMessage.countDocuments(query);
+        return [gid, count];
+      })
+    );
+    const unreadMap = new Map(unreadCounts);
+
     return groups.map((g) => ({
       id: g._id,
       name: g.name,
@@ -148,11 +174,20 @@ class ChatService {
       updatedAt: g.updatedAt,
       lastMessage: lastMap.get(String(g._id))?.lastText || null,
       lastAt: lastMap.get(String(g._id))?.lastAt || g.updatedAt,
+      unreadCount: unreadMap.get(String(g._id)) || 0,
     }));
   }
 
   async getGroupMessages(societyId, groupId, userId, limit = 50) {
     await this.ensureMember(societyId, groupId, userId);
+    // Mark group messages as read up to current timestamp
+    try {
+      await ChatRead.updateOne(
+        { societyId, userId, groupId },
+        { $set: { lastReadAt: new Date() } },
+        { upsert: true }
+      );
+    } catch (_) {}
     const group = await ChatGroup.findOne({ _id: groupId, societyId }).select("pinnedMessageId").lean();
     const messages = await ChatMessage.find({ societyId, groupId, isActive: true })
       .populate("senderId", "name")
@@ -330,7 +365,7 @@ class ChatService {
     return true;
   }
 
-  // Direct admin chat - resident <-> admin only
+  // Direct 1-on-1 chat between society members
   async sendDirectMessage(societyId, senderId, receiverId, text, replyTo = null) {
     if (String(senderId) === String(receiverId)) throw new AppError("Cannot message yourself", 400);
     const [senderMem, receiverMem] = await Promise.all([
@@ -339,9 +374,6 @@ class ChatService {
     ]);
     if (!senderMem) throw new AppError("Sender is not a society member", 403);
     if (!receiverMem) throw new AppError("Receiver is not a society member", 404);
-    const senderIsAdmin = await hasChatAdminPermission(societyId, senderMem.role);
-    const receiverIsAdmin = await hasChatAdminPermission(societyId, receiverMem.role);
-    if (!senderIsAdmin && !receiverIsAdmin) throw new AppError("Personal chat is only allowed with society admin", 403);
     const payload = { societyId, senderId, receiverId, text: text.trim() };
     if (replyTo) {
       const parent = await DirectMessage.findOne({ _id: replyTo, societyId }).lean();
@@ -384,9 +416,7 @@ class ChatService {
     const otherMem = await Membership.findOne({ societyId, userId: otherUserId, isActive: true }).lean();
     if (!otherMem) throw new AppError("User not found in society", 404);
     const userMem = await Membership.findOne({ societyId, userId, isActive: true }).lean();
-    const userIsAdmin = userMem ? await hasChatAdminPermission(societyId, userMem.role) : false;
-    const otherIsAdmin = await hasChatAdminPermission(societyId, otherMem.role);
-    if (!userIsAdmin && !otherIsAdmin) throw new AppError("Personal chat only with admin", 403);
+    if (!userMem) throw new AppError("You are not a society member", 403);
     const msgs = await DirectMessage.find({
       societyId,
       isActive: true,
@@ -421,13 +451,41 @@ class ChatService {
     }));
   }
 
-  async listAdmins(societyId) {
+  async listAdmins(societyId, userId = null) {
     const allMemberships = await Membership.find({ societyId, isActive: true }).populate("userId", "name").lean();
     const society = await Society.findById(societyId).select("rolePermissions").lean();
     const admins = allMemberships.filter((m) => hasPermission(m.role, "manage_amenities", society?.rolePermissions) || ["super_admin", "society_admin"].includes(m.role));
     // Fallback: if no one has manage_amenities, still return super_admin/society_admin
     const result = admins.length ? admins : allMemberships.filter((m) => ["super_admin", "society_admin"].includes(m.role));
-    return result.map((m) => ({ id: m.userId._id, name: m.userId.name, role: m.role }));
+
+    let unreadMap = new Map();
+    if (userId) {
+      const mongoose = require("mongoose");
+      const unreadFromAdmins = await DirectMessage.aggregate([
+        {
+          $match: {
+            societyId: new mongoose.Types.ObjectId(societyId),
+            receiverId: new mongoose.Types.ObjectId(userId),
+            isRead: false,
+            isActive: true,
+          },
+        },
+        {
+          $group: {
+            _id: "$senderId",
+            unreadCount: { $sum: 1 },
+          },
+        },
+      ]);
+      unreadMap = new Map(unreadFromAdmins.map((u) => [String(u._id), u.unreadCount]));
+    }
+
+    return result.map((m) => ({
+      id: m.userId._id,
+      name: m.userId.name,
+      role: m.role,
+      unreadCount: unreadMap.get(String(m.userId._id)) || 0,
+    }));
   }
 
   async getPinnedMessage(societyId, groupId) {
@@ -439,26 +497,69 @@ class ChatService {
   }
 
   async listDirectChats(societyId, userId) {
-    // Return list of admins for resident, or all residents who messaged admin for admin
-    const userMem = await Membership.findOne({ societyId, userId, isActive: true }).lean();
-    const isAdmin = userMem ? await hasChatAdminPermission(societyId, userMem.role) : false;
-    if (isAdmin) {
-      // Admin sees all direct chats where they are participant
-      const msgs = await DirectMessage.aggregate([
-        { $match: { societyId: userMem.societyId, isActive: true, $or: [{ senderId: userId }, { receiverId: userId }] } },
-        { $sort: { createdAt: -1 } },
-        { $group: { _id: { $cond: [{ $eq: ["$senderId", userId] }, "$receiverId", "$senderId"] }, lastText: { $first: "$text" }, lastAt: { $first: "$createdAt" } } },
-      ]);
-      // Need to populate names
-      const otherIds = msgs.map((m) => m._id);
-      if (otherIds.length === 0) return [];
-      const users = await require("../user/user.model").User.find({ _id: { $in: otherIds } }).select("name").lean();
-      const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
-      return msgs.map((m) => ({ userId: m._id, name: nameMap.get(String(m._id)) || "Resident", lastText: m.lastText, lastAt: m.lastAt }));
-    } else {
-      // Resident sees only admins
-      return this.listAdmins(societyId);
-    }
+    const mongoose = require("mongoose");
+    const uObjectId = new mongoose.Types.ObjectId(userId);
+    const sObjectId = new mongoose.Types.ObjectId(societyId);
+
+    // Find all direct message conversations where this user participated
+    const msgs = await DirectMessage.aggregate([
+      {
+        $match: {
+          societyId: sObjectId,
+          isActive: true,
+          $or: [{ senderId: uObjectId }, { receiverId: uObjectId }],
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: { $cond: [{ $eq: ["$senderId", uObjectId] }, "$receiverId", "$senderId"] },
+          lastText: { $first: "$text" },
+          lastAt: { $first: "$createdAt" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$receiverId", uObjectId] },
+                    { $eq: ["$isRead", false] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { lastAt: -1 } },
+    ]);
+
+    const otherIds = msgs.map((m) => m._id);
+    if (otherIds.length === 0) return [];
+
+    const [users, memberships] = await Promise.all([
+      require("../user/user.model").User.find({ _id: { $in: otherIds } }).select("name phone").lean(),
+      require("../membership/membership.model").Membership.find({ societyId: sObjectId, userId: { $in: otherIds }, isActive: true }).select("userId role flat houseNumber").lean(),
+    ]);
+
+    const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
+    const memMap = new Map(memberships.map((m) => [String(m.userId), m]));
+
+    return msgs.map((m) => {
+      const otherIdStr = String(m._id);
+      const mem = memMap.get(otherIdStr);
+      return {
+        userId: m._id,
+        id: m._id,
+        name: nameMap.get(otherIdStr) || "Resident",
+        role: mem?.role || "Resident",
+        flat: mem?.flat || mem?.houseNumber || "",
+        lastText: m.lastText,
+        lastAt: m.lastAt,
+        unreadCount: m.unreadCount || 0,
+      };
+    });
   }
 }
 

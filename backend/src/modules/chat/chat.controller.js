@@ -94,7 +94,7 @@ class ChatController {
 
   async listAdmins(req, res, next) {
     try {
-      const admins = await chatService.listAdmins(req.societyId);
+      const admins = await chatService.listAdmins(req.societyId, req.userId);
       res.json({ success: true, data: admins });
     } catch (error) {
       next(error);

@@ -148,8 +148,40 @@ directMessageSchema.index({ societyId: 1, senderId: 1, receiverId: 1, createdAt:
 directMessageSchema.index({ societyId: 1, receiverId: 1, isRead: 1 });
 tenantPlugin(directMessageSchema);
 
+const chatReadSchema = new mongoose.Schema(
+  {
+    societyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Society",
+      required: true,
+      index: true,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    groupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ChatGroup",
+      required: true,
+      index: true,
+    },
+    lastReadAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { timestamps: true }
+);
+
+chatReadSchema.index({ societyId: 1, userId: 1, groupId: 1 }, { unique: true });
+tenantPlugin(chatReadSchema);
+
 const ChatGroup = mongoose.model("ChatGroup", groupSchema);
 const ChatMessage = mongoose.model("ChatMessage", messageSchema);
 const DirectMessage = mongoose.model("DirectMessage", directMessageSchema);
+const ChatRead = mongoose.model("ChatRead", chatReadSchema);
 
-module.exports = { ChatGroup, ChatMessage, DirectMessage };
+module.exports = { ChatGroup, ChatMessage, DirectMessage, ChatRead };
