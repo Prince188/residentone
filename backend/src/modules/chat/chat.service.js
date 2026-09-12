@@ -128,11 +128,15 @@ class ChatService {
       .sort({ updatedAt: -1 })
       .lean();
 
+    const mongoose = require("mongoose");
+    const sObjectId = mongoose.Types.ObjectId.isValid(societyId) ? new mongoose.Types.ObjectId(societyId) : societyId;
+    const uObjectId = (userId && mongoose.Types.ObjectId.isValid(userId)) ? new mongoose.Types.ObjectId(userId) : userId;
+
     // Attach last message preview
     const groupIds = groups.map((g) => g._id);
     const lastMessages = groupIds.length
       ? await ChatMessage.aggregate([
-          { $match: { societyId: groups[0]?.societyId, groupId: { $in: groupIds }, isActive: true } },
+          { $match: { societyId: sObjectId, groupId: { $in: groupIds }, isActive: true } },
           { $sort: { createdAt: -1 } },
           { $group: { _id: "$groupId", lastText: { $first: "$text" }, lastAt: { $first: "$createdAt" } } },
         ])
@@ -140,8 +144,8 @@ class ChatService {
     const lastMap = new Map(lastMessages.map((m) => [String(m._id), m]));
 
     // Query user read markers
-    const readDocs = groupIds.length
-      ? await ChatRead.find({ societyId, userId, groupId: { $in: groupIds } }).lean()
+    const readDocs = (groupIds.length && uObjectId)
+      ? await ChatRead.find({ societyId: sObjectId, userId: uObjectId, groupId: { $in: groupIds } }).lean()
       : [];
     const readMap = new Map(readDocs.map((r) => [String(r.groupId), r.lastReadAt]));
 
@@ -150,12 +154,15 @@ class ChatService {
       groups.map(async (g) => {
         const gid = String(g._id);
         const lastRead = readMap.get(gid);
+        const gObjectId = mongoose.Types.ObjectId.isValid(g._id) ? new mongoose.Types.ObjectId(g._id) : g._id;
         const query = {
-          societyId,
-          groupId: g._id,
-          senderId: { $ne: userId },
+          societyId: sObjectId,
+          groupId: gObjectId,
           isActive: true,
         };
+        if (uObjectId) {
+          query.senderId = { $ne: uObjectId };
+        }
         if (lastRead) {
           query.createdAt = { $gt: lastRead };
         }
@@ -182,8 +189,12 @@ class ChatService {
     await this.ensureMember(societyId, groupId, userId);
     // Mark group messages as read up to current timestamp
     try {
+      const mongoose = require("mongoose");
+      const sId = mongoose.Types.ObjectId.isValid(societyId) ? new mongoose.Types.ObjectId(societyId) : societyId;
+      const uId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+      const gId = mongoose.Types.ObjectId.isValid(groupId) ? new mongoose.Types.ObjectId(groupId) : groupId;
       await ChatRead.updateOne(
-        { societyId, userId, groupId },
+        { societyId: sId, userId: uId, groupId: gId },
         { $set: { lastReadAt: new Date() } },
         { upsert: true }
       );
@@ -195,6 +206,7 @@ class ChatService {
       .sort({ createdAt: 1 })
       .limit(limit)
       .lean();
+
     // Populate reply sender names
     const replyIds = messages.filter((m) => m.replyTo).map((m) => m.replyTo.senderId).filter(Boolean);
     let replyNames = {};
@@ -202,17 +214,35 @@ class ChatService {
       const users = await require("../user/user.model").User.find({ _id: { $in: replyIds } }).select("name").lean();
       replyNames = Object.fromEntries(users.map((u) => [String(u._id), u.name]));
     }
-    return messages.map((m) => ({
-      id: m._id,
-      text: m.isDeleted ? "This message was deleted" : m.text,
-      senderId: m.senderId?._id || m.senderId,
-      senderName: m.senderId?.name || "Member",
-      createdAt: m.createdAt,
-      isDeleted: m.isDeleted,
-      replyTo: m.replyTo ? { id: m.replyTo._id, text: m.isDeleted ? "" : m.replyTo.text, senderName: replyNames[String(m.replyTo.senderId)] || "Member" } : null,
-      reactions: m.reactions || [],
-      isPinned: String(group?.pinnedMessageId) === String(m._id),
-    }));
+
+    // Populate sender names and society flat numbers from User and Membership models
+    const senderIds = messages.map((m) => m.senderId?._id || m.senderId).filter(Boolean);
+    const [senderUsers, senderMems] = await Promise.all([
+      require("../user/user.model").User.find({ _id: { $in: senderIds } }).select("name").lean(),
+      require("../membership/membership.model").Membership.find({ societyId, userId: { $in: senderIds }, isActive: true }).select("userId flat houseNumber").lean(),
+    ]);
+    const senderUserMap = new Map(senderUsers.map((u) => [String(u._id), u.name]));
+    const senderFlatMap = new Map(senderMems.map((m) => [String(m.userId), m.flat || m.houseNumber || ""]));
+
+    return messages.map((m) => {
+      const sId = String(m.senderId?._id || m.senderId);
+      const name = (typeof m.senderId === "object" && m.senderId?.name) ? m.senderId.name : (senderUserMap.get(sId) || "Resident");
+      const flat = senderFlatMap.get(sId) || "";
+      return {
+        id: m._id,
+        text: m.isDeleted ? "This message was deleted" : m.text,
+        senderId: sId,
+        senderName: name,
+        senderFlat: flat,
+        name,
+        flat,
+        createdAt: m.createdAt,
+        isDeleted: m.isDeleted,
+        replyTo: m.replyTo ? { id: m.replyTo._id, text: m.isDeleted ? "" : m.replyTo.text, senderName: replyNames[String(m.replyTo.senderId)] || "Member" } : null,
+        reactions: m.reactions || [],
+        isPinned: String(group?.pinnedMessageId) === String(m._id),
+      };
+    });
   }
 
   async sendGroupMessage(societyId, groupId, senderId, text, replyTo = null) {
@@ -507,13 +537,24 @@ class ChatService {
         $match: {
           societyId: sObjectId,
           isActive: true,
-          $or: [{ senderId: uObjectId }, { receiverId: uObjectId }],
+          $or: [
+            { senderId: uObjectId },
+            { receiverId: uObjectId },
+            { senderId: String(userId) },
+            { receiverId: String(userId) },
+          ],
         },
       },
       { $sort: { createdAt: -1 } },
       {
         $group: {
-          _id: { $cond: [{ $eq: ["$senderId", uObjectId] }, "$receiverId", "$senderId"] },
+          _id: {
+            $cond: [
+              { $or: [{ $eq: ["$senderId", uObjectId] }, { $eq: ["$senderId", String(userId)] }] },
+              "$receiverId",
+              "$senderId",
+            ],
+          },
           lastText: { $first: "$text" },
           lastAt: { $first: "$createdAt" },
           unreadCount: {
@@ -521,7 +562,7 @@ class ChatService {
               $cond: [
                 {
                   $and: [
-                    { $eq: ["$receiverId", uObjectId] },
+                    { $or: [{ $eq: ["$receiverId", uObjectId] }, { $eq: ["$receiverId", String(userId)] }] },
                     { $eq: ["$isRead", false] },
                   ],
                 },
