@@ -998,16 +998,18 @@ class MaintenanceService {
 
     const paymentsCount = await MaintenancePayment.countDocuments({ cycleId, societyId, isActive: true });
 
-    if (data.amount !== undefined || data.ownerAmount !== undefined || data.renterAmount !== undefined) {
+    const lateVal = data.lateCharge !== undefined ? data.lateCharge : data.lateFine;
+    if (data.amount !== undefined || data.ownerAmount !== undefined || data.renterAmount !== undefined || lateVal !== undefined) {
       if (paymentsCount > 0) {
         throw new AppError(
-          "Cannot modify billing amounts because payments have already been collected for this cycle. You can still update the due date.",
+          "Cannot modify billing amounts or late penalty because payments have already been collected for this cycle. You can still update the due date.",
           400
         );
       }
       if (data.amount !== undefined) cycle.amount = data.amount;
       if (data.ownerAmount !== undefined) cycle.ownerAmount = data.ownerAmount;
       if (data.renterAmount !== undefined) cycle.renterAmount = data.renterAmount;
+      if (lateVal !== undefined) cycle.lateCharge = Math.max(0, Number(lateVal) || 0);
     }
 
     if (data.dueDate !== undefined) cycle.dueDate = new Date(data.dueDate);
