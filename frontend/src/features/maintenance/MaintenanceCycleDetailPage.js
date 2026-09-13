@@ -100,10 +100,10 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
           </div>
 
           {!hasPayments && (
-            <div className="flex items-start gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-[12px] text-emerald-800">
-              <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5 text-emerald-700">info</span>
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-[13px] font-medium text-emerald-900">
+              <span className="material-symbols-outlined text-[18px] text-emerald-700 shrink-0">info</span>
               <span>
-                Enter total amount for the {cycle.durationMonths || 1} month{(cycle.durationMonths || 1) > 1 ? "s" : ""} duration ({periodLabel(cycle.month, cycle.year, cycle.durationMonths)})
+                Enter amount of <strong>{cycle.durationMonths || 1} month{(cycle.durationMonths || 1) > 1 ? "s" : ""}</strong> ({periodLabel(cycle.month, cycle.year, cycle.durationMonths)})
               </span>
             </div>
           )}
@@ -121,6 +121,7 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
                 disabled={hasPayments}
                 className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
               />
+              <p className="text-[11px] text-on-surface-variant mt-1">Total for all {cycle.durationMonths || 1} months</p>
             </div>
             <div>
               <label className="text-label-sm font-semibold text-on-surface mb-1 block">
@@ -134,6 +135,7 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
                 disabled={hasPayments}
                 className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
               />
+              <p className="text-[11px] text-on-surface-variant mt-1">Total for all {cycle.durationMonths || 1} months</p>
             </div>
           </div>
 
