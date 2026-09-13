@@ -37,6 +37,18 @@ export function formatAmount(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
+export function isAfterDueDay(date, dueDate) {
+  if (!dueDate) return false;
+  const toDayStr = (d) => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(d));
+    } catch (_) {
+      return new Date(d).toISOString().slice(0, 10);
+    }
+  };
+  return toDayStr(date || new Date()) > toDayStr(dueDate);
+}
+
 export function formatDate(value) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("en-IN", {

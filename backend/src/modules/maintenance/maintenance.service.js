@@ -16,6 +16,22 @@ async function hasMaintenancePermission(societyId, role) {
   }
 }
 
+function getCalendarDayStr(d, timeZone = "Asia/Kolkata") {
+  if (!d) return "";
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(d));
+  } catch (_) {
+    return new Date(d).toISOString().slice(0, 10);
+  }
+}
+
+function isAfterDueDay(date, dueDate) {
+  if (!dueDate) return false;
+  const currentDay = getCalendarDayStr(date || new Date());
+  const dueDay = getCalendarDayStr(dueDate);
+  return currentDay > dueDay;
+}
+
 class MaintenanceService {
   // helper: get amount for a specific unit - renter priority if renter lives there
   getAmountForUnit(cycle, unit) {
@@ -257,9 +273,9 @@ class MaintenanceService {
 
   statusFor(payment, cycle) {
     if (!payment) {
-      return new Date(cycle.dueDate) < new Date() ? "overdue" : "pending";
+      return isAfterDueDay(new Date(), cycle.dueDate) ? "overdue" : "pending";
     }
-    return new Date(payment.paidOn) <= new Date(cycle.dueDate)
+    return !isAfterDueDay(payment.paidOn, cycle.dueDate)
       ? "paid"
       : "late_paid";
   }
@@ -513,7 +529,7 @@ class MaintenanceService {
     const paidOn = data.paidOn || new Date();
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
     const baseAmount = this.getAmountForUnit(cycle, unit);
-    const isLate = new Date(paidOn) > new Date(cycle.dueDate);
+    const isLate = isAfterDueDay(paidOn, cycle.dueDate);
     const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
     const finalAmount = baseAmount + appliedLateCharge;
 
@@ -576,7 +592,7 @@ class MaintenanceService {
     const { createOrder } = require("../../shared/services/razorpay.service");
     const receipt = `rcpt_${cycle.year}${String(cycle.month).padStart(2, "0")}_${String(unitId).slice(-6)}${advanceMonths > 1 ? `_adv${advanceMonths}` : ""}`;
     const baseAmount = this.getAmountForUnit(cycle, unit);
-    const isLate = new Date() > new Date(cycle.dueDate);
+    const isLate = isAfterDueDay(new Date(), cycle.dueDate);
     const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
     const singleFinal = baseAmount + appliedLateCharge;
     // For advance, calculate total for N months (without late for future months)
@@ -590,7 +606,7 @@ class MaintenanceService {
         const c = allCycles[idx + i];
         if (c) {
           const amt = this.getAmountForUnit(c, unit);
-          const late = i === 0 && new Date() > new Date(c.dueDate) ? (c.lateCharge || 0) : 0;
+          const late = i === 0 && isAfterDueDay(new Date(), c.dueDate) ? (c.lateCharge || 0) : 0;
           total += amt + late;
         } else {
           // Future cycle not yet created: use current base

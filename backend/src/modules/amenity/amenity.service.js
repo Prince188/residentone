@@ -2,7 +2,21 @@ const { Amenity, Booking } = require("./amenity.model");
 const { MaintenanceCycle, MaintenancePayment } = require("../maintenance/maintenance.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
-const { hasPermission } = require("../../shared/permissions");
+function getCalendarDayStr(d, timeZone = "Asia/Kolkata") {
+  if (!d) return "";
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(d));
+  } catch (_) {
+    return new Date(d).toISOString().slice(0, 10);
+  }
+}
+
+function isAfterDueDay(date, dueDate) {
+  if (!dueDate) return false;
+  const currentDay = getCalendarDayStr(date || new Date());
+  const dueDay = getCalendarDayStr(dueDate);
+  return currentDay > dueDay;
+}
 
 class AmenityService {
   async list(societyId) {
@@ -56,7 +70,7 @@ class AmenityService {
     // For each unit of user, check payment
     for (const unitId of membership.units) {
       const payment = await MaintenancePayment.findOne({ societyId, cycleId: latest._id, unitId, isActive: true }).lean();
-      const isOverdue = !payment && new Date(latest.dueDate) < new Date();
+      const isOverdue = !payment && isAfterDueDay(new Date(), latest.dueDate);
       if (isOverdue) return true;
       if (payment && new Date(payment.paidOn) > new Date(latest.dueDate)) {
         // late_paid still considered defaulter? For MVP treat overdue only

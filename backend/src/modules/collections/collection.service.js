@@ -15,6 +15,22 @@ async function hasCollectionPermission(societyId, role) {
   }
 }
 
+function getCalendarDayStr(d, timeZone = "Asia/Kolkata") {
+  if (!d) return "";
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(d));
+  } catch (_) {
+    return new Date(d).toISOString().slice(0, 10);
+  }
+}
+
+function isAfterDueDay(date, dueDate) {
+  if (!dueDate) return false;
+  const currentDay = getCalendarDayStr(date || new Date());
+  const dueDay = getCalendarDayStr(dueDate);
+  return currentDay > dueDay;
+}
+
 class CollectionService {
   async create(societyId, userId, data) {
     const collection = await Collection.create({
@@ -100,7 +116,7 @@ class CollectionService {
   }
 
   mapCollection(c) {
-    const isOverdue = new Date(c.dueDate) < new Date() && c.status === "active";
+    const isOverdue = isAfterDueDay(new Date(), c.dueDate) && c.status === "active";
     return {
       id: c._id,
       title: c.title,
@@ -119,9 +135,9 @@ class CollectionService {
 
   statusFor(payment, collection) {
     if (!payment) {
-      return new Date(collection.dueDate) < new Date() ? "overdue" : "pending";
+      return isAfterDueDay(new Date(), collection.dueDate) ? "overdue" : "pending";
     }
-    return new Date(payment.paidOn) <= new Date(collection.dueDate) ? "paid" : "late_paid";
+    return !isAfterDueDay(payment.paidOn, collection.dueDate) ? "paid" : "late_paid";
   }
 
   async getCollectionUnits(societyId, collection) {
@@ -469,12 +485,51 @@ class CollectionService {
     return col;
   }
 
+  async update(societyId, collectionId, data) {
+    const col = await Collection.findOne({ _id: collectionId, societyId, isActive: true });
+    if (!col) throw new AppError("Collection not found", 404);
+
+    const paymentsCount = await CollectionPayment.countDocuments({ collectionId, societyId, isActive: true });
+
+    if (data.amount !== undefined) {
+      if (paymentsCount > 0) {
+        throw new AppError(
+          "Cannot modify amount because payments have already been collected for this fund. You can still update title, category, description, and due date.",
+          400
+        );
+      }
+      col.amount = Number(data.amount);
+    }
+
+    if (data.title !== undefined) col.title = data.title.trim();
+    if (data.description !== undefined) col.description = data.description ? data.description.trim() : "";
+    if (data.category !== undefined) col.category = data.category;
+    if (data.dueDate !== undefined) col.dueDate = new Date(data.dueDate);
+
+    await col.save();
+    try {
+      const s = require("../../socket");
+      s.emitToSociety(String(societyId), "collection:change", { id: collectionId, action: "update" });
+    } catch (_) {}
+    return this.mapCollection({ ...col.toObject(), createdBy: col.createdBy });
+  }
+
   async deleteCollection(societyId, collectionId) {
     const col = await Collection.findOne({ _id: collectionId, societyId, isActive: true });
     if (!col) throw new AppError("Collection not found", 404);
+
+    const paymentsCount = await CollectionPayment.countDocuments({ collectionId, societyId, isActive: true });
+    if (paymentsCount > 0) {
+      throw new AppError("Cannot delete collection fund because payments have already been recorded.", 400);
+    }
+
     col.isActive = false;
     await col.save();
-    return col;
+    try {
+      const s = require("../../socket");
+      s.emitToSociety(String(societyId), "collection:change", { id: collectionId, action: "delete" });
+    } catch (_) {}
+    return { id: col._id, deleted: true };
   }
 
   async generateExcelBuffer(societyId, collection) {

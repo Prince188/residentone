@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
-import { getCycles, getCycleUnits, updateCycle, deleteCycle, exportMaintenanceExcel, extractApiError, formatAmount, formatDate, periodLabel, STATUS_UI } from "../../lib/maintenance";
+import { getCycles, getCycleUnits, updateCycle, deleteCycle, exportMaintenanceExcel, extractApiError, formatAmount, formatDate, isAfterDueDay, periodLabel, STATUS_UI } from "../../lib/maintenance";
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
@@ -290,7 +290,7 @@ export default function MaintenanceCycleDetailPage() {
   if (!cycle) return <div className="mx-auto max-w-4xl p-10 text-center">Cycle not found <Link to="/dues/history" className="text-primary hover:underline">Back to History</Link></div>;
 
   const period = periodLabel(cycle.month, cycle.year, cycle.durationMonths);
-  const isOverdue = new Date(cycle.dueDate) < new Date();
+  const isOverdue = isAfterDueDay(new Date(), cycle.dueDate);
 
   const filterOptions = [
     { key: "all", label: "All", count: units.length },
