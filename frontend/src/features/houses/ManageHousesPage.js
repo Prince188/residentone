@@ -32,6 +32,7 @@ export default function ManageHousesPage() {
   const [deletingHouse, setDeletingHouse] = useState(null);
   const [editError, setEditError] = useState("");
   const [deleteError, setDeleteError] = useState("");
+  const [exportModalVisible, setExportModalVisible] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: (data) => updateUnit(editingHouse?.id, data).then((r) => r.data.data),
@@ -126,6 +127,83 @@ export default function ManageHousesPage() {
     return result;
   }, [houses, search, statusFilter, familyByHouse, activeMembership]);
 
+  const handleExportExcel = (filterType) => {
+    let dataset = houses;
+    if (filterType === "owner") {
+      dataset = houses.filter((h) => h.isAssigned && !h.isRented);
+    } else if (filterType === "renter") {
+      dataset = houses.filter((h) => h.isRented);
+    }
+
+    if (dataset.length === 0) {
+      alert("No units match the selected filter.");
+      return;
+    }
+
+    const escapeCell = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+    const header = [
+      "Flat Number",
+      "Block / Wing",
+      "Floor",
+      "Occupancy Status",
+      "Resident Name",
+      "Resident Phone",
+      "Resident Email",
+      "Owner Name",
+      "Owner Phone",
+      "Tenant Name",
+      "Tenant Phone",
+      "Vehicles",
+      "Family Members",
+    ]
+      .map(escapeCell)
+      .join(",");
+
+    const rows = dataset.map((h) => {
+      const status = h.isRented ? "Rented" : h.isAssigned ? "Owner" : "Vacant";
+      const resident = h.isRented ? h.tenant || {} : h.owner || {};
+      const fam = familyByHouse[String(h.id)] || [];
+      const famText = fam.map((m) => `${m.name} (${m.relation || "Member"})`).join("; ");
+      const vehicles = [
+        ...(h.owner?.vehicles || []),
+        ...(h.tenant?.vehicles || []),
+      ].join(", ");
+
+      return [
+        h.label || "",
+        h.block || h.wing || "",
+        h.floor !== undefined && h.floor !== null ? h.floor : "",
+        status,
+        resident.name || "",
+        resident.phone || "",
+        resident.email || "",
+        h.owner?.name || "",
+        h.owner?.phone || "",
+        h.tenant?.name || "",
+        h.tenant?.phone || "",
+        vehicles,
+        famText,
+      ]
+        .map(escapeCell)
+        .join(",");
+    });
+
+    const csvContent = "\uFEFF" + [header, ...rows].join("\r\n");
+    const safeSocietyName = (activeSociety?.name || "Society").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filename = `${safeSocietyName}_Houses_${filterType}_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setExportModalVisible(false);
+  };
+
   const displayedCount = filtered.length;
   const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
   const isWingAdmin = isPureWingAdmin(activeMembership);
@@ -219,6 +297,14 @@ export default function ManageHousesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setExportModalVisible(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600/30 bg-emerald-50 px-3.5 py-2 text-label-md font-semibold text-emerald-800 hover:bg-emerald-100/70 hover:border-emerald-600/50 transition-colors shadow-xs cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px] text-emerald-700">table_view</span>
+            Export Excel
+          </button>
           <Link
             to="/my-unit"
             className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-label-md font-semibold text-on-surface hover:border-primary hover:text-primary transition-colors shadow-xs"
@@ -467,6 +553,79 @@ export default function ManageHousesPage() {
             setDeleteError("");
           }}
         />
+      )}
+
+      {/* Export Filter Modal */}
+      {exportModalVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[24px] text-emerald-700">table_view</span>
+                <h3 className="text-title-md font-bold text-on-surface">Download Excel</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExportModalVisible(false)}
+                className="rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              Choose which units you want to export. The downloaded spreadsheet includes flat numbers, resident details, phone numbers, vehicles, and registered family members.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => handleExportExcel("all")}
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group"
+              >
+                <div>
+                  <p className="text-body-md font-bold text-on-surface group-hover:text-emerald-800">All Houses ({houses.length})</p>
+                  <p className="text-body-xs text-on-surface-variant">Complete society housing directory including vacant units</p>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">download</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExportExcel("owner")}
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group"
+              >
+                <div>
+                  <p className="text-body-md font-bold text-on-surface group-hover:text-emerald-800">Owners Only ({totalOwned})</p>
+                  <p className="text-body-xs text-on-surface-variant">Export houses occupied by verified resident owners</p>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">download</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExportExcel("renter")}
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group"
+              >
+                <div>
+                  <p className="text-body-md font-bold text-on-surface group-hover:text-emerald-800">Renters / Tenants ({totalRented})</p>
+                  <p className="text-body-xs text-on-surface-variant">Export units occupied by registered active tenants</p>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">download</span>
+              </button>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setExportModalVisible(false)}
+                className="rounded-xl border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
