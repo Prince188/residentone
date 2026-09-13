@@ -102,8 +102,10 @@ function verifySignature({ orderId, paymentId, signature }) {
     String(orderId).startsWith("order_mock_") ||
     String(paymentId).startsWith("pay_mobile_") ||
     String(paymentId).startsWith("pay_mock_") ||
+    String(paymentId).startsWith("pay_col_mock_") ||
     String(signature).startsWith("sig_mobile_") ||
-    String(signature).startsWith("sig_mock_")
+    String(signature).startsWith("sig_mock_") ||
+    String(signature).startsWith("sig_col_mock_")
   ) {
     logger.info(`Razorpay mobile/test verify bypass: order=${orderId} payment=${paymentId}`);
     return true;
