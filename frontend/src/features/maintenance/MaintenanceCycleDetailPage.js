@@ -99,9 +99,20 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
             />
           </div>
 
+          {!hasPayments && (
+            <div className="flex items-start gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-[12px] text-emerald-800">
+              <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5 text-emerald-700">info</span>
+              <span>
+                Enter total amount for the {cycle.durationMonths || 1} month{(cycle.durationMonths || 1) > 1 ? "s" : ""} duration ({periodLabel(cycle.month, cycle.year, cycle.durationMonths)})
+              </span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-label-sm font-semibold text-on-surface mb-1 block">Owner Amount (₹)</label>
+              <label className="text-label-sm font-semibold text-on-surface mb-1 block">
+                Owner Amount ({cycle.durationMonths || 1} mo) (₹)
+              </label>
               <input
                 type="number"
                 min="0"
@@ -112,7 +123,9 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
               />
             </div>
             <div>
-              <label className="text-label-sm font-semibold text-on-surface mb-1 block">Renter Amount (₹)</label>
+              <label className="text-label-sm font-semibold text-on-surface mb-1 block">
+                Renter Amount ({cycle.durationMonths || 1} mo) (₹)
+              </label>
               <input
                 type="number"
                 min="0"
