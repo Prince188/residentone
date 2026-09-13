@@ -68,7 +68,10 @@ const cycleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-cycleSchema.index({ societyId: 1, wing: 1, month: 1, year: 1 }, { unique: true });
+cycleSchema.index(
+  { societyId: 1, wing: 1, month: 1, year: 1 },
+  { unique: true, partialFilterExpression: { isActive: true } }
+);
 cycleSchema.index({ societyId: 1, year: -1, month: -1 });
 
 tenantPlugin(cycleSchema);

@@ -119,6 +119,15 @@ class MaintenanceService {
       );
     }
 
+    // Clean up any previously soft-deleted inactive cycle for this scope before creating new one
+    await MaintenanceCycle.deleteMany({
+      societyId,
+      wing: wing || null,
+      month: data.month,
+      year: data.year,
+      isActive: false,
+    });
+
     // Support both old single amount and new split: if owner/renter provided use them, else fallback to amount
     const amount = data.amount;
     let ownerAmount = data.ownerAmount;
@@ -1017,8 +1026,7 @@ class MaintenanceService {
       throw new AppError("Cannot delete maintenance cycle because payments have already been recorded.", 400);
     }
 
-    cycle.isActive = false;
-    await cycle.save();
+    await MaintenanceCycle.deleteOne({ _id: cycleId, societyId });
     return { id: cycleId, deleted: true };
   }
 }
