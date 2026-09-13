@@ -52,12 +52,14 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
   );
   const [ownerAmount, setOwnerAmount] = useState(cycle?.ownerAmount || cycle?.amount || 0);
   const [renterAmount, setRenterAmount] = useState(cycle?.renterAmount || cycle?.amount || 0);
+  const [lateCharge, setLateCharge] = useState(cycle?.lateCharge || 0);
 
   useEffect(() => {
     if (cycle) {
       setDueDate(cycle.dueDate ? new Date(cycle.dueDate).toISOString().slice(0, 10) : "");
       setOwnerAmount(cycle.ownerAmount || cycle.amount || 0);
       setRenterAmount(cycle.renterAmount || cycle.amount || 0);
+      setLateCharge(cycle.lateCharge || 0);
     }
   }, [cycle, open]);
 
@@ -70,6 +72,7 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
       payload.ownerAmount = Number(ownerAmount);
       payload.renterAmount = Number(renterAmount);
       payload.amount = Number(ownerAmount);
+      payload.lateCharge = Math.max(0, Number(lateCharge) || 0);
     }
     onSave(payload);
   };
@@ -137,6 +140,22 @@ function EditCycleModal({ cycle, open, onClose, onSave, isSaving, hasPayments, e
               />
               <p className="text-[11px] text-on-surface-variant mt-1">Total for all {cycle.durationMonths || 1} months</p>
             </div>
+          </div>
+
+          <div>
+            <label className="text-label-sm font-semibold text-on-surface mb-1 block">
+              Late Penalty / Fine (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={lateCharge}
+              onChange={(e) => setLateCharge(e.target.value)}
+              disabled={hasPayments}
+              placeholder="e.g. 100 (0 for no penalty)"
+              className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-body-sm focus:border-primary focus:outline-none disabled:bg-surface-container-high disabled:text-outline"
+            />
+            <p className="text-[11px] text-on-surface-variant mt-1">Late penalty applies starting the day after due date</p>
           </div>
 
           {hasPayments && (
