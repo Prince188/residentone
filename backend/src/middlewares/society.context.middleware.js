@@ -42,7 +42,13 @@ async function resolveSocietyContext(req, _res, next) {
 
     req.societyId = (membership.societyId?._id || membership.societyId || requestedSocietyId).toString();
     req.membership = membership;
-    req.role = membership.role;
+    const allRoles = [membership.role, ...(membership.additionalRoles || [])].filter(Boolean);
+    req.roles = allRoles;
+    req.role = allRoles.includes("super_admin")
+      ? "super_admin"
+      : allRoles.includes("society_admin")
+      ? "society_admin"
+      : membership.role;
 
     // Check if society is suspended or unpaid
     const targetSociety =

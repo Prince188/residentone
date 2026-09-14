@@ -445,6 +445,29 @@ class CollectionService {
     const { Society } = require("../society/society.model");
     const society = await Society.findById(societyId).lean();
 
+    let acceptedByInfo = null;
+    if (payment.recordedBy) {
+      const { Membership } = require("../membership/membership.model");
+      const { User } = require("../user/user.model");
+      const [recUser, recMembership] = await Promise.all([
+        User.findById(payment.recordedBy).select("name phone").lean(),
+        Membership.findOne({ societyId, userId: payment.recordedBy, isActive: true })
+          .populate("units", "label block doorNo")
+          .lean(),
+      ]);
+
+      const adminUnits = (recMembership?.units || []).filter(Boolean);
+      const houseLabels = adminUnits.map((u) => u.label ? `House ${u.label}` : u.doorNo ? `House ${u.doorNo}` : "").filter(Boolean);
+      const houseStr = houseLabels.length > 0 ? houseLabels.join(", ") : "Office";
+
+      acceptedByInfo = {
+        name: recUser?.name || "Society Admin",
+        phone: recUser?.phone || null,
+        houseNumber: houseStr,
+        role: recMembership?.role || "Admin",
+      };
+    }
+
     return {
       receiptNo: payment.receiptNo,
       society: {
@@ -471,6 +494,7 @@ class CollectionService {
         receiptNo: payment.receiptNo,
         razorpayPaymentId: payment.razorpayPaymentId || null,
         razorpayOrderId: payment.razorpayOrderId || null,
+        acceptedBy: acceptedByInfo,
       },
       status,
     };

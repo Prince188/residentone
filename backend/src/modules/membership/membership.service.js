@@ -12,7 +12,9 @@ class MembershipService {
   }
 
   async findBySociety(societyId) {
-    return Membership.find({ societyId, isActive: true }).populate("userId", "name email phone");
+    return Membership.find({ societyId, isActive: true })
+      .populate("userId", "name email phone")
+      .populate("units", "label unitNumber block floor");
   }
 
   maskPhone(phone) {
@@ -352,12 +354,23 @@ class MembershipService {
     if (existing) {
       throw new AppError("User is already a member of this society", 409);
     }
-    if (data.role === "society_admin") {
+    let allRoles = [];
+    if (Array.isArray(data.roles) && data.roles.length > 0) {
+      allRoles = [...data.roles];
+    } else if (data.role) {
+      allRoles = [data.role, ...(Array.isArray(data.additionalRoles) ? data.additionalRoles : [])];
+    }
+    allRoles = [...new Set(allRoles.filter(Boolean))];
+    if (allRoles.includes("society_admin")) {
+      allRoles = ["society_admin", ...allRoles.filter((r) => r !== "society_admin")];
       const count = await Membership.countDocuments({ societyId: data.societyId, role: "society_admin", isActive: true });
       if (count >= 2) {
         throw new AppError("Maximum 2 Society Admins allowed per society", 400);
       }
     }
+    data.role = allRoles[0] || "resident";
+    data.additionalRoles = allRoles.slice(1);
+    delete data.roles;
     return Membership.create(data);
   }
 
@@ -369,41 +382,70 @@ class MembershipService {
     );
   }
 
-  async updateRole(id, role, assignedWings) {
+  async updateRole(id, roleOrData, assignedWings) {
+    let role;
+    let roles = [];
+    let additionalRoles = [];
+    let wings = assignedWings;
+
+    if (typeof roleOrData === "object" && roleOrData !== null) {
+      role = roleOrData.role;
+      roles = roleOrData.roles || [];
+      additionalRoles = roleOrData.additionalRoles || [];
+      if (roleOrData.assignedWings !== undefined) {
+        wings = roleOrData.assignedWings;
+      }
+    } else {
+      role = roleOrData;
+    }
+
+    let allRoles = [];
+    if (Array.isArray(roles) && roles.length > 0) {
+      allRoles = [...roles];
+    } else if (role) {
+      allRoles = [role, ...(Array.isArray(additionalRoles) ? additionalRoles : [])];
+    }
+    allRoles = [...new Set(allRoles.filter(Boolean))];
+
     const existing = await Membership.findById(id);
     if (!existing) throw new AppError("Membership not found", 404);
     const existingRoles = [existing.role, ...(existing.additionalRoles || [])].filter(Boolean);
-    // Additive: if existing is society_admin/super_admin and we add wing_admin, keep society_admin
-    const isWingAdminAdd = role === "wing_admin" && (existingRoles.includes("society_admin") || existingRoles.includes("super_admin"));
-    if (isWingAdminAdd) {
-      const wings = Array.isArray(assignedWings) ? assignedWings.map((w) => String(w).trim().toUpperCase()).filter(Boolean) : [];
-      if (wings.length === 0) throw new AppError("Wing Admin requires at least one wing assignment", 400);
-      const invalid = wings.filter((w) => !/^[A-Z0-9]{1,10}$/.test(w));
-      if (invalid.length) throw new AppError(`Invalid wing names: ${invalid.join(", ")}`, 400);
-      const additional = new Set(existing.additionalRoles || []);
-      additional.add("wing_admin");
-      return Membership.findByIdAndUpdate(id, { additionalRoles: Array.from(additional), assignedWings: wings }, { new: true, runValidators: true });
+
+    // If society_admin is in allRoles, prioritize it as the primary role
+    if (allRoles.includes("society_admin")) {
+      allRoles = ["society_admin", ...allRoles.filter((r) => r !== "society_admin")];
     }
+
+    const primaryRole = allRoles[0] || role || "resident";
+    const newAdditionalRoles = allRoles.slice(1);
+
     // Enforce max 2 society_admin per society
-    if (role === "society_admin" && !existingRoles.includes("society_admin")) {
+    if (allRoles.includes("society_admin") && !existingRoles.includes("society_admin")) {
       const count = await Membership.countDocuments({ societyId: existing.societyId, role: "society_admin", isActive: true });
       if (count >= 2) {
         throw new AppError("Maximum 2 Society Admins allowed per society", 400);
       }
     }
-    const update = { role };
-    if (role === "wing_admin") {
-      const wings = Array.isArray(assignedWings) ? assignedWings.map((w) => String(w).trim().toUpperCase()).filter(Boolean) : [];
-      if (wings.length === 0) throw new AppError("Wing Admin requires at least one wing assignment", 400);
-      const invalid = wings.filter((w) => !/^[A-Z0-9]{1,10}$/.test(w));
+
+    const update = {
+      role: primaryRole,
+      additionalRoles: newAdditionalRoles,
+    };
+
+    if (allRoles.includes("wing_admin")) {
+      const parsedWings = Array.isArray(wings)
+        ? wings.map((w) => String(w).trim().toUpperCase()).filter(Boolean)
+        : (existing.assignedWings || []);
+      if (parsedWings.length === 0) {
+        throw new AppError("Wing Admin requires at least one wing assignment", 400);
+      }
+      const invalid = parsedWings.filter((w) => !/^[A-Z0-9]{1,10}$/.test(w));
       if (invalid.length) throw new AppError(`Invalid wing names: ${invalid.join(", ")}`, 400);
-      update.assignedWings = wings;
-      update.additionalRoles = [];
+      update.assignedWings = parsedWings;
     } else {
-      // clear wings and additional roles when switching away from wing_admin (unless we keep additionalRoles that still includes wing_admin via other path)
       update.assignedWings = [];
-      update.additionalRoles = [];
     }
+
     return Membership.findByIdAndUpdate(id, update, { new: true, runValidators: true });
   }
 

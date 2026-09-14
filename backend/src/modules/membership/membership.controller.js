@@ -32,11 +32,20 @@ class MembershipController {
 
   async addMember(req, res, next) {
     try {
-      const { userId, role, unitIds, assignedWings } = req.body;
+      const { userId, role, roles, unitIds, assignedWings } = req.body;
+      let requestedRoles = [];
+      if (Array.isArray(roles) && roles.length > 0) {
+        requestedRoles = roles;
+      } else if (role) {
+        requestedRoles = [role];
+      }
+      requestedRoles = [...new Set(requestedRoles.filter(Boolean))];
+
       const membership = await membershipService.create({
         userId,
         societyId: req.societyId,
-        role,
+        role: requestedRoles[0] || role || "resident",
+        roles: requestedRoles,
         assignedWings: Array.isArray(assignedWings)
           ? assignedWings.map((w) => String(w).trim().toUpperCase())
           : undefined,
@@ -52,7 +61,7 @@ class MembershipController {
 
   async updateRole(req, res, next) {
     try {
-      const { role, assignedWings, action, wing } = req.body;
+      const { role, roles, additionalRoles, assignedWings, action, wing } = req.body;
       const membership = await membershipService.findById(req.params.memberId);
       if (!membership) {
         return res.status(404).json({
@@ -67,16 +76,32 @@ class MembershipController {
         return res.json({ success: true, data: updated });
       }
 
+      // Consolidate requested roles
+      let requestedRoles = [];
+      if (Array.isArray(roles) && roles.length > 0) {
+        requestedRoles = roles;
+      } else if (role) {
+        requestedRoles = [role, ...(Array.isArray(additionalRoles) ? additionalRoles : [])];
+      }
+      requestedRoles = [...new Set(requestedRoles.filter(Boolean))];
+
       const myLevel = ROLE_HIERARCHY[req.role] || 0;
-      const targetLevel = ROLE_HIERARCHY[role] || 0;
-      if (targetLevel > myLevel) {
-        return res.status(403).json({
-          success: false,
-          error: { code: "FORBIDDEN", message: "Cannot promote user to your level or above" },
-        });
+      for (const r of requestedRoles) {
+        const targetLevel = ROLE_HIERARCHY[r] || 0;
+        if (targetLevel > myLevel) {
+          return res.status(403).json({
+            success: false,
+            error: { code: "FORBIDDEN", message: `Cannot promote user to ${r} (exceeds your permissions)` },
+          });
+        }
       }
 
-      const updated = await membershipService.updateRole(req.params.memberId, role, assignedWings);
+      const updated = await membershipService.updateRole(req.params.memberId, {
+        role: requestedRoles[0] || role,
+        roles: requestedRoles,
+        additionalRoles: requestedRoles.slice(1),
+        assignedWings,
+      });
       res.json({ success: true, data: updated });
     } catch (error) {
       next(error);
