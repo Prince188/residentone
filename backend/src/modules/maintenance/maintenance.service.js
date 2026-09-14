@@ -805,6 +805,7 @@ class MaintenanceService {
       receiptNo: payment.receiptNo,
       society: {
         name: society?.name || "Society",
+        logoUrl: society?.logoUrl || null,
         address: society ? `${society.address}, ${society.city}, ${society.state} - ${society.pincode}` : "",
       },
       unit: {

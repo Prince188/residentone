@@ -1,5 +1,7 @@
+import { useState } from "react";
 import FormField from "../../components/form/FormField";
 import PhoneInput from "../../components/ui/PhoneInput";
+import { uploadSocietyLogo } from "../../lib/societies";
 
 export const SOCIETY_TYPE_OPTIONS = [
   { value: "apartment", label: "Apartment" },
@@ -36,7 +38,36 @@ const inputClass =
   "w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow disabled:opacity-60";
 
 function SocietyFormFields({ values, errors, onChange, disabled = false }) {
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState("");
   const set = (field) => (e) => onChange(field, e.target.value);
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setLogoError("Please choose an image file (PNG, JPG, WEBP, etc.)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError("Logo file must be less than 5MB");
+      return;
+    }
+    setLogoError("");
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await uploadSocietyLogo(formData);
+      if (res.data?.data?.url) {
+        onChange("logoUrl", res.data.data.url);
+      }
+    } catch (err) {
+      setLogoError(err?.response?.data?.error?.message || "Failed to upload logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const selectedPlan = values.subscriptionPlan || "starter";
   const selectedBilling = values.subscriptionBilling || "monthly";
@@ -47,6 +78,45 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
 
   return (
     <div className="space-y-stack-md">
+      {/* Society Logo Upload */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest">
+        <div className="relative flex-shrink-0 w-20 h-20 rounded-xl bg-surface-container-low border border-outline-variant flex items-center justify-center overflow-hidden">
+          {values.logoUrl ? (
+            <img src={values.logoUrl} alt="Society Logo" className="w-full h-full object-contain p-1" />
+          ) : (
+            <span className="material-symbols-outlined text-outline text-[32px]">apartment</span>
+          )}
+          {uploadingLogo && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <span className="material-symbols-outlined text-white animate-spin text-[24px]">progress_activity</span>
+            </div>
+          )}
+        </div>
+        <div className="flex-1">
+          <label className="block text-label-md font-medium text-on-surface">Society Logo (Optional)</label>
+          <p className="text-body-sm text-on-surface-variant">Recommended: Square or horizontal transparent PNG/JPG. This logo will appear on all resident receipts.</p>
+          {logoError && <p className="mt-1 text-label-sm text-error">{logoError}</p>}
+          <div className="mt-2 flex items-center gap-2">
+            <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline text-label-sm font-medium cursor-pointer hover:bg-surface-container-high transition-colors ${disabled || uploadingLogo ? "opacity-50 pointer-events-none" : ""}`}>
+              <span className="material-symbols-outlined text-[18px]">upload</span>
+              {values.logoUrl ? "Change Logo" : "Upload Logo"}
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} disabled={disabled || uploadingLogo} />
+            </label>
+            {values.logoUrl && (
+              <button
+                type="button"
+                onClick={() => onChange("logoUrl", null)}
+                disabled={disabled || uploadingLogo}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-label-sm text-error hover:bg-error-container/30 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">delete</span>
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-stack-md">
         <FormField
           id="societyName"
@@ -403,6 +473,7 @@ export function toApiPayload(values) {
     contactName: values.contactName.trim(),
     contactMobile: values.contactMobile.trim(),
     contactEmail: values.contactEmail.trim().toLowerCase(),
+    logoUrl: values.logoUrl || null,
   };
 }
 
@@ -419,6 +490,7 @@ export const EMPTY_SOCIETY_FORM = {
   contactName: "",
   contactMobile: "",
   contactEmail: "",
+  logoUrl: null,
 };
 
 export default SocietyFormFields;

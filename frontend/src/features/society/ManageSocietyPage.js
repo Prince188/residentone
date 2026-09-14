@@ -5,6 +5,7 @@ import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "..
 import api from "../../lib/api";
 import { getHouseCards } from "../../lib/houses";
 import { getMembershipRoles, isWingAdmin } from "../../lib/permissions";
+import { uploadSocietyLogo } from "../../lib/societies";
 
 function extractError(e, fallback) {
   return e?.response?.data?.error?.message || fallback;
@@ -35,12 +36,25 @@ export default function ManageSocietyPage() {
     enabled: Boolean(activeSociety),
   });
 
-  const [form, setForm] = useState({ name: "", address: "", city: "", state: "", pincode: "", contactPersonName: "", contactPhone: "", contactEmail: "" });
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    contactPersonName: "",
+    contactPhone: "",
+    contactEmail: "",
+    totalUnits: "",
+    logoUrl: null,
+  });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
   const [wingSearches, setWingSearches] = useState({}); // { [wing]: query }
   const [assignMsg, setAssignMsg] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoErr, setLogoErr] = useState("");
 
   useEffect(() => {
     if (societyQuery.data) {
@@ -53,9 +67,52 @@ export default function ManageSocietyPage() {
         contactPersonName: societyQuery.data.contactPersonName || "",
         contactPhone: societyQuery.data.contactPhone || "",
         contactEmail: societyQuery.data.contactEmail || "",
+        totalUnits: societyQuery.data.totalUnits !== undefined ? String(societyQuery.data.totalUnits) : "",
+        logoUrl: societyQuery.data.logoUrl || null,
       });
     }
   }, [societyQuery.data]);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setLogoErr("Please select an image file (PNG, JPG, etc.)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoErr("Logo file must be under 5MB");
+      return;
+    }
+    setLogoErr("");
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await uploadSocietyLogo(fd);
+      const url = res.data?.data?.url;
+      if (url) {
+        await mutate.mutateAsync({ logoUrl: url });
+        setForm((prev) => ({ ...prev, logoUrl: url }));
+        setMsg("Society logo updated successfully");
+      }
+    } catch (err) {
+      setLogoErr(extractError(err, "Failed to upload logo"));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!window.confirm("Are you sure you want to remove the society logo?")) return;
+    try {
+      await mutate.mutateAsync({ logoUrl: null });
+      setForm((prev) => ({ ...prev, logoUrl: null }));
+      setMsg("Society logo removed");
+    } catch (err) {
+      setErr(extractError(err, "Failed to remove logo"));
+    }
+  };
 
   const mutate = useMutation({
     mutationFn: async (payload) => (await api.patch("/societies/me", payload)).data.data,
@@ -176,6 +233,49 @@ export default function ManageSocietyPage() {
           </h2>
           {canEdit && !editing && <button onClick={() => setEditing(true)} className="rounded-full border border-outline-variant px-4 py-1.5 text-label-md hover:border-primary hover:text-primary">Edit</button>}
         </div>
+        {/* Society Official Logo Section */}
+        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border border-outline-variant/40 bg-surface-container-lowest">
+          <div className="relative flex-shrink-0 w-20 h-20 rounded-xl bg-surface-container-low border border-outline-variant flex items-center justify-center overflow-hidden">
+            {form.logoUrl ? (
+              <img src={form.logoUrl} alt={form.name || "Society Logo"} className="w-full h-full object-contain p-1" />
+            ) : (
+              <span className="material-symbols-outlined text-outline text-[32px]">apartment</span>
+            )}
+            {uploadingLogo && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <span className="material-symbols-outlined text-white animate-spin text-[24px]">progress_activity</span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-label-lg font-bold text-on-surface">Society Official Logo</h3>
+            <p className="text-body-sm text-on-surface-variant">
+              This logo will be printed at the top of every maintenance and collection receipt.
+            </p>
+            {logoErr && <p className="mt-1 text-label-sm text-error">{logoErr}</p>}
+            {canEdit && (
+              <div className="mt-2 flex items-center gap-2">
+                <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline text-label-sm font-medium cursor-pointer hover:bg-surface-container-high transition-colors ${uploadingLogo ? "opacity-50 pointer-events-none" : ""}`}>
+                  <span className="material-symbols-outlined text-[18px]">upload</span>
+                  {form.logoUrl ? "Change Logo" : "Upload Logo"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                </label>
+                {form.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    disabled={uploadingLogo}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-label-sm text-error hover:bg-error-container/30 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {societyQuery.isLoading ? (
           <div className="mt-4 h-24 animate-pulse bg-surface-container rounded-xl" />
         ) : (
@@ -200,12 +300,84 @@ export default function ManageSocietyPage() {
                 />
               </label>
             ))}
+
+            {/* Total Units Field with Pre-payment editing rule */}
+            <label className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-label-sm font-semibold text-on-surface-variant">
+                  Total Units <span className="text-error">*</span>
+                </span>
+                {societyQuery.data?.isSubscriptionPaid ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <span className="material-symbols-outlined text-[13px]">lock</span>
+                    Paid (Locked)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <span className="material-symbols-outlined text-[13px]">edit</span>
+                    Editable before payment
+                  </span>
+                )}
+              </div>
+              <input
+                type="number"
+                min="1"
+                disabled={!editing || societyQuery.data?.isSubscriptionPaid}
+                value={form.totalUnits || ""}
+                onChange={(e) => setForm((p) => ({ ...p, totalUnits: e.target.value }))}
+                className={`rounded-xl border px-3 py-2.5 text-body-sm ${
+                  editing && !societyQuery.data?.isSubscriptionPaid
+                    ? "bg-white border-outline-variant focus:border-primary focus:ring-2 focus:ring-primary/10"
+                    : "bg-surface-container-low border-outline-variant/30 text-on-surface opacity-75 cursor-not-allowed"
+                } outline-none`}
+              />
+              <span className="text-[11px] text-on-surface-variant">
+                {societyQuery.data?.isSubscriptionPaid
+                  ? "Units count is locked after subscription payment. Contact support to adjust units."
+                  : "You can update your unit count prior to completing your subscription payment."}
+              </span>
+            </label>
           </div>
         )}
         {editing && (
           <div className="mt-4 flex gap-2 justify-end">
-            <button onClick={() => { setEditing(false); setErr(""); if (societyQuery.data) setForm({ name: societyQuery.data.name || "", address: societyQuery.data.address || "", city: societyQuery.data.city || "", state: societyQuery.data.state || "", pincode: societyQuery.data.pincode || "", contactPersonName: societyQuery.data.contactPersonName || "", contactPhone: societyQuery.data.contactPhone || "", contactEmail: societyQuery.data.contactEmail || "" }); }} className="rounded-full border px-5 py-2 text-label-md">Cancel</button>
-            <button onClick={() => { setErr(""); mutate.mutate(form); }} disabled={mutate.isPending} className="rounded-full bg-primary text-on-primary px-6 py-2 text-label-md font-semibold disabled:opacity-60">{mutate.isPending ? "Saving..." : "Save"}</button>
+            <button
+              onClick={() => {
+                setEditing(false);
+                setErr("");
+                if (societyQuery.data) {
+                  setForm({
+                    name: societyQuery.data.name || "",
+                    address: societyQuery.data.address || "",
+                    city: societyQuery.data.city || "",
+                    state: societyQuery.data.state || "",
+                    pincode: societyQuery.data.pincode || "",
+                    contactPersonName: societyQuery.data.contactPersonName || "",
+                    contactPhone: societyQuery.data.contactPhone || "",
+                    contactEmail: societyQuery.data.contactEmail || "",
+                    totalUnits: societyQuery.data.totalUnits !== undefined ? String(societyQuery.data.totalUnits) : "",
+                    logoUrl: societyQuery.data.logoUrl || null,
+                  });
+                }
+              }}
+              className="rounded-full border px-5 py-2 text-label-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setErr("");
+                const payload = {
+                  ...form,
+                  totalUnits: form.totalUnits ? Number(form.totalUnits) : undefined,
+                };
+                mutate.mutate(payload);
+              }}
+              disabled={mutate.isPending}
+              className="rounded-full bg-primary text-on-primary px-6 py-2 text-label-md font-semibold disabled:opacity-60"
+            >
+              {mutate.isPending ? "Saving..." : "Save"}
+            </button>
           </div>
         )}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">

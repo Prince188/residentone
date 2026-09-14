@@ -159,6 +159,7 @@ export default function MaintenanceDetailPage() {
                         .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
                       </style></head><body>
                       <div class="header">
+                        ${data.society.logoUrl ? `<div style="margin-bottom:12px;"><img src="${data.society.logoUrl}" alt="${data.society.name}" style="max-height:56px;max-width:160px;object-fit:contain;" /></div>` : ""}
                         <h1>${data.society.name}</h1>
                         <p>${data.society.address}</p>
                         <h2 style="margin-top:16px;font-size:18px">Maintenance Receipt</h2>

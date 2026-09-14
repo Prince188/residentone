@@ -450,6 +450,7 @@ class CollectionService {
       society: {
         name: society?.name || "Society",
         address: society ? `${society.address}, ${society.city}, ${society.state} - ${society.pincode}` : "",
+        logoUrl: society?.logoUrl || null,
       },
       unit: {
         id: unit._id,

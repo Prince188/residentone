@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
+import api from "../../lib/api";
 import {
   paySocietySubscription,
   SUBSCRIPTION_PLAN_LABELS,
@@ -120,6 +121,10 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   );
   const [showPayModal, setShowPayModal] = useState(false);
   const [showRenewalSelector, setShowRenewalSelector] = useState(false);
+  const [editingUnits, setEditingUnits] = useState(false);
+  const [tempUnits, setTempUnits] = useState(1);
+  const [unitSaveLoading, setUnitSaveLoading] = useState(false);
+  const [unitSaveError, setUnitSaveError] = useState("");
 
   useEffect(() => {
     if (activeSociety?.subscriptionPlan) {
@@ -128,7 +133,10 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     if (activeSociety?.subscriptionBilling) {
       setSelectedCycle(activeSociety.subscriptionBilling);
     }
-  }, [activeSociety?.id, activeSociety?.subscriptionPlan, activeSociety?.subscriptionBilling]);
+    if (activeSociety?.totalUnits) {
+      setTempUnits(activeSociety.totalUnits);
+    }
+  }, [activeSociety?.id, activeSociety?.subscriptionPlan, activeSociety?.subscriptionBilling, activeSociety?.totalUnits]);
 
   if (!isAdmin || !activeSociety) {
     return null;
@@ -432,9 +440,77 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
               </div>
             </div>
           ) : (
-            <p className="text-body-xs text-on-surface-variant">
-              {units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}
-            </p>
+            <div>
+              <p className="text-body-xs text-on-surface-variant flex flex-wrap items-center gap-2">
+                <span>{units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}</span>
+                {!isPaid && !editingUnits && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempUnits(units);
+                      setEditingUnits(true);
+                      setUnitSaveError("");
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer bg-primary/10 px-2 py-0.5 rounded-md"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">edit</span>
+                    Edit Units
+                  </button>
+                )}
+              </p>
+              {!isPaid && editingUnits && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-surface-container-high border border-outline-variant/60">
+                  <span className="text-[11px] font-semibold text-on-surface">Total Units:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={tempUnits}
+                    onChange={(e) => setTempUnits(e.target.value)}
+                    className="w-20 rounded border border-primary bg-white px-2 py-0.5 text-body-xs font-bold text-on-surface"
+                  />
+                  <button
+                    type="button"
+                    disabled={unitSaveLoading}
+                    onClick={async () => {
+                      const val = parseInt(tempUnits, 10);
+                      if (!val || val < 1) {
+                        setUnitSaveError("Enter a valid unit count (min 1)");
+                        return;
+                      }
+                      setUnitSaveLoading(true);
+                      setUnitSaveError("");
+                      try {
+                        await api.patch("/societies/me", { totalUnits: val });
+                        await loadMySocieties();
+                        queryClient.invalidateQueries();
+                        setEditingUnits(false);
+                      } catch (err) {
+                        setUnitSaveError(extractApiError(err, "Failed to update units"));
+                      } finally {
+                        setUnitSaveLoading(false);
+                      }
+                    }}
+                    className="rounded bg-primary text-on-primary px-2.5 py-0.5 text-[11px] font-bold hover:bg-inverse-surface cursor-pointer disabled:opacity-50"
+                  >
+                    {unitSaveLoading ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingUnits(false);
+                      setTempUnits(units);
+                      setUnitSaveError("");
+                    }}
+                    className="rounded border border-outline px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant hover:bg-surface-container cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  {unitSaveError && (
+                    <p className="w-full text-[11px] text-error font-medium">{unitSaveError}</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
