@@ -5,11 +5,14 @@ import {
   getCycleUnitDetail,
   createRazorpayOrder,
   verifyRazorpayPayment,
+  recordPayment,
   extractApiError,
   formatAmount,
   formatDate,
   periodLabel,
 } from "../../lib/maintenance";
+import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
+import { hasPermission } from "../../lib/permissions";
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -28,9 +31,21 @@ export default function PayMaintenancePage() {
   const cycleId = searchParams.get("cycle");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const activeMembership = useSocietyStore(selectActiveMembership);
+  const canManage = hasPermission(activeMembership?.role, "manage_maintenance");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [feeInfo, setFeeInfo] = useState(null);
+
+  const recordCashMutation = useMutation({
+    mutationFn: () => recordPayment(cycleId, unitId, { method: "Cash" }).then((r) => r.data.data),
+    onSuccess: () => {
+      setSuccess("Cash payment recorded successfully. Receipt generated.");
+      queryClient.invalidateQueries({ queryKey: ["maintenance"] });
+      setTimeout(() => navigate(`/maintenance/${unitId}?cycle=${cycleId}`), 1500);
+    },
+    onError: (e) => setError(extractApiError(e, "Failed to record cash payment")),
+  });
 
   const detailQuery = useQuery({
     queryKey: ["maintenance", "unit-detail", cycleId, unitId],
@@ -243,12 +258,27 @@ export default function PayMaintenancePage() {
                 <span className="font-semibold">Save {formatAmount(mockFee)}</span> by paying cash —
                 but need to visit office.
               </div>
-              <Link
-                to={`/maintenance/${unitId}?cycle=${cycleId}`}
-                className="mt-3 block rounded-full border border-outline-variant bg-surface-container-lowest py-2 text-center text-label-md text-on-surface no-underline hover:border-primary hover:text-primary cursor-pointer"
-              >
-                I will pay cash at office
-              </Link>
+              {canManage ? (
+                <button
+                  type="button"
+                  disabled={recordCashMutation.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Record offline cash payment of ${formatAmount(base)} for this house? Digital receipt will be generated.`)) {
+                      recordCashMutation.mutate();
+                    }
+                  }}
+                  className="mt-3 block w-full rounded-full bg-emerald-700 py-2 text-center text-label-md font-semibold text-white no-underline hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
+                >
+                  {recordCashMutation.isPending ? "Recording Cash Payment..." : "Record Cash / Mark Paid (Admin)"}
+                </button>
+              ) : (
+                <Link
+                  to={`/maintenance/${unitId}?cycle=${cycleId}`}
+                  className="mt-3 block rounded-full border border-outline-variant bg-surface-container-lowest py-2 text-center text-label-md text-on-surface no-underline hover:border-primary hover:text-primary cursor-pointer"
+                >
+                  I will pay cash at office
+                </Link>
+              )}
             </div>
           </div>
 

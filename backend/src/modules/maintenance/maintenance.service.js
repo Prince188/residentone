@@ -3,14 +3,25 @@ const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
 const { Membership } = require("../membership/membership.model");
-const { hasPermission } = require("../../shared/permissions");
+const { hasPermission, hasPermissionForMembership, getMembershipRoles } = require("../../shared/permissions");
 const ExcelJS = require("exceljs");
 
-async function hasMaintenancePermission(societyId, role) {
-  if (["super_admin", "society_admin"].includes(role)) return true;
+async function hasMaintenancePermission(societyId, membershipOrRole) {
+  if (!membershipOrRole) return false;
+  if (typeof membershipOrRole === "string") {
+    if (["super_admin", "society_admin"].includes(membershipOrRole)) return true;
+    try {
+      const society = await Society.findById(societyId).select("rolePermissions").lean();
+      return hasPermission(membershipOrRole, "manage_maintenance", society?.rolePermissions);
+    } catch {
+      return false;
+    }
+  }
+  const roles = getMembershipRoles(membershipOrRole);
+  if (roles.includes("super_admin") || roles.includes("society_admin")) return true;
   try {
     const society = await Society.findById(societyId).select("rolePermissions").lean();
-    return hasPermission(role, "manage_maintenance", society?.rolePermissions);
+    return hasPermissionForMembership(membershipOrRole, "manage_maintenance", society?.rolePermissions);
   } catch {
     return false;
   }
@@ -281,7 +292,7 @@ class MaintenanceService {
   }
 
   statusFor(payment, cycle) {
-    if (!payment) {
+    if (!payment || !["paid", "cash"].includes(payment.gatewayStatus) || payment.isActive === false) {
       return isAfterDueDay(new Date(), cycle.dueDate) ? "overdue" : "pending";
     }
     return !isAfterDueDay(payment.paidOn, cycle.dueDate)
@@ -319,6 +330,7 @@ class MaintenanceService {
       societyId,
       cycleId: { $in: cycleIds },
       isActive: true,
+      gatewayStatus: { $in: ["paid", "cash"] },
     }).lean();
 
     // Index payments by `${cycleId}_${unitId}` and fallback by `unitId`
@@ -409,7 +421,7 @@ class MaintenanceService {
 
   // Single unit's record within a cycle — allowed for admin/permission or the assigned member
   async getCycleUnitDetail(societyId, cycle, unitId, membership) {
-    const isAdmin = await hasMaintenancePermission(societyId, membership.role);
+    const isAdmin = await hasMaintenancePermission(societyId, membership);
     const myUnitIds = (membership.units || []).map((id) => String(id));
     const isMyUnit = myUnitIds.includes(String(unitId));
 
@@ -433,6 +445,7 @@ class MaintenanceService {
       cycleId: cycle._id,
       unitId,
       isActive: true,
+      gatewayStatus: { $in: ["paid", "cash"] },
     }).lean();
 
     // FIX: handle populated ownerId object vs raw ObjectId, and also check tenant
@@ -477,7 +490,7 @@ class MaintenanceService {
 
   // Payment history of one unit across all cycles
   async getUnitHistory(societyId, unitId, membership) {
-    const isAdmin = await hasMaintenancePermission(societyId, membership.role);
+    const isAdmin = await hasMaintenancePermission(societyId, membership);
     const myUnitIds = (membership.units || []).map((id) => String(id));
     if (!isAdmin && !myUnitIds.includes(String(unitId))) {
       throw new AppError("This house is not assigned to you", 403);
@@ -771,7 +784,7 @@ class MaintenanceService {
   }
 
   async getReceipt(societyId, cycle, unitId, membership) {
-    const isAdmin = await hasMaintenancePermission(societyId, membership.role);
+    const isAdmin = await hasMaintenancePermission(societyId, membership);
     const myUnitIds = (membership.units || []).map((id) => String(id));
     if (!isAdmin && !myUnitIds.includes(String(unitId))) {
       throw new AppError("This house is not assigned to you", 403);
@@ -788,6 +801,7 @@ class MaintenanceService {
       cycleId: cycle._id,
       unitId,
       isActive: true,
+      gatewayStatus: { $in: ["paid", "cash"] },
     }).lean();
     if (!payment) throw new AppError("No payment found for this house", 404);
 
