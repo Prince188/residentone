@@ -32,7 +32,14 @@ class UserController {
       if (phone !== undefined) updateData.phone = phone;
       if (occupation !== undefined) updateData.occupation = occupation;
       if (familyMembers !== undefined) updateData.familyMembers = familyMembers;
-      if (vehicles !== undefined) updateData.vehicles = vehicles;
+      if (vehicles !== undefined) {
+        const cleanVehicles = Array.isArray(vehicles)
+          ? vehicles.map((v) => String(v).trim().toUpperCase()).filter(Boolean)
+          : [];
+        const societyId = req.societyId || req.headers["x-society-id"] || req.query.societyId;
+        await userService.validateUniqueVehiclesInSociety(req.userId, societyId, cleanVehicles);
+        updateData.vehicles = cleanVehicles;
+      }
 
       const user = await userService.update(req.userId, updateData);
       res.json({ success: true, data: user });

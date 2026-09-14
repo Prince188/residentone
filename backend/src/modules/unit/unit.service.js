@@ -248,10 +248,15 @@ class UnitService {
     return membership.save();
   }
 
-  async applyResidentProfile(userId, payload) {
+  async applyResidentProfile(userId, payload, societyId = null) {
     const update = {};
     if (Array.isArray(payload.vehicles)) {
-      update.vehicles = payload.vehicles.map((v) => String(v).trim().toUpperCase()).filter(Boolean);
+      const cleanVehicles = payload.vehicles.map((v) => String(v).trim().toUpperCase()).filter(Boolean);
+      if (societyId && cleanVehicles.length > 0) {
+        const userService = require("../user/user.service");
+        await userService.validateUniqueVehiclesInSociety(userId, societyId, cleanVehicles);
+      }
+      update.vehicles = cleanVehicles;
     }
     if (payload.occupation !== undefined && payload.occupation !== null) {
       update.occupation = String(payload.occupation).trim();
@@ -400,7 +405,7 @@ class UnitService {
     }
 
     const { user, credentialsCreated } = await this.createOrFindOwner(payload);
-    await this.applyResidentProfile(user._id, payload);
+    await this.applyResidentProfile(user._id, payload, societyId);
 
     if (isRenter) {
       await this.linkOwnerToUnit(user, unit, "tenant");
@@ -520,7 +525,7 @@ class UnitService {
     }
 
     const { user, credentialsCreated } = await this.createOrFindOwner(payload);
-    await this.applyResidentProfile(user._id, payload);
+    await this.applyResidentProfile(user._id, payload, unit.societyId);
 
     const isRenter = (unit.inviteResidentType || "owner") === "renter";
     await this.linkOwnerToUnit(user, unit, isRenter ? "tenant" : "owner");
