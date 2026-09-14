@@ -18,24 +18,50 @@ export default function VehiclesPage() {
   const houses = housesQuery.data || [];
 
   const vehicleEntries = useMemo(() => {
-    const entries = [];
+    // Group by unique resident (resident ID or phone) + vehicle plate
+    // so if a resident owns/rents multiple houses, they only show ONE card per vehicle with all their house numbers
+    const map = new Map();
+
     houses.forEach((h) => {
       const resident = h.tenant || h.owner;
       if (!resident) return;
-      const vehicles = resident.vehicles || [];
-      vehicles.forEach((vehicle) => {
-        entries.push({
-          key: `${h.id}-${vehicle}`,
-          houseLabel: h.label,
-          houseId: h.id,
-          ownerName: resident.name,
-          phone: resident.phone,
-          vehicle: String(vehicle).toUpperCase(),
-          status: h.isRented ? "Rented" : h.isAssigned ? "Owned" : "Vacant",
-        });
+      const residentId = resident.id || resident.phone || resident.name;
+      const residentVehicles = resident.vehicles || [];
+
+      residentVehicles.forEach((v) => {
+        const plate = String(v).trim().toUpperCase();
+        if (!plate) return;
+        const groupKey = `${residentId}-${plate}`;
+
+        if (!map.has(groupKey)) {
+          map.set(groupKey, {
+            key: groupKey,
+            houseLabels: [h.label],
+            ownerName: resident.name,
+            phone: resident.phone,
+            vehicle: plate,
+            statuses: [h.isRented ? "Rented" : h.isAssigned ? "Owned" : "Vacant"],
+          });
+        } else {
+          const existing = map.get(groupKey);
+          if (!existing.houseLabels.includes(h.label)) {
+            existing.houseLabels.push(h.label);
+          }
+          const currentStatus = h.isRented ? "Rented" : h.isAssigned ? "Owned" : "Vacant";
+          if (!existing.statuses.includes(currentStatus)) {
+            existing.statuses.push(currentStatus);
+          }
+        }
       });
     });
-    return entries;
+
+    return Array.from(map.values()).map((e) => ({
+      ...e,
+      houseLabel: e.houseLabels.join(", "),
+      status: e.statuses.includes("Owned") && e.statuses.includes("Rented")
+        ? "Owned & Rented"
+        : e.statuses[0] || "Owned",
+    }));
   }, [houses]);
 
   const filtered = useMemo(() => {
@@ -44,7 +70,7 @@ export default function VehiclesPage() {
     return vehicleEntries.filter(
       (e) =>
         e.vehicle.toLowerCase().includes(q) ||
-        String(e.houseLabel).toLowerCase().includes(q) ||
+        e.houseLabels.some((lbl) => String(lbl).toLowerCase().includes(q)) ||
         (e.ownerName || "").toLowerCase().includes(q) ||
         (e.phone || "").includes(q)
     );
@@ -135,7 +161,8 @@ export default function VehiclesPage() {
                           <span className="material-symbols-outlined text-[20px]">home</span>
                         </span>
                         <p className="text-headline-sm font-bold leading-none text-on-surface">
-                          House {e.houseLabel}
+                          {e.houseLabels.length > 1 ? "Houses " : "House "}
+                          {e.houseLabel}
                         </p>
                       </div>
                       <span
