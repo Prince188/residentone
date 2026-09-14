@@ -186,44 +186,8 @@ export default function MaintenanceDetailPage() {
                 onClick={async () => {
                   try {
                     const res = await getReceipt(cycleId, unitId);
-                    const data = res.data.data;
-                    // Generate printable receipt HTML
-                    const html = `
-                      <html><head><title>Receipt ${data.receiptNo}</title>
-                      <style>
-                        body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a}
-                        .header{border-bottom:2px solid #134a36;padding-bottom:16px;margin-bottom:20px}
-                        .header h1{margin:0;color:#134a36;font-size:22px}
-                        .header p{margin:4px 0;color:#555;font-size:13px}
-                        .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
-                        .label{color:#666} .value{font-weight:600}
-                        .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #134a36;padding-top:12px}
-                        .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
-                      </style></head><body>
-                      <div class="header">
-                        ${data.society.logoUrl ? `<div style="margin-bottom:12px;"><img src="${data.society.logoUrl}" alt="${data.society.name}" style="max-height:56px;max-width:160px;object-fit:contain;" /></div>` : ""}
-                        <h1>${data.society.name}</h1>
-                        <p>${data.society.address}</p>
-                        <h2 style="margin-top:16px;font-size:18px">Maintenance Receipt</h2>
-                        <p>Receipt No: <b>${data.receiptNo}</b> | Date: ${new Date(data.payment.paidOn).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
-                      </div>
-                      <div class="row"><span class="label">House</span><span class="value">House ${data.unit.label}${data.unit.block ? " · Block " + data.unit.block : ""}</span></div>
-                      <div class="row"><span class="label">Resident</span><span class="value">${data.unit.ownerName} ${data.unit.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
-                      <div class="row"><span class="label">Period</span><span class="value">${periodLabel(data.cycle.month, data.cycle.year, data.cycle.durationMonths)}</span></div>
-                      <div class="row"><span class="label">Due Date</span><span class="value">${new Date(data.cycle.dueDate).toLocaleDateString("en-IN")}</span></div>
-                      <div class="row"><span class="label">Payment Method</span><span class="value">${data.payment.method}${data.payment.razorpayPaymentId ? " · " + data.payment.razorpayPaymentId : ""}</span></div>
-                      <div class="row"><span class="label">Maintenance Amount</span><span class="value">₹${Number(data.payment.amount).toLocaleString("en-IN")}</span></div>
-                      <div class="row"><span class="label">Gateway Fee ${data.payment.fee ? "(2% + GST)" : "(Cash - No Fee)"}</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
-                      <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>
-                      <div class="row"><span class="label">Status</span><span class="value" style="color:#0a7a42">${data.status.toUpperCase()}</span></div>
-                      <div class="footer">This is a computer generated receipt from ResidentOne. For queries contact society office.<br/>Thank you for your payment!</div>
-                      </body></html>
-                    `;
-                    const win = window.open("", "_blank");
-                    win.document.write(html);
-                    win.document.close();
-                    win.focus();
-                    win.print();
+                    const html = renderMaintenanceReceiptHtml(res.data.data);
+                    await printReceiptHtml(html);
                   } catch (e) {
                     alert(extractApiError(e, "Failed to download receipt. Make sure payment is completed."));
                   }
@@ -266,35 +230,8 @@ export default function MaintenanceDetailPage() {
               onClick={async () => {
                 try {
                   const res = await getReceipt(cycleId, unitId);
-                  const data = res.data.data;
-                  const html = `
-                    <html><head><title>Receipt ${data.receiptNo}</title>
-                    <style>
-                      body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a}
-                      .header{border-bottom:2px solid #134a36;padding-bottom:16px;margin-bottom:20px}
-                      .header h1{margin:0;color:#134a36;font-size:22px}
-                      .header p{margin:4px 0;color:#555;font-size:13px}
-                      .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
-                      .label{color:#666} .value{font-weight:600}
-                      .total{font-size:16px;font-weight:800;margin-top:12px;border-top:2px solid #134a36;padding-top:12px}
-                      .footer{margin-top:24px;font-size:11px;color:#888;text-align:center}
-                    </style></head><body>
-                    <div class="header">
-                      <h1>${data.society.name}</h1>
-                      <p>${data.society.address}</p>
-                      <h2 style="margin-top:16px;font-size:18px">Maintenance Receipt</h2>
-                      <p>Receipt No: <b>${data.receiptNo}</b> | Date: ${new Date(data.payment.paidOn).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
-                    </div>
-                    <div class="row"><span class="label">House</span><span class="value">House ${data.unit.label}</span></div>
-                    <div class="row"><span class="label">Period</span><span class="value">${periodLabel(data.cycle.month, data.cycle.year, data.cycle.durationMonths)}</span></div>
-                    <div class="row"><span class="label">Gateway Fee</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
-                    <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>
-                    </body></html>
-                  `;
-                  const win = window.open("", "_blank");
-                  win.document.write(html);
-                  win.document.close();
-                  win.print();
+                  const html = renderMaintenanceReceiptHtml(res.data.data);
+                  await printReceiptHtml(html);
                 } catch (e) {
                   alert(extractApiError(e, "Failed to download receipt."));
                 }
