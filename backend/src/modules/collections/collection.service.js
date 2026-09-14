@@ -457,13 +457,17 @@ class CollectionService {
       ]);
 
       const adminUnits = (recMembership?.units || []).filter(Boolean);
-      const houseLabels = adminUnits.map((u) => u.label ? `House ${u.label}` : u.doorNo ? `House ${u.doorNo}` : "").filter(Boolean);
-      const houseStr = houseLabels.length > 0 ? houseLabels.join(", ") : "Office";
+      const firstUnit = adminUnits[0];
+      const houseLabel = firstUnit?.label
+        ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
+        : firstUnit?.doorNo
+        ? `House ${firstUnit.doorNo}`
+        : "Society Office";
 
       acceptedByInfo = {
+        houseNumber: houseLabel,
         name: recUser?.name || "Society Admin",
         phone: recUser?.phone || null,
-        houseNumber: houseStr,
         role: recMembership?.role || "Admin",
       };
     }

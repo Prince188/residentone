@@ -14,8 +14,13 @@ import {
 import { printReceiptHtml } from "../../lib/pdfHelper";
 
 function renderMaintenanceReceiptHtml(data) {
-  const acceptedByDisplay = data.payment?.acceptedBy?.houseNumber
-    ? `${data.payment.acceptedBy.name ? data.payment.acceptedBy.name + " (" + data.payment.acceptedBy.houseNumber + ")" : data.payment.acceptedBy.houseNumber}`
+  let houseStr = data.payment?.acceptedBy?.houseNumber || data.payment?.acceptedBy?.house || (typeof data.payment?.acceptedBy === "string" ? data.payment.acceptedBy : null);
+  if (typeof houseStr === "string") {
+    if (houseStr.includes(",")) houseStr = houseStr.split(",")[0].trim();
+    houseStr = houseStr.replace(/\s*\([^)]*\)/g, "").trim();
+  }
+  const acceptedByDisplay = houseStr
+    ? houseStr
     : data.payment?.method === "Cash"
     ? "Society Office"
     : "Online Gateway (Auto-verified)";
