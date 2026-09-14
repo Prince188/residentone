@@ -237,7 +237,12 @@ class VisitorService {
 
     const normAction = String(action || "").toLowerCase().trim();
     if (normAction === "approve" || normAction === "approved") {
-      visitor.status = "approved";
+      if (visitor.passType === "walk_in") {
+        visitor.status = "inside";
+        visitor.checkInTime = new Date();
+      } else {
+        visitor.status = "approved";
+      }
       visitor.approvedBy = residentUserId;
     } else if (normAction === "reject" || normAction === "rejected" || normAction === "deny" || normAction === "denied") {
       visitor.status = "rejected";
@@ -266,6 +271,9 @@ class VisitorService {
     try {
       emitToSociety(societyId, "visitor:approval_response", populated);
       emitToSociety(societyId, "visitor:change", populated);
+      if (visitor.passType === "walk_in" && (normAction === "approve" || normAction === "approved")) {
+        emitToSociety(societyId, "visitor:walkin_approved", populated);
+      }
       if (visitor.hostUserId) {
         emitToUser(String(visitor.hostUserId), "visitor:approval_response", populated);
       }
@@ -704,30 +712,38 @@ class VisitorService {
     const canManage = await this.canManageVisitors(societyId, membership);
     const myUnitIds = await this.getMyUnitIds(membership);
 
-    const filter = { societyId };
+    const conditions = [{ societyId }];
 
     if (!canManage) {
       // Regular resident: only see parcels for their assigned units or hosted by them
-      filter.$or = [
-        { hostUserId: userId },
-        { unitId: { $in: myUnitIds } },
-      ];
+      conditions.push({
+        $or: [
+          { hostUserId: userId },
+          { unitId: { $in: myUnitIds } },
+        ],
+      });
     } else if (params.unitId) {
-      filter.unitId = params.unitId;
+      conditions.push({ unitId: params.unitId });
     }
 
     if (params.status === "collected") {
-      filter["parcelDetails.collectedAt"] = { $ne: null };
+      conditions.push({ "parcelDetails.collectedAt": { $ne: null } });
     } else if (params.status === "all") {
-      filter.$or = [
-        { "parcelDetails.isParcel": true },
-        { status: "left_at_gate" },
-      ];
+      conditions.push({
+        $or: [
+          { "parcelDetails.isParcel": true },
+          { status: "left_at_gate" },
+        ],
+      });
     } else {
       // Default: uncollected waiting at gate
-      filter.status = "left_at_gate";
-      filter["parcelDetails.collectedAt"] = null;
+      conditions.push({
+        status: "left_at_gate",
+        "parcelDetails.collectedAt": null,
+      });
     }
+
+    const filter = conditions.length === 1 ? conditions[0] : { $and: conditions };
 
     const parcels = await Visitor.find(filter)
       .populate("unitId", "label doorNo block floor")
@@ -737,12 +753,16 @@ class VisitorService {
       .sort({ createdAt: -1 })
       .lean();
 
-    const countWaiting = await Visitor.countDocuments({
+    const countWaitingFilter = {
       societyId,
       status: "left_at_gate",
       "parcelDetails.collectedAt": null,
-      ...(!canManage ? { $or: [{ hostUserId: userId }, { unitId: { $in: myUnitIds } }] } : {}),
-    });
+    };
+    if (!canManage) {
+      countWaitingFilter.$or = [{ hostUserId: userId }, { unitId: { $in: myUnitIds } }];
+    }
+
+    const countWaiting = await Visitor.countDocuments(countWaitingFilter);
 
     return {
       parcels,

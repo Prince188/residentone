@@ -56,9 +56,14 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
     setLogoError("");
     setUploadingLogo(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-      const res = await uploadSocietyLogo(formData);
+      const reader = new FileReader();
+      const base64Data = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await uploadSocietyLogo({ image: base64Data });
       if (res.data?.data?.url) {
         onChange("logoUrl", res.data.data.url);
       }
@@ -66,6 +71,9 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
       setLogoError(err?.response?.data?.error?.message || "Failed to upload logo");
     } finally {
       setUploadingLogo(false);
+      try {
+        e.target.value = "";
+      } catch (_) {}
     }
   };
 

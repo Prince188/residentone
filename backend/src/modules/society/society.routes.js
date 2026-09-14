@@ -43,8 +43,12 @@ router.post(
       const base64Data = req.body?.image || req.body?.base64;
       const folder = "residentone/societies/logos";
 
-      if (file && file.buffer) {
-        const result = await uploadBuffer(file.buffer, { folder });
+      if (base64Data && typeof base64Data === "string") {
+        let formatted = base64Data.trim();
+        if (!formatted.startsWith("data:image")) {
+          formatted = `data:image/png;base64,${formatted}`;
+        }
+        const result = await uploadBase64(formatted, { folder });
         return res.json({
           success: true,
           data: {
@@ -54,8 +58,8 @@ router.post(
         });
       }
 
-      if (base64Data && typeof base64Data === "string" && base64Data.startsWith("data:image")) {
-        const result = await uploadBase64(base64Data, { folder });
+      if (file && file.buffer) {
+        const result = await uploadBuffer(file.buffer, { folder });
         return res.json({
           success: true,
           data: {

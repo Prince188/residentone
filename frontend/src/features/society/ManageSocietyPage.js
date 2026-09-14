@@ -87,9 +87,14 @@ export default function ManageSocietyPage() {
     setLogoErr("");
     setUploadingLogo(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await uploadSocietyLogo(fd);
+      const reader = new FileReader();
+      const base64Data = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await uploadSocietyLogo({ image: base64Data });
       const url = res.data?.data?.url;
       if (url) {
         await mutate.mutateAsync({ logoUrl: url });
@@ -100,6 +105,9 @@ export default function ManageSocietyPage() {
       setLogoErr(extractError(err, "Failed to upload logo"));
     } finally {
       setUploadingLogo(false);
+      try {
+        e.target.value = "";
+      } catch (_) {}
     }
   };
 

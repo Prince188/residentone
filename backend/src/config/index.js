@@ -38,9 +38,9 @@ const config = {
   },
 
   cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
-    apiKey: process.env.CLOUDINARY_API_KEY || null,
-    apiSecret: process.env.CLOUDINARY_API_SECRET || null,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || "klwbffur",
+    apiKey: process.env.CLOUDINARY_API_KEY || "998551396528618",
+    apiSecret: process.env.CLOUDINARY_API_SECRET || "Bq7fzgw05HTWT6IfHsjUiMMQiCI",
   },
 };
 

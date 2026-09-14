@@ -16,11 +16,14 @@ export const deleteSocietyPermanently = (id) => api.delete(`/societies/${id}/per
 
 export const getHistoricalAnalytics = (params) => api.get("/societies/analytics", { params });
 export const updateSociety = (id, payload) => api.patch(`/societies/${id}`, payload);
-export const paySocietySubscription = (id, payload) => api.post(`/societies/${id}/pay-subscription`, payload);
-export const uploadSocietyLogo = (formData) =>
-  api.post("/societies/upload-logo", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+export const uploadSocietyLogo = (payload) => {
+  if (typeof FormData !== "undefined" && payload instanceof FormData) {
+    return api.post("/societies/upload-logo", payload, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  }
+  return api.post("/societies/upload-logo", payload);
+};
 
 export const SOCIETY_STATUS_LABELS = {
   pending: "Pending",
