@@ -932,6 +932,17 @@ class SocietyService {
   }
 
   async update(id, data) {
+    if (data.totalUnits !== undefined) {
+      const current = await Society.findById(id).select("isSubscriptionPaid status totalUnits").lean();
+      if (!current) throw new AppError("Society not found", 404);
+      if (current.isSubscriptionPaid && Number(data.totalUnits) !== Number(current.totalUnits)) {
+        throw new AppError(
+          "Cannot update total units after subscription payment has been completed. Please contact support.",
+          400
+        );
+      }
+    }
+
     const society = await Society.findByIdAndUpdate(
       id,
       { ...data, updatedBy: data.updatedBy },

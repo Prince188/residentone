@@ -15,8 +15,62 @@ const {
   updatePermissionsSchema,
   paySubscriptionSchema,
 } = require("./society.validation");
+const multer = require("multer");
+const { uploadBuffer, uploadBase64 } = require("../../shared/utils/cloudinary");
+const { AppError } = require("../../shared/utils/errors");
 
 const router = express.Router();
+
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new AppError("Only image files are allowed", 400), false);
+    }
+  },
+});
+
+// Upload society logo directly to Cloudinary (accessible publicly or by admins)
+router.post(
+  "/upload-logo",
+  memoryUpload.single("image"),
+  async (req, res, next) => {
+    try {
+      const file = req.file;
+      const base64Data = req.body?.image || req.body?.base64;
+      const folder = "residentone/societies/logos";
+
+      if (file && file.buffer) {
+        const result = await uploadBuffer(file.buffer, { folder });
+        return res.json({
+          success: true,
+          data: {
+            url: result.secure_url || result.url,
+            publicId: result.public_id,
+          },
+        });
+      }
+
+      if (base64Data && typeof base64Data === "string" && base64Data.startsWith("data:image")) {
+        const result = await uploadBase64(base64Data, { folder });
+        return res.json({
+          success: true,
+          data: {
+            url: result.secure_url || result.url,
+            publicId: result.public_id,
+          },
+        });
+      }
+
+      throw new AppError("No valid image file or image data provided", 400);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.get(
   "/permissions",

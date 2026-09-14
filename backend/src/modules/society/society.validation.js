@@ -28,6 +28,7 @@ const registrationBaseSchema = z.object({
   contactName: z.string().min(1, "Contact person name is required").max(100),
   contactMobile: phoneSchema,
   contactEmail: z.string().email("Invalid email address"),
+  logoUrl: z.string().nullable().optional(),
   subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional().default("starter"),
   subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional().default("monthly"),
 });
@@ -75,6 +76,7 @@ const updateSocietySchema = z.object({
   contactPersonName: z.string().min(1).max(100).optional(),
   contactEmail: z.string().email().optional(),
   contactPhone: phoneSchema.optional(),
+  logoUrl: z.string().nullable().optional(),
   subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional(),
   subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional(),
 });

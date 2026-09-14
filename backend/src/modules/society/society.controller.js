@@ -211,6 +211,8 @@ class SocietyController {
       }
       const allowed = [
         "name",
+        "logoUrl",
+        "totalUnits",
         "address",
         "city",
         "state",

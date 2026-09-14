@@ -36,6 +36,12 @@ const config = {
     feePercent: parseFloat(process.env.RAZORPAY_FEE_PERCENT || "2"),
     gstOnFeePercent: parseFloat(process.env.RAZORPAY_GST_PERCENT || "18"),
   },
+
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
+    apiKey: process.env.CLOUDINARY_API_KEY || null,
+    apiSecret: process.env.CLOUDINARY_API_SECRET || null,
+  },
 };
 
 module.exports = { config };

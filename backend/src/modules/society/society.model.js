@@ -58,6 +58,11 @@ const societySchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    logoUrl: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     status: {
       type: String,
       enum: SOCIETY_STATUSES,
