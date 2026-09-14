@@ -95,7 +95,14 @@ export default function CollectionUnitPayPage() {
           <div class="row"><span class="label">Resident</span><span class="value">${data.unit.ownerName} ${data.unit.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
           <div class="row"><span class="label">Due Date</span><span class="value">${new Date(data.collection.dueDate).toLocaleDateString("en-IN")}</span></div>
           <div class="row"><span class="label">Payment Method</span><span class="value">${data.payment.method}${data.payment.razorpayPaymentId ? " · " + data.payment.razorpayPaymentId : ""}</span></div>
-          <div class="row"><span class="label">Accepted By</span><span class="value">${data.payment?.acceptedBy?.houseNumber ? (data.payment.acceptedBy.name ? data.payment.acceptedBy.name + " (" + data.payment.acceptedBy.houseNumber + ")" : data.payment.acceptedBy.houseNumber) : data.payment?.method === "Cash" ? "Society Office" : "Online Gateway (Auto-verified)"}</span></div>
+          <div class="row"><span class="label">Accepted By</span><span class="value">${(() => {
+            let h = data.payment?.acceptedBy?.houseNumber || data.payment?.acceptedBy?.house || (typeof data.payment?.acceptedBy === "string" ? data.payment.acceptedBy : null);
+            if (typeof h === "string") {
+              if (h.includes(",")) h = h.split(",")[0].trim();
+              h = h.replace(/\s*\([^)]*\)/g, "").trim();
+            }
+            return h || (data.payment?.method === "Cash" ? "Society Office" : "Online Gateway (Auto-verified)");
+          })()}</span></div>
           <div class="row"><span class="label">Collection Amount</span><span class="value">₹${Number(data.payment.amount).toLocaleString("en-IN")}</span></div>
           <div class="row"><span class="label">Gateway Fee ${data.payment.fee ? "(2% + GST)" : "(Cash - No Fee)"}</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
           <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>
