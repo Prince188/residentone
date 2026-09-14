@@ -466,9 +466,6 @@ class CollectionService {
 
       acceptedByInfo = {
         houseNumber: houseLabel,
-        name: recUser?.name || "Society Admin",
-        phone: recUser?.phone || null,
-        role: recMembership?.role || "Admin",
       };
     }
 
