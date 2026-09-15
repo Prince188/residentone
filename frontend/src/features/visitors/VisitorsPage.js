@@ -73,7 +73,7 @@ export default function VisitorsPage() {
     refetchInterval: 10000,
   });
   const rawParcels = parcelsQuery.data;
-  const waitingParcels = useMemo(() => {
+  const residentParcels = useMemo(() => {
     const list = rawParcels || [];
     const myUnitIds = (activeMembership?.units || []).map((u) => String(u?._id || u?.id || u));
     if (activeMembership?.unitId) {
@@ -82,7 +82,6 @@ export default function VisitorsPage() {
     const myUserId = String(user?._id || user?.id || "");
 
     return list.filter((p) => {
-      if (p.status !== "left_at_gate" || p.parcelDetails?.collectedAt) return false;
       const pUnitId = String(p.unitId?._id || p.unitId?.id || p.unitId || "");
       const pHostId = String(p.hostUserId?._id || p.hostUserId?.id || p.hostUserId || "");
       if (myUnitIds.length > 0 && myUnitIds.includes(pUnitId)) return true;
@@ -90,6 +89,12 @@ export default function VisitorsPage() {
       return false;
     });
   }, [rawParcels, activeMembership, user]);
+
+  const waitingParcels = useMemo(() => {
+    return residentParcels.filter(
+      (p) => p.status === "left_at_gate" && !p.parcelDetails?.collectedAt
+    );
+  }, [residentParcels]);
 
   // Query Visitors List
   const visitorsQuery = useQuery({

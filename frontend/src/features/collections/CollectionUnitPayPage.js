@@ -80,9 +80,13 @@ export default function CollectionUnitPayPage() {
             .value { font-weight: 600; }
             .total { font-size: 16px; font-weight: 800; margin-top: 14px; border-top: 2px solid #134a36; padding-top: 12px; }
             .footer { margin-top: 28px; font-size: 11px; color: #888; text-align: center; line-height: 1.5; }
+            .watermark-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 90; overflow: hidden; }
+            .watermark-text { font-size: 52px; font-weight: 900; color: #134a36; opacity: 0.06; text-transform: uppercase; letter-spacing: 4px; transform: rotate(-25deg); text-align: center; line-height: 1.25; user-select: none; max-width: 85%; word-break: break-word; }
+            @media print { .watermark-text { opacity: 0.07 !important; color: #134a36 !important; } }
           </style>
         </head>
-        <body>
+        <body style="position: relative; min-height: 100vh;">
+          <div class="watermark-wrap" aria-hidden="true"><div class="watermark-text">${data.society.name}</div></div>
           <div class="header">
             ${data.society.logoUrl ? `<div style="margin-bottom:12px;"><img src="${data.society.logoUrl}" alt="${data.society.name}" style="max-height:56px;max-width:160px;object-fit:contain;" /></div>` : ""}
             <h1>${data.society.name}</h1>
