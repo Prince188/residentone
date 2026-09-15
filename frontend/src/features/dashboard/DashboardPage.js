@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import useAuthStore from "../../stores/auth.store";
@@ -1910,11 +1910,26 @@ export default function DashboardPage() {
 
   const parcelsQuery = useQuery({
     queryKey: ["resident-gate-parcels", activeSociety?.id],
-    queryFn: async () => (await getGateParcels({ status: "left_at_gate" })).data.data,
+    queryFn: async () => (await getGateParcels({ status: "left_at_gate", scope: "my" })).data.data,
     enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
     refetchInterval: 8000,
   });
-  const waitingParcels = parcelsQuery.data || [];
+  const rawWaitingParcels = parcelsQuery.data || [];
+  const waitingParcels = useMemo(() => {
+    const myUnitIds = (activeMembership?.units || []).map((u) => String(u?._id || u?.id || u));
+    if (activeMembership?.unitId) {
+      myUnitIds.push(String(activeMembership.unitId?._id || activeMembership.unitId));
+    }
+    const myUserId = String(user?._id || user?.id || "");
+
+    return rawWaitingParcels.filter((p) => {
+      const pUnitId = String(p.unitId?._id || p.unitId?.id || p.unitId || "");
+      const pHostId = String(p.hostUserId?._id || p.hostUserId?.id || p.hostUserId || "");
+      if (myUnitIds.length > 0 && myUnitIds.includes(pUnitId)) return true;
+      if (myUserId && pHostId === myUserId) return true;
+      return false;
+    });
+  }, [rawWaitingParcels, activeMembership, user]);
 
   // If user is platform Super Admin and NOT currently managing a specific society, render the Super Admin Platform Dashboard View
   if (isSuperAdmin && !isSuperAdminManaging) {

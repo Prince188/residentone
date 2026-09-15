@@ -199,7 +199,7 @@ export default function GateTerminalPage() {
   // Query Gate Parcels (Uncollected at Gate)
   const parcelsQuery = useQuery({
     queryKey: ["gate-parcels", activeSociety?.id],
-    queryFn: async () => (await getGateParcels({ status: "left_at_gate" })).data.data,
+    queryFn: async () => (await getGateParcels({ status: "left_at_gate", scope: "society" })).data.data,
     enabled: Boolean(activeSociety?.id),
     refetchInterval: 8000,
   });

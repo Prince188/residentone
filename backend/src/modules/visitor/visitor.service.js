@@ -28,8 +28,24 @@ class VisitorService {
     }
   }
 
-  async getMyUnitIds(membership) {
-    return (membership?.units || []).map((u) => String(u._id || u.id || u));
+  async getMyUnitIds(membership, userId = null, societyId = null) {
+    const unitSet = new Set((membership?.units || []).map((u) => String(u._id || u.id || u)));
+    if (membership?.unitId) {
+      unitSet.add(String(membership.unitId._id || membership.unitId));
+    }
+    if (userId && societyId) {
+      try {
+        const ownedOrRented = await Unit.find({
+          societyId,
+          isActive: true,
+          $or: [{ ownerId: userId }, { tenantId: userId }],
+        }).select("_id").lean();
+        ownedOrRented.forEach((u) => unitSet.add(String(u._id)));
+      } catch {
+        // ignore fallback query error
+      }
+    }
+    return [...unitSet];
   }
 
   async createPreApproval(societyId, userId, membership, data) {
@@ -706,16 +722,27 @@ class VisitorService {
   }
 
   /**
-   * Get parcels at gate (guards see all active in society; residents see their flat's packages)
+   * Get parcels at gate (guards see all active in society; residents/admins on personal dashboard see only their own flat's packages)
    */
   async getParcels(societyId, userId, membership, params = {}) {
     const canManage = await this.canManageVisitors(societyId, membership);
-    const myUnitIds = await this.getMyUnitIds(membership);
+    const myUnitIds = await this.getMyUnitIds(membership, userId, societyId);
 
     const conditions = [{ societyId }];
 
-    if (!canManage) {
-      // Regular resident: only see parcels for their assigned units or hosted by them
+    // If scope is explicitly "society" or "all" AND user has manage permission, return society parcels (for gate desk).
+    // Otherwise (default for dashboard/home screen, scope="my", or regular resident), return ONLY user's parcels.
+    const isSocietyScope = (params.scope === "society" || params.scope === "all") && canManage;
+    const isMineOnly =
+      params.scope === "my" ||
+      params.scope === "mine" ||
+      params.mine === "true" ||
+      params.mine === true ||
+      !isSocietyScope;
+
+    if (isMineOnly) {
+      // Regular resident or admin viewing their personal parcels:
+      // only see parcels for their assigned units or hosted by them
       conditions.push({
         $or: [
           { hostUserId: userId },
@@ -758,7 +785,7 @@ class VisitorService {
       status: "left_at_gate",
       "parcelDetails.collectedAt": null,
     };
-    if (!canManage) {
+    if (isMineOnly) {
       countWaitingFilter.$or = [{ hostUserId: userId }, { unitId: { $in: myUnitIds } }];
     }
 
@@ -802,7 +829,7 @@ class VisitorService {
    */
   async collectParcel(societyId, parcelId, guardUserId, membership) {
     const canManage = await this.canManageVisitors(societyId, membership);
-    const myUnitIds = await this.getMyUnitIds(membership);
+    const myUnitIds = await this.getMyUnitIds(membership, guardUserId, societyId);
 
     const parcel = await Visitor.findOne({ _id: parcelId, societyId });
     if (!parcel) throw new AppError("Parcel not found", 404);

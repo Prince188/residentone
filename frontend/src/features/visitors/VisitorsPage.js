@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, {
   selectActiveSociety,
   selectActiveMembership,
@@ -24,6 +25,7 @@ export default function VisitorsPage() {
   const initialTab = searchParams.get("tab") || "inside";
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
+  const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState(initialTab); // 'inside' | 'expected' | 'pending' | 'parcels' | 'history'
@@ -63,17 +65,30 @@ export default function VisitorsPage() {
   });
   const stats = statsQuery.data || { inside: 0, expected: 0, pending: 0, todayTotal: 0 };
 
-  // Query Resident Gate Parcels
+  // Query Resident Gate Parcels (strictly for this user's assigned units or hosted parcels)
   const parcelsQuery = useQuery({
     queryKey: ["resident-parcels", activeSociety?.id],
-    queryFn: async () => (await getGateParcels({ status: "all" })).data.data,
+    queryFn: async () => (await getGateParcels({ status: "all", scope: "my" })).data.data,
     enabled: Boolean(activeSociety?.id),
     refetchInterval: 10000,
   });
   const residentParcels = parcelsQuery.data || [];
-  const waitingParcels = residentParcels.filter(
-    (p) => p.status === "left_at_gate" && !p.parcelDetails?.collectedAt
-  );
+  const waitingParcels = useMemo(() => {
+    const myUnitIds = (activeMembership?.units || []).map((u) => String(u?._id || u?.id || u));
+    if (activeMembership?.unitId) {
+      myUnitIds.push(String(activeMembership.unitId?._id || activeMembership.unitId));
+    }
+    const myUserId = String(user?._id || user?.id || "");
+
+    return residentParcels.filter((p) => {
+      if (p.status !== "left_at_gate" || p.parcelDetails?.collectedAt) return false;
+      const pUnitId = String(p.unitId?._id || p.unitId?.id || p.unitId || "");
+      const pHostId = String(p.hostUserId?._id || p.hostUserId?.id || p.hostUserId || "");
+      if (myUnitIds.length > 0 && myUnitIds.includes(pUnitId)) return true;
+      if (myUserId && pHostId === myUserId) return true;
+      return false;
+    });
+  }, [residentParcels, activeMembership, user]);
 
   // Query Visitors List
   const visitorsQuery = useQuery({
