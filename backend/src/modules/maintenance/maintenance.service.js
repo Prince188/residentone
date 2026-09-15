@@ -840,9 +840,38 @@ class MaintenanceService {
       };
     }
 
+    // Generate signed verification token for QR
+    let verificationToken = null;
+    let verificationUrl = null;
+    try {
+      const jwt = require("jsonwebtoken");
+      const { config } = require("../../config");
+      const secret = config.jwt.receiptSecret || config.jwt.accessSecret;
+      const payload = {
+        rid: payment.receiptNo,
+        sid: String(societyId),
+        a: payment.amount || cycle.amount,
+        t: payment.totalAmount || payment.amount || cycle.amount,
+        ts: Math.floor(new Date(payment.paidOn).getTime() / 1000),
+        pid: String(payment._id),
+        type: "maintenance",
+      };
+      verificationToken = jwt.sign(payload, secret, { expiresIn: "10y" });
+      const base = process.env.BACKEND_URL || process.env.FRONTEND_URL || "";
+      // Use residentone:// scheme for app, plus https fallback
+      verificationUrl = `residentone://verify?t=${verificationToken}`;
+    } catch (e) {
+      console.warn("Failed to generate verificationToken", e?.message);
+    }
+
     return {
       receiptNo: payment.receiptNo,
+      verificationToken,
+      verificationUrl,
+      token: verificationToken,
       society: {
+        id: society?._id || societyId,
+        _id: society?._id || societyId,
         name: society?.name || "Society",
         logoUrl: society?.logoUrl || null,
         address: society ? `${society.address}, ${society.city}, ${society.state} - ${society.pincode}` : "",

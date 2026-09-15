@@ -25,6 +25,7 @@ const notificationRoutes = require("./modules/notification/notification.routes")
 const visitorRoutes = require("./modules/visitor/visitor.routes");
 const staffRoutes = require("./modules/staff/staff.routes");
 const healthRoutes = require("./modules/health/health.routes");
+const receiptRoutes = require("./modules/receipt/receipt.routes");
 
 const app = express();
 
@@ -78,6 +79,7 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/visitors", visitorRoutes);
 app.use("/api/v1/staff", staffRoutes);
+app.use("/api/v1/receipts", receiptRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

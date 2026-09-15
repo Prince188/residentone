@@ -469,9 +469,36 @@ class CollectionService {
       };
     }
 
+    // Generate signed verification token for QR
+    let verificationToken = null;
+    let verificationUrl = null;
+    try {
+      const jwt = require("jsonwebtoken");
+      const { config } = require("../../config");
+      const secret = config.jwt.receiptSecret || config.jwt.accessSecret;
+      const payload = {
+        rid: payment.receiptNo,
+        sid: String(societyId),
+        a: payment.amount || collection.amount,
+        t: payment.totalAmount || payment.amount || collection.amount,
+        ts: Math.floor(new Date(payment.paidOn).getTime() / 1000),
+        pid: String(payment._id),
+        type: "collection",
+      };
+      verificationToken = jwt.sign(payload, secret, { expiresIn: "10y" });
+      verificationUrl = `residentone://verify?t=${verificationToken}`;
+    } catch (e) {
+      console.warn("Failed to generate collection verificationToken", e?.message);
+    }
+
     return {
       receiptNo: payment.receiptNo,
+      verificationToken,
+      verificationUrl,
+      token: verificationToken,
       society: {
+        id: society?._id || societyId,
+        _id: society?._id || societyId,
         name: society?.name || "Society",
         address: society ? `${society.address}, ${society.city}, ${society.state} - ${society.pincode}` : "",
         logoUrl: society?.logoUrl || null,
