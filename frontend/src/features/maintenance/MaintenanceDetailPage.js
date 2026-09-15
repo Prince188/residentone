@@ -45,11 +45,12 @@ function renderMaintenanceReceiptHtml(data) {
       <p>Receipt No: <b>${data.receiptNo}</b> | Date: ${new Date(data.payment.paidOn).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
     </div>
     <div class="row"><span class="label">House</span><span class="value">House ${data.unit?.label || ""}${data.unit?.block ? " · Block " + data.unit.block : ""}</span></div>
-    <div class="row"><span class="label">Resident</span><span class="value">${data.unit?.ownerName || "Resident"} ${data.unit?.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
+    <div class="row"><span class="label">Owner</span><span class="value">${data.unit?.ownerName || "Owner"} ${data.unit?.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
+    ${data.unit?.renterName || data.unit?.tenantName ? `<div class="row"><span class="label">Renter</span><span class="value">${data.unit.renterName || data.unit.tenantName} ${data.unit.renterPhone || data.unit.tenantPhone ? "· " + (data.unit.renterPhone || data.unit.tenantPhone) : ""}</span></div>` : ""}
     <div class="row"><span class="label">Period</span><span class="value">${periodLabel(data.cycle.month, data.cycle.year, data.cycle.durationMonths)}</span></div>
     <div class="row"><span class="label">Due Date</span><span class="value">${new Date(data.cycle.dueDate).toLocaleDateString("en-IN")}</span></div>
     <div class="row"><span class="label">Payment Method</span><span class="value">${data.payment.method}${data.payment.razorpayPaymentId ? " · " + data.payment.razorpayPaymentId : ""}</span></div>
-    <div class="row"><span class="label">Accepted By</span><span class="value">${acceptedByDisplay}</span></div>
+    <div class="row"><span class="label">Received By</span><span class="value">${acceptedByDisplay}</span></div>
     <div class="row"><span class="label">Maintenance Amount</span><span class="value">₹${Number(data.payment.amount).toLocaleString("en-IN")}</span></div>
     <div class="row"><span class="label">Gateway Fee ${data.payment.fee ? "(2% + GST)" : "(Cash - No Fee)"}</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
     <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>

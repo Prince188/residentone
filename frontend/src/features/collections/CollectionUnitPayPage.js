@@ -92,11 +92,12 @@ export default function CollectionUnitPayPage() {
           </div>
           <div class="row"><span class="label">Collection Fund</span><span class="value">${data.collection.title}</span></div>
           <div class="row"><span class="label">House / Flat</span><span class="value">House ${data.unit.label}${data.unit.block ? " · Block " + data.unit.block : ""}</span></div>
-          <div class="row"><span class="label">Resident</span><span class="value">${data.unit.ownerName} ${data.unit.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
+          <div class="row"><span class="label">Owner</span><span class="value">${data.unit.ownerName || "Owner"} ${data.unit.ownerPhone ? "· " + data.unit.ownerPhone : ""}</span></div>
+          ${data.unit?.renterName || data.unit?.tenantName ? `<div class="row"><span class="label">Renter</span><span class="value">${data.unit.renterName || data.unit.tenantName} ${data.unit.renterPhone || data.unit.tenantPhone ? "· " + (data.unit.renterPhone || data.unit.tenantPhone) : ""}</span></div>` : ""}
           <div class="row"><span class="label">Due Date</span><span class="value">${new Date(data.collection.dueDate).toLocaleDateString("en-IN")}</span></div>
           <div class="row"><span class="label">Payment Method</span><span class="value">${data.payment.method}${data.payment.razorpayPaymentId ? " · " + data.payment.razorpayPaymentId : ""}</span></div>
-          <div class="row"><span class="label">Accepted By</span><span class="value">${(() => {
-            let h = data.payment?.acceptedBy?.houseNumber || data.payment?.acceptedBy?.house || (typeof data.payment?.acceptedBy === "string" ? data.payment.acceptedBy : null);
+          <div class="row"><span class="label">Received By</span><span class="value">${(() => {
+            let h = data.payment?.receivedBy?.houseNumber || data.payment?.receivedBy?.house || data.payment?.acceptedBy?.houseNumber || data.payment?.acceptedBy?.house || (typeof data.payment?.receivedBy === "string" ? data.payment.receivedBy : (typeof data.payment?.acceptedBy === "string" ? data.payment.acceptedBy : null));
             if (typeof h === "string") {
               if (h.includes(",")) h = h.split(",")[0].trim();
               h = h.replace(/\s*\([^)]*\)/g, "").trim();

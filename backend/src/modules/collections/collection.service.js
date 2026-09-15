@@ -482,8 +482,13 @@ class CollectionService {
         block: unit.block,
         floor: unit.floor,
         doorNo: unit.doorNo,
-        ownerName: unit.tenantId?.name || unit.ownerId?.name || "Resident",
-        ownerPhone: unit.tenantId?.phone || unit.ownerId?.phone || "",
+        ownerName: unit.ownerId?.name || "Owner",
+        ownerPhone: unit.ownerId?.phone || "",
+        renterName: unit.tenantId?.name || null,
+        renterPhone: unit.tenantId?.phone || "",
+        tenantName: unit.tenantId?.name || null,
+        tenantPhone: unit.tenantId?.phone || "",
+        isRented: Boolean(unit.tenantId?.name),
       },
       collection: this.mapCollection(collection),
       payment: {
@@ -496,6 +501,7 @@ class CollectionService {
         razorpayPaymentId: payment.razorpayPaymentId || null,
         razorpayOrderId: payment.razorpayOrderId || null,
         acceptedBy: acceptedByInfo,
+        receivedBy: acceptedByInfo,
       },
       status,
     };
