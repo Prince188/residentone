@@ -72,15 +72,16 @@ export default function VisitorsPage() {
     enabled: Boolean(activeSociety?.id),
     refetchInterval: 10000,
   });
-  const residentParcels = parcelsQuery.data || [];
+  const rawParcels = parcelsQuery.data;
   const waitingParcels = useMemo(() => {
+    const list = rawParcels || [];
     const myUnitIds = (activeMembership?.units || []).map((u) => String(u?._id || u?.id || u));
     if (activeMembership?.unitId) {
       myUnitIds.push(String(activeMembership.unitId?._id || activeMembership.unitId));
     }
     const myUserId = String(user?._id || user?.id || "");
 
-    return residentParcels.filter((p) => {
+    return list.filter((p) => {
       if (p.status !== "left_at_gate" || p.parcelDetails?.collectedAt) return false;
       const pUnitId = String(p.unitId?._id || p.unitId?.id || p.unitId || "");
       const pHostId = String(p.hostUserId?._id || p.hostUserId?.id || p.hostUserId || "");
@@ -88,7 +89,7 @@ export default function VisitorsPage() {
       if (myUserId && pHostId === myUserId) return true;
       return false;
     });
-  }, [residentParcels, activeMembership, user]);
+  }, [rawParcels, activeMembership, user]);
 
   // Query Visitors List
   const visitorsQuery = useQuery({

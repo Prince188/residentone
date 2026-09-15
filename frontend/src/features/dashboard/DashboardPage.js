@@ -1914,15 +1914,16 @@ export default function DashboardPage() {
     enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
     refetchInterval: 8000,
   });
-  const rawWaitingParcels = parcelsQuery.data || [];
+  const rawWaitingParcels = parcelsQuery.data;
   const waitingParcels = useMemo(() => {
+    const list = rawWaitingParcels || [];
     const myUnitIds = (activeMembership?.units || []).map((u) => String(u?._id || u?.id || u));
     if (activeMembership?.unitId) {
       myUnitIds.push(String(activeMembership.unitId?._id || activeMembership.unitId));
     }
     const myUserId = String(user?._id || user?.id || "");
 
-    return rawWaitingParcels.filter((p) => {
+    return list.filter((p) => {
       const pUnitId = String(p.unitId?._id || p.unitId?.id || p.unitId || "");
       const pHostId = String(p.hostUserId?._id || p.hostUserId?.id || p.hostUserId || "");
       if (myUnitIds.length > 0 && myUnitIds.includes(pUnitId)) return true;
