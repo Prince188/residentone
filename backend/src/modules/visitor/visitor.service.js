@@ -171,6 +171,7 @@ class VisitorService {
       societyId,
       unitId: targetUnitId,
       hostUserId,
+      checkedInBy: guardUserId,
       name: data.name.trim(),
       phone: data.phone.trim(),
       visitorType: data.visitorType || (isParcel ? "delivery" : "guest"),
@@ -189,6 +190,7 @@ class VisitorService {
       .populate("unitId", "label doorNo block floor")
       .populate("hostUserId", "name phone")
       .populate("societyId", "name address city")
+      .populate("checkedInBy", "name")
       .lean();
 
     // Find all residents/family members attached to this specific house
@@ -281,6 +283,7 @@ class VisitorService {
       .populate("unitId", "label doorNo block floor")
       .populate("hostUserId", "name phone")
       .populate("approvedBy", "name")
+      .populate("checkedInBy", "name")
       .lean();
 
     // Broadcast real-time response to Gate Guards & Residents
@@ -288,7 +291,16 @@ class VisitorService {
       emitToSociety(societyId, "visitor:approval_response", populated);
       emitToSociety(societyId, "visitor:change", populated);
       if (visitor.passType === "walk_in" && (normAction === "approve" || normAction === "approved")) {
-        emitToSociety(societyId, "visitor:walkin_approved", populated);
+        const guardId = visitor.checkedInBy
+          ? String(visitor.checkedInBy._id || visitor.checkedInBy)
+          : null;
+        if (guardId) {
+          // Direct modal popup alert ONLY to the specific guard who logged the walk-in
+          emitToUser(guardId, "visitor:walkin_approved", populated);
+        } else {
+          // Fallback if no specific guard ID was recorded
+          emitToSociety(societyId, "visitor:walkin_approved", populated);
+        }
       }
       if (visitor.hostUserId) {
         emitToUser(String(visitor.hostUserId), "visitor:approval_response", populated);
