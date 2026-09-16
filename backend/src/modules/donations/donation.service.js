@@ -143,9 +143,55 @@ class DonationService {
       .lean();
     const unitMap = new Map(units.map((u) => [String(u._id), u]));
 
+    const collectorUserIds = [...new Set(donations.map((d) => d.collectedBy?._id || d.collectedBy).filter(Boolean))];
+    const { Membership } = require("../membership/membership.model");
+    const [memberships, collectorOwnedUnits] = await Promise.all([
+      collectorUserIds.length
+        ? Membership.find({ societyId, userId: { $in: collectorUserIds }, isActive: true })
+            .populate("units", "label block doorNo")
+            .lean()
+        : [],
+      collectorUserIds.length
+        ? Unit.find({ societyId, $or: [{ ownerId: { $in: collectorUserIds } }, { tenantId: { $in: collectorUserIds } }] })
+            .select("label block doorNo ownerId tenantId")
+            .lean()
+        : [],
+    ]);
+    const membershipMap = new Map(memberships.map((m) => [String(m.userId), m]));
+    const collectorUnitMap = new Map();
+    collectorOwnedUnits.forEach((u) => {
+      if (u.ownerId) collectorUnitMap.set(String(u.ownerId), u);
+      if (u.tenantId) collectorUnitMap.set(String(u.tenantId), u);
+    });
+
     return donations.map((d) => {
       const unit = unitMap.get(String(d.unitId));
       const displayName = unit?.tenantId?.name || unit?.ownerId?.name || null;
+
+      let collectorHouse = null;
+      if (d.collectedBy) {
+        const cId = String(d.collectedBy._id || d.collectedBy);
+        const mem = membershipMap.get(cId);
+        const memUnit = (mem?.units || []).filter(Boolean)[0];
+        const ownedUnit = collectorUnitMap.get(cId);
+        const bestUnit = memUnit || ownedUnit;
+        if (bestUnit) {
+          collectorHouse = bestUnit.label
+            ? (/^(house|flat)\b/i.test(bestUnit.label) ? bestUnit.label : `House ${bestUnit.label}`)
+            : bestUnit.doorNo
+            ? `House ${bestUnit.doorNo}`
+            : null;
+        }
+      }
+
+      const methodLower = String(d.method || "").toLowerCase();
+      let receivedByStr = "Society Office";
+      if (methodLower.includes("razorpay") || methodLower.includes("online")) {
+        receivedByStr = "Online (Razorpay)";
+      } else if (collectorHouse) {
+        receivedByStr = collectorHouse;
+      }
+
       return {
         id: d._id,
         _id: d._id,
@@ -163,7 +209,14 @@ class DonationService {
         event: d.event || "",
         collectedAt: d.collectedAt,
         method: d.method || "Cash",
-        collectedBy: d.collectedBy ? { id: d.collectedBy._id, name: d.collectedBy.name } : null,
+        collectedBy: d.collectedBy
+          ? {
+              id: d.collectedBy._id,
+              name: d.collectedBy.name,
+              houseNumber: collectorHouse || "Society Office",
+            }
+          : null,
+        receivedBy: receivedByStr,
         createdAt: d.createdAt,
       };
     });
@@ -227,7 +280,11 @@ class DonationService {
         Membership.findOne({ societyId, userId: donation.collectedBy, isActive: true }).populate("units", "label doorNo").lean(),
       ]);
       if (recUser) {
-        const adminUnits = (recMembership?.units || []).filter(Boolean);
+        let adminUnits = (recMembership?.units || []).filter(Boolean);
+        if (!adminUnits.length) {
+          const ownedUnits = await Unit.find({ societyId, $or: [{ ownerId: donation.collectedBy }, { tenantId: donation.collectedBy }] }).select("label doorNo").lean();
+          if (ownedUnits.length) adminUnits = ownedUnits;
+        }
         const firstUnit = adminUnits[0];
         const houseLabel = firstUnit?.label
           ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
@@ -339,17 +396,27 @@ class DonationService {
     const unitIds = [...new Set(donations.map((d) => String(d.unitId)).filter(Boolean))];
     const collectorUserIds = [...new Set(donations.map((d) => d.collectedBy?._id || d.collectedBy).filter(Boolean))];
 
-    const [units, memberships] = await Promise.all([
+    const [units, memberships, collectorOwnedUnits] = await Promise.all([
       unitIds.length ? Unit.find({ _id: { $in: unitIds }, societyId }).populate("ownerId", "name phone").populate("tenantId", "name phone").lean() : [],
       collectorUserIds.length
         ? require("../membership/membership.model").Membership.find({ societyId, userId: { $in: collectorUserIds }, isActive: true })
             .populate("units", "label block doorNo")
             .lean()
         : [],
+      collectorUserIds.length
+        ? Unit.find({ societyId, $or: [{ ownerId: { $in: collectorUserIds } }, { tenantId: { $in: collectorUserIds } }] })
+            .select("label doorNo ownerId tenantId")
+            .lean()
+        : [],
     ]);
 
     const unitMap = new Map(units.map((u) => [String(u._id), u]));
     const membershipMap = new Map(memberships.map((m) => [String(m.userId), m]));
+    const collectorUnitMap = new Map();
+    collectorOwnedUnits.forEach((u) => {
+      if (u.ownerId) collectorUnitMap.set(String(u.ownerId), u);
+      if (u.tenantId) collectorUnitMap.set(String(u.tenantId), u);
+    });
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "ResidentOne";
