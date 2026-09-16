@@ -506,8 +506,9 @@ class DonationService {
         const recUser = d.collectedBy;
         const recUserId = String(recUser._id || recUser);
         const recMembership = membershipMap.get(recUserId);
-        const adminUnits = (recMembership?.units || []).filter(Boolean);
-        const firstUnit = adminUnits[0];
+        const memUnit = (recMembership?.units || []).filter(Boolean)[0];
+        const ownedUnit = collectorUnitMap.get(recUserId);
+        const firstUnit = memUnit || ownedUnit;
         const houseStr = firstUnit?.label
           ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
           : firstUnit?.doorNo
