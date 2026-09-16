@@ -3,6 +3,7 @@ const { Unit } = require("../unit/unit.model");
 const { Society } = require("../society/society.model");
 const { AppError } = require("../../shared/utils/errors");
 const { hasPermission } = require("../../shared/permissions");
+const ExcelJS = require("exceljs");
 
 function getInitials(societyName) {
   if (!societyName || typeof societyName !== "string") return "DN";
@@ -223,10 +224,17 @@ class DonationService {
       const { Membership } = require("../membership/membership.model");
       const [recUser, recMembership] = await Promise.all([
         User.findById(donation.collectedBy).select("name phone").lean(),
-        Membership.findOne({ societyId, userId: donation.collectedBy, isActive: true }).populate("units", "label").lean(),
+        Membership.findOne({ societyId, userId: donation.collectedBy, isActive: true }).populate("units", "label doorNo").lean(),
       ]);
       if (recUser) {
-        collectedByInfo = { name: recUser.name, phone: recUser.phone };
+        const adminUnits = (recMembership?.units || []).filter(Boolean);
+        const firstUnit = adminUnits[0];
+        const houseLabel = firstUnit?.label
+          ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
+          : firstUnit?.doorNo
+          ? `House ${firstUnit.doorNo}`
+          : "Society Office";
+        collectedByInfo = { name: recUser.name, phone: recUser.phone, houseNumber: houseLabel };
       }
     }
 
@@ -308,6 +316,217 @@ class DonationService {
     } catch {
       return false;
     }
+  }
+
+  async generateExcelBuffer(societyId, options = {}) {
+    const { from, to } = options || {};
+    const query = { societyId, isActive: true };
+
+    if (from || to) {
+      query.collectedAt = {};
+      if (from) query.collectedAt.$gte = new Date(`${from}T00:00:00.000Z`);
+      if (to) query.collectedAt.$lte = new Date(`${to}T23:59:59.999Z`);
+    }
+
+    const [society, donations] = await Promise.all([
+      Society.findById(societyId).select("name").lean(),
+      Donation.find(query)
+        .populate("collectedBy", "name phone")
+        .sort({ collectedAt: -1, createdAt: -1 })
+        .lean(),
+    ]);
+
+    const unitIds = [...new Set(donations.map((d) => String(d.unitId)).filter(Boolean))];
+    const collectorUserIds = [...new Set(donations.map((d) => d.collectedBy?._id || d.collectedBy).filter(Boolean))];
+
+    const [units, memberships] = await Promise.all([
+      unitIds.length ? Unit.find({ _id: { $in: unitIds }, societyId }).populate("ownerId", "name phone").populate("tenantId", "name phone").lean() : [],
+      collectorUserIds.length
+        ? require("../membership/membership.model").Membership.find({ societyId, userId: { $in: collectorUserIds }, isActive: true })
+            .populate("units", "label block doorNo")
+            .lean()
+        : [],
+    ]);
+
+    const unitMap = new Map(units.map((u) => [String(u._id), u]));
+    const membershipMap = new Map(memberships.map((m) => [String(m.userId), m]));
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "ResidentOne";
+    workbook.created = new Date();
+    workbook.properties.date1904 = false;
+
+    const sheet = workbook.addWorksheet("Donations", {
+      properties: { tabColor: { argb: "FF006948" } },
+      pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    });
+
+    const totalCols = 9;
+    const widths = [8, 18, 14, 22, 14, 26, 16, 24, 12];
+    widths.forEach((w, idx) => {
+      sheet.getColumn(idx + 1).width = w;
+    });
+
+    // Title row
+    sheet.mergeCells(1, 1, 1, totalCols);
+    const titleCell = sheet.getCell("A1");
+    titleCell.value = `${society?.name || "Society"} - Donations Report`;
+    titleCell.font = { size: 16, bold: true, color: { argb: "FF002116" } };
+    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE6F5EE" } };
+    titleCell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    titleCell.border = {
+      top: { style: "thin", color: { argb: "FF85E0BA" } },
+      left: { style: "thin", color: { argb: "FF85E0BA" } },
+      bottom: { style: "thin", color: { argb: "FF85E0BA" } },
+      right: { style: "thin", color: { argb: "FF85E0BA" } },
+    };
+    sheet.getRow(1).height = 30;
+
+    // Subtitle row
+    sheet.mergeCells(2, 1, 2, totalCols);
+    const subCell = sheet.getCell("A2");
+    let filterPeriodLabel = "All Dates";
+    if (from && to) {
+      filterPeriodLabel = `Period: ${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} to ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+    } else if (from) {
+      filterPeriodLabel = `From: ${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+    } else if (to) {
+      filterPeriodLabel = `To: ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+    }
+    const totalCollected = donations.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    subCell.value = `${filterPeriodLabel}  •  Total Donations: ${donations.length}  •  Total Collected: ₹${totalCollected.toLocaleString("en-IN")}`;
+    subCell.font = { size: 10, italic: true, color: { argb: "FF49454F" } };
+    subCell.alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getRow(2).height = 20;
+
+    // Spacer
+    sheet.mergeCells(3, 1, 3, totalCols);
+    sheet.getCell("A3").value = "";
+    sheet.getRow(3).height = 8;
+
+    // Header row
+    const headers = ["Sr No", "Receipt No", "House Number", "Resident Name", "Amount", "Purpose / Event", "Date", "Received By", "Method"];
+    const headerRow = sheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    headerRow.height = 22;
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF006948" } };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF004D34" } },
+        left: { style: "thin", color: { argb: "FF004D34" } },
+        bottom: { style: "thin", color: { argb: "FF004D34" } },
+        right: { style: "thin", color: { argb: "FF004D34" } },
+      };
+    });
+    sheet.views = [{ state: "frozen", ySplit: 4 }];
+    sheet.autoFilter = { from: "A4", to: "I4" };
+
+    // Data rows
+    donations.forEach((d, idx) => {
+      const unit = unitMap.get(String(d.unitId));
+      const resName = unit?.tenantId?.name || unit?.ownerId?.name || "Resident";
+      const houseLabel = unit?.label || "—";
+      const amountStr = `₹${Number(d.amount || 0).toLocaleString("en-IN")}`;
+      const purposeStr = d.event ? `${d.purpose} (${d.event})` : (d.purpose || "Donation");
+      const dateStr = d.collectedAt ? new Date(d.collectedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+
+      let receivedBy = "Society Office";
+      if (d.method && d.method.toLowerCase().includes("razorpay")) {
+        receivedBy = "Online (Razorpay)";
+      } else if (d.collectedBy) {
+        const recUser = d.collectedBy;
+        const recUserId = String(recUser._id || recUser);
+        const recMembership = membershipMap.get(recUserId);
+        const adminUnits = (recMembership?.units || []).filter(Boolean);
+        const firstUnit = adminUnits[0];
+        const houseStr = firstUnit?.label
+          ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
+          : firstUnit?.doorNo
+          ? `House ${firstUnit.doorNo}`
+          : "Society Office";
+        receivedBy = houseStr;
+      }
+
+      const row = sheet.addRow([
+        idx + 1,
+        d.receiptNo || "—",
+        houseLabel,
+        resName,
+        amountStr,
+        purposeStr,
+        dateStr,
+        receivedBy,
+        d.method || "Cash",
+      ]);
+      row.height = 18;
+      row.font = { size: 10, color: { argb: "FF1D1B20" } };
+      row.alignment = { vertical: "middle", wrapText: true };
+      row.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(2).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(3).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(4).alignment = { horizontal: "left", vertical: "middle" };
+      row.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
+      row.getCell(6).alignment = { horizontal: "left", vertical: "middle" };
+      row.getCell(7).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(8).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(9).alignment = { horizontal: "center", vertical: "middle" };
+
+      const isEven = idx % 2 === 0;
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE7E0EC" } },
+          left: { style: "thin", color: { argb: "FFE7E0EC" } },
+          bottom: { style: "thin", color: { argb: "FFE7E0EC" } },
+          right: { style: "thin", color: { argb: "FFE7E0EC" } },
+        };
+        if (isEven) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBFE" } };
+        } else {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FAF5" } };
+        }
+      });
+    });
+
+    // Summary footer
+    if (donations.length > 0) {
+      sheet.addRow([]);
+      const lastRowNum = sheet.lastRow ? sheet.lastRow.number + 1 : 6;
+      sheet.mergeCells(lastRowNum, 1, lastRowNum, totalCols);
+      const summaryCell = sheet.getCell(`A${lastRowNum}`);
+      summaryCell.value = `Total Donations: ${donations.length}   •   Total Amount: ₹${totalCollected.toLocaleString("en-IN")}   •   ${filterPeriodLabel}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+      summaryCell.font = { size: 9, italic: true, color: { argb: "FF002116" }, bold: true };
+      summaryCell.alignment = { horizontal: "center", vertical: "middle" };
+      summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD8FCEA" } };
+      summaryCell.border = {
+        top: { style: "double", color: { argb: "FF006948" } },
+        left: { style: "thin", color: { argb: "FF006948" } },
+        bottom: { style: "thin", color: { argb: "FF006948" } },
+        right: { style: "thin", color: { argb: "FF006948" } },
+      };
+      sheet.getRow(lastRowNum).height = 20;
+    } else {
+      const row = sheet.addRow(["-", "-", "-", "No donations found for selected date range", "-", "-", "-", "-", "-"]);
+      row.alignment = { horizontal: "center", vertical: "middle" };
+      row.font = { italic: true, color: { argb: "FF49454F" } };
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE7E0EC" } },
+          left: { style: "thin", color: { argb: "FFE7E0EC" } },
+          bottom: { style: "thin", color: { argb: "FFE7E0EC" } },
+          right: { style: "thin", color: { argb: "FFE7E0EC" } },
+        };
+      });
+    }
+
+    sheet.pageSetup.printArea = `A1:I${sheet.rowCount}`;
+    sheet.pageSetup.margins = { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 };
+    sheet.headerFooter.oddHeader = `&C&10Donations Report - ${society?.name || "ResidentOne"}`;
+    sheet.headerFooter.oddFooter = "&CPage &P of &N";
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
 

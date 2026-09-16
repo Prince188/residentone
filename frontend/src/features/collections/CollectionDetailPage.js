@@ -176,6 +176,129 @@ function EditCollectionModal({ collection, open, onClose, onSave, isSaving, hasP
   );
 }
 
+function ExportCollectionModal({ collection, open, onClose, onExport, isExporting, error }) {
+  const isDonation = collection?.category === "donation";
+  const [mode, setMode] = useState(isDonation ? "range" : "all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10));
+
+  useEffect(() => {
+    if (open) {
+      setMode(collection?.category === "donation" ? "range" : "all");
+      const created = collection?.createdAt ? new Date(collection.createdAt).toISOString().slice(0, 10) : "";
+      setFromDate(created);
+      setToDate(new Date().toISOString().slice(0, 10));
+    }
+  }, [open, collection]);
+
+  if (!open || !collection) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (mode === "range") {
+      onExport({ from: fromDate || undefined, to: toDate || undefined });
+    } else {
+      onExport({});
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={isExporting ? undefined : onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[24px]">download</span>
+            <h3 className="text-title-md font-bold text-on-surface">Export Collection Excel</h3>
+          </div>
+          <button type="button" onClick={onClose} disabled={isExporting} className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {error && <p className="rounded-lg bg-error-container p-3 text-label-md text-on-error-container">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-label-sm font-semibold text-on-surface block">Export Scope</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("all")}
+                className={`rounded-xl border px-3 py-2.5 text-center text-label-md font-semibold transition-colors cursor-pointer ${
+                  mode === "all"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
+                }`}
+              >
+                All Records
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("range")}
+                className={`rounded-xl border px-3 py-2.5 text-center text-label-md font-semibold transition-colors cursor-pointer ${
+                  mode === "range"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
+                }`}
+              >
+                Date Range
+              </button>
+            </div>
+          </div>
+
+          {mode === "range" && (
+            <div className="space-y-3 rounded-xl border border-outline-variant/60 bg-surface-container-low/50 p-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-label-xs font-semibold text-on-surface mb-1 block">From Date</label>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full rounded-lg border border-outline-variant bg-white px-2.5 py-1.5 text-body-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-label-xs font-semibold text-on-surface mb-1 block">To Date</label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full rounded-lg border border-outline-variant bg-white px-2.5 py-1.5 text-body-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-on-surface-variant">
+                Exports contributions received between these dates. Includes the <b>Received By</b> audit field.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-lg bg-surface-container-low p-2.5 text-label-xs text-on-surface-variant flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px] text-primary">verified_user</span>
+            <span>Includes <b>Received By</b> field (collector name, house, or online).</span>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isExporting} className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface hover:bg-surface-container-low cursor-pointer">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isExporting || (mode === "range" && fromDate && toDate && fromDate > toDate)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-50 cursor-pointer shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">{isExporting ? "hourglass_top" : "download"}</span>
+              {isExporting ? "Exporting..." : "Download Excel"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function CollectionDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
@@ -183,6 +306,7 @@ export default function CollectionDetailPage() {
   const membership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
   const [exportErr, setExportErr] = useState("");
@@ -272,12 +396,12 @@ export default function CollectionDetailPage() {
     return list;
   }, [units, search, filter]);
 
-  const handleExport = async () => {
+  const handleExport = async (params = {}) => {
     try {
       setExporting(true);
       setExportErr("");
       setExportMsg("");
-      const res = await exportCollectionExcel(id);
+      const res = await exportCollectionExcel(id, params);
       const disposition = res.headers["content-disposition"] || res.headers["Content-Disposition"];
       let filename = `${collection?.title || "collection"}.xlsx`;
       if (disposition) {
@@ -294,6 +418,7 @@ export default function CollectionDetailPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
       setExportMsg("Excel downloaded successfully");
+      setExportModalOpen(false);
       setTimeout(() => setExportMsg(""), 3000);
     } catch (e) {
       const msg = extractApiError(e, "Failed to download Excel");
@@ -369,7 +494,10 @@ export default function CollectionDetailPage() {
             {canExport && (
               <button
                 type="button"
-                onClick={handleExport}
+                onClick={() => {
+                  setExportErr("");
+                  setExportModalOpen(true);
+                }}
                 disabled={exporting || unitsQuery.isLoading}
                 className="inline-flex items-center gap-2 rounded-full border border-primary bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                 title="Download Excel sheet"
@@ -445,6 +573,18 @@ export default function CollectionDetailPage() {
           setClosingConfirm(false);
           setActionError("");
         }}
+      />
+
+      <ExportCollectionModal
+        collection={collection}
+        open={exportModalOpen}
+        onClose={() => {
+          setExportModalOpen(false);
+          setExportErr("");
+        }}
+        onExport={handleExport}
+        isExporting={exporting}
+        error={exportErr}
       />
     </div>
   );

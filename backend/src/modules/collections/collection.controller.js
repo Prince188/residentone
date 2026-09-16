@@ -141,15 +141,17 @@ class CollectionController {
 
   async exportExcel(req, res, next) {
     try {
+      const { from, to } = req.query;
       const collection = await collectionService.getRawById(req.societyId, req.params.id);
-      const buffer = await collectionService.generateExcelBuffer(req.societyId, collection);
+      const buffer = await collectionService.generateExcelBuffer(req.societyId, collection, { from, to });
 
       const safeTitle = (collection.title || "collection")
         .replace(/[^a-zA-Z0-9 _-]/g, "")
         .trim()
         .replace(/\s+/g, "_")
         .slice(0, 60) || "collection";
-      const filename = `${safeTitle}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const dateTag = from && to ? `${from}_to_${to}` : from ? `from_${from}` : to ? `to_${to}` : new Date().toISOString().slice(0, 10);
+      const filename = `${safeTitle}_${dateTag}.xlsx`;
 
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

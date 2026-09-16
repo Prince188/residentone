@@ -110,8 +110,16 @@ const paymentSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    penalty: {
+      type: Number,
+      default: 0,
+    },
     totalAmount: {
       type: Number,
+      default: null,
+    },
+    recordedByHouse: {
+      type: String,
       default: null,
     },
     // Razorpay gateway fields (null for cash/manual)

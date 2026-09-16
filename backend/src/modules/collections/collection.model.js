@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const { tenantPlugin } = require("../../shared/plugins/tenant.plugin");
 
-const COLLECTION_CATEGORIES = ["festival", "event", "celebration", "repair", "welfare", "other"];
+const COLLECTION_CATEGORIES = ["festival", "event", "celebration", "repair", "welfare", "donation", "other"];
 const COLLECTION_STATUSES = ["active", "closed"];
 
 const collectionSchema = new mongoose.Schema(

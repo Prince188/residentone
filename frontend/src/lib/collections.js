@@ -5,7 +5,8 @@ export const COLLECTION_CATEGORIES = [
   { value: "event", label: "Event", icon: "event" },
   { value: "celebration", label: "Celebration", icon: "cake" },
   { value: "repair", label: "Repair", icon: "build" },
-  { value: "welfare", label: "Welfare", icon: "volunteer_activism" },
+  { value: "welfare", label: "Welfare", icon: "handshake" },
+  { value: "donation", label: "Donation", icon: "volunteer_activism" },
   { value: "other", label: "Other", icon: "payments" },
 ];
 
@@ -21,7 +22,7 @@ export const recordCollectionPayment = (collectionId, unitId, payload) => api.po
 export const removeCollectionPayment = (collectionId, unitId) => api.post(`/collections/${collectionId}/units/${unitId}/unpay`);
 export const createRazorpayOrder = (collectionId, unitId) => api.post(`/collections/${collectionId}/units/${unitId}/create-order`);
 export const verifyRazorpayPayment = (collectionId, unitId, payload) => api.post(`/collections/${collectionId}/units/${unitId}/verify`, payload);
-export const exportCollectionExcel = (id) => api.get(`/collections/${id}/export`, { responseType: "blob" });
+export const exportCollectionExcel = (id, params) => api.get(`/collections/${id}/export`, { responseType: "blob", params });
 export const getCollectionReceipt = (collectionId, unitId) => api.get(`/collections/${collectionId}/units/${unitId}/receipt`);
 
 export function extractApiError(error, fallback) {
@@ -46,7 +47,8 @@ export const CATEGORY_UI = {
   event: { label: "Event", pill: "bg-violet-100 text-violet-800", icon: "event" },
   celebration: { label: "Celebration", pill: "bg-amber-100 text-amber-800", icon: "cake" },
   repair: { label: "Repair", pill: "bg-slate-100 text-slate-700", icon: "build" },
-  welfare: { label: "Welfare", pill: "bg-emerald-100 text-emerald-800", icon: "volunteer_activism" },
+  welfare: { label: "Welfare", pill: "bg-teal-100 text-teal-800", icon: "handshake" },
+  donation: { label: "Donation", pill: "bg-emerald-100 text-emerald-800", icon: "volunteer_activism" },
   other: { label: "Other", pill: "bg-zinc-100 text-zinc-700", icon: "payments" },
 };
 

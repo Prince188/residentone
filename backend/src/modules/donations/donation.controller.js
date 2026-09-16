@@ -36,6 +36,22 @@ class DonationController {
       next(error);
     }
   }
+
+  async exportExcel(req, res, next) {
+    try {
+      const buffer = await donationService.generateExcelBuffer(req.societyId, req.query);
+      const { from, to } = req.query;
+      const dateTag = from && to ? `${from}_to_${to}` : from ? `from_${from}` : to ? `to_${to}` : new Date().toISOString().slice(0, 10);
+      const filename = `donations_${dateTag}.xlsx`;
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new DonationController();

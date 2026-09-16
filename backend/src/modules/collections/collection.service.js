@@ -151,7 +151,33 @@ class CollectionService {
       societyId,
       collectionId: collection._id,
       isActive: true,
-    }).lean();
+    })
+      .populate("recordedBy", "name phone")
+      .lean();
+
+    const collectorUserIds = [...new Set(payments.map((p) => p.recordedBy?._id || p.recordedBy).filter(Boolean))];
+    let membershipMap = new Map();
+    let collectorUnitMap = new Map();
+    if (collectorUserIds.length > 0) {
+      const { Membership } = require("../membership/membership.model");
+      const [memberships, ownedUnits] = await Promise.all([
+        Membership.find({ societyId, userId: { $in: collectorUserIds }, isActive: true })
+          .populate("units", "label block doorNo")
+          .lean(),
+        Unit.find({
+          societyId,
+          $or: [{ ownerId: { $in: collectorUserIds } }, { tenantId: { $in: collectorUserIds } }],
+          isActive: true,
+        }).sort({ unitNumber: 1, label: 1 }).lean(),
+      ]);
+      membershipMap = new Map(memberships.map((m) => [String(m.userId), m]));
+      ownedUnits.forEach((u) => {
+        const ownerKey = u.ownerId ? String(u.ownerId) : null;
+        const tenantKey = u.tenantId ? String(u.tenantId) : null;
+        if (tenantKey && !collectorUnitMap.has(tenantKey)) collectorUnitMap.set(tenantKey, u);
+        if (ownerKey && !collectorUnitMap.has(ownerKey)) collectorUnitMap.set(ownerKey, u);
+      });
+    }
 
     const paymentByUnit = new Map(payments.map((p) => [String(p.unitId), p]));
 
@@ -159,6 +185,34 @@ class CollectionService {
       const payment = paymentByUnit.get(String(unit._id));
       const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
       const displayPhone = unit.tenantId?.phone || unit.ownerId?.phone || null;
+      const status = this.statusFor(payment, collection);
+      const isPaid = ["paid", "late_paid"].includes(status);
+
+      let receivedBy = null;
+      let recordedByName = null;
+      let recordedByHouse = null;
+
+      if (isPaid && payment) {
+        if (payment.gatewayStatus === "paid" || (payment.method && payment.method.toLowerCase().includes("razorpay"))) {
+          receivedBy = "Online (Razorpay)";
+        } else if (payment.recordedBy) {
+          const recUser = payment.recordedBy;
+          const recUserId = String(recUser._id || recUser);
+          recordedByName = recUser.name || "Admin";
+          const recMembership = membershipMap.get(recUserId);
+          const adminUnits = (recMembership?.units || []).filter(Boolean);
+          const firstUnit = adminUnits[0] || collectorUnitMap.get(recUserId);
+          recordedByHouse = firstUnit?.label
+            ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
+            : firstUnit?.doorNo
+            ? `House ${firstUnit.doorNo}`
+            : "Society Office";
+          receivedBy = recordedByHouse;
+        } else {
+          receivedBy = "Society Office";
+        }
+      }
+
       return {
         unitId: unit._id,
         label: unit.label,
@@ -168,13 +222,16 @@ class CollectionService {
         tenantId: unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null,
         isOccupied: Boolean(unit.ownerId || unit.tenantId),
         amount: collection.amount,
-        status: this.statusFor(payment, collection),
+        status,
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
         fee: payment?.fee || 0,
         totalAmount: payment?.totalAmount || collection.amount,
         gatewayStatus: payment?.gatewayStatus || "cash",
+        receivedBy: receivedBy || "—",
+        recordedByName,
+        recordedByHouse,
       };
     });
   }
@@ -591,8 +648,24 @@ class CollectionService {
     return { id: col._id, deleted: true };
   }
 
-  async generateExcelBuffer(societyId, collection) {
+  async generateExcelBuffer(societyId, collection, options = {}) {
+    const { from, to } = options || {};
     const units = await this.getCollectionUnits(societyId, collection);
+
+    let exportUnits = units;
+    let filterPeriodLabel = "";
+    if (from || to) {
+      const fromTime = from ? new Date(`${from}T00:00:00.000Z`).getTime() : 0;
+      const toTime = to ? new Date(`${to}T23:59:59.999Z`).getTime() : Infinity;
+      exportUnits = units.filter((u) => {
+        if (!u.paidOn) return false;
+        const pTime = new Date(u.paidOn).getTime();
+        return pTime >= fromTime && pTime <= toTime;
+      });
+      const fromStr = from ? new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Start";
+      const toStr = to ? new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Present";
+      filterPeriodLabel = `  •  Period: ${fromStr} to ${toStr}`;
+    }
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "ResidentOne";
@@ -604,10 +677,10 @@ class CollectionService {
       pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
     });
 
-    const totalCols = 8;
+    const totalCols = 9;
 
     // Column widths
-    const widths = [8, 16, 14, 26, 14, 14, 18, 20];
+    const widths = [8, 16, 14, 24, 14, 14, 18, 24, 20];
     widths.forEach((w, idx) => {
       sheet.getColumn(idx + 1).width = w;
     });
@@ -627,14 +700,14 @@ class CollectionService {
     };
     sheet.getRow(1).height = 30;
 
-    // --- Subtitle row : category + amount + due date + status ---
+    // --- Subtitle row : category + amount + due date + status (+ filter period) ---
     sheet.mergeCells(2, 1, 2, totalCols);
     const subCell = sheet.getCell("A2");
     const dueStr = collection.dueDate ? new Date(collection.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
     const catLabel = collection.category ? collection.category.charAt(0).toUpperCase() + collection.category.slice(1) : "Collection";
     const amountStr = `₹${Number(collection.amount || 0).toLocaleString("en-IN")} per house`;
     const statusLabel = collection.status === "closed" ? "Closed" : collection.status === "active" ? "Active" : collection.status;
-    subCell.value = `${catLabel}  •  ${amountStr}  •  Due ${dueStr}  •  ${statusLabel}`;
+    subCell.value = `${catLabel}  •  ${amountStr}  •  Due ${dueStr}  •  ${statusLabel}${filterPeriodLabel}`;
     subCell.font = { size: 10, italic: true, color: { argb: "FF49454F" } };
     subCell.alignment = { horizontal: "center", vertical: "middle" };
     sheet.getRow(2).height = 20;
@@ -645,7 +718,7 @@ class CollectionService {
     sheet.getRow(3).height = 8;
 
     // --- Header row ---
-    const headers = ["Sr No", "House Number", "Owner / Renter", "Name", "Amount", "Status", "Paid Date", "Receipt No"];
+    const headers = ["Sr No", "House Number", "Owner / Renter", "Name", "Amount", "Status", "Paid Date", "Received By", "Receipt No"];
     const headerRow = sheet.getRow(4);
     headerRow.values = headers;
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
@@ -661,7 +734,7 @@ class CollectionService {
       };
     });
     sheet.views = [{ state: "frozen", ySplit: 4 }];
-    sheet.autoFilter = { from: "A4", to: `H4` };
+    sheet.autoFilter = { from: "A4", to: `I4` };
 
     // --- Data rows ---
     const statusMap = {
@@ -671,15 +744,16 @@ class CollectionService {
       late_paid: { label: "Late Paid", color: "FF4F378B" },
     };
 
-    units.forEach((unit, idx) => {
+    exportUnits.forEach((unit, idx) => {
       const residentType = unit.tenantId ? "Renter" : unit.ownerId ? "Owner" : "Vacant";
       const name = unit.ownerName || "-";
       const paidDate = unit.paidOn ? new Date(unit.paidOn).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
       const receiptNo = unit.receiptNo || "-";
       const amount = `₹${Number(unit.amount || 0).toLocaleString("en-IN")}`;
       const st = statusMap[unit.status] || { label: unit.status || "Pending", color: "FF1D1B20" };
+      const receivedBy = unit.receivedBy || "—";
 
-      const row = sheet.addRow([idx + 1, unit.label || "-", residentType, name, amount, st.label, paidDate, receiptNo]);
+      const row = sheet.addRow([idx + 1, unit.label || "-", residentType, name, amount, st.label, paidDate, receivedBy, receiptNo]);
       row.height = 18;
       row.font = { size: 10, color: { argb: "FF1D1B20" } };
       row.alignment = { vertical: "middle", wrapText: true };
@@ -693,6 +767,7 @@ class CollectionService {
       row.getCell(6).font = { size: 10, bold: true, color: { argb: st.color } };
       row.getCell(7).alignment = { horizontal: "center", vertical: "middle" };
       row.getCell(8).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(9).alignment = { horizontal: "center", vertical: "middle" };
 
       // Borders and zebra striping
       const isEven = idx % 2 === 0;
@@ -712,15 +787,15 @@ class CollectionService {
     });
 
     // --- Summary footer ---
-    if (units.length > 0) {
-      // blank row before summary
+    if (exportUnits.length > 0) {
       sheet.addRow([]);
-      const paidCount = units.filter((u) => ["paid", "late_paid"].includes(u.status)).length;
-      const pendingCount = units.length - paidCount;
+      const paidCount = exportUnits.filter((u) => ["paid", "late_paid"].includes(u.status)).length;
+      const pendingCount = exportUnits.length - paidCount;
       const lastRowNum = sheet.lastRow ? sheet.lastRow.number + 1 : 6;
       sheet.mergeCells(lastRowNum, 1, lastRowNum, totalCols);
       const summaryCell = sheet.getCell(`A${lastRowNum}`);
-      summaryCell.value = `Total Houses: ${units.length}   •   Paid: ${paidCount}   •   Pending/Overdue: ${pendingCount}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+      const periodLabel = filterPeriodLabel ? `   •  ${filterPeriodLabel.replace(/^  •  /, "")}` : "";
+      summaryCell.value = `Total Records: ${exportUnits.length}   •   Paid: ${paidCount}   •   Pending/Overdue: ${pendingCount}${periodLabel}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
       summaryCell.font = { size: 9, italic: true, color: { argb: "FF49454F" } };
       summaryCell.alignment = { horizontal: "center", vertical: "middle" };
       summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBFE" } };
@@ -732,8 +807,7 @@ class CollectionService {
       };
       sheet.getRow(lastRowNum).height = 18;
     } else {
-      // No units case: add placeholder row
-      const row = sheet.addRow(["-", "-", "-", "No houses found", "-", "-", "-", "-"]);
+      const row = sheet.addRow(["-", "-", "-", "No records found for selected period", "-", "-", "-", "-", "-"]);
       row.alignment = { horizontal: "center", vertical: "middle" };
       row.font = { italic: true, color: { argb: "FF49454F" } };
       row.eachCell((cell) => {
@@ -747,7 +821,7 @@ class CollectionService {
     }
 
     // Print settings
-    sheet.pageSetup.printArea = `A1:H${sheet.rowCount}`;
+    sheet.pageSetup.printArea = `A1:I${sheet.rowCount}`;
     sheet.pageSetup.margins = { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 };
     sheet.headerFooter.oddHeader = `&C&10${collection.title.replace(/&/g, "&&")}`;
     sheet.headerFooter.oddFooter = "&CPage &P of &N";

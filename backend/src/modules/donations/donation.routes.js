@@ -16,6 +16,9 @@ router.get("/my", (req, res, next) => donationController.listMy(req, res, next))
 // Admin list — requires collect_donations (or society_admin)
 router.get("/", requirePermission("collect_donations"), (req, res, next) => donationController.list(req, res, next));
 
+// Export donations to Excel (with optional ?from=YYYY-MM-DD&to=YYYY-MM-DD)
+router.get("/export", requirePermission("collect_donations"), (req, res, next) => donationController.exportExcel(req, res, next));
+
 // Receipt — owner of house or admin can view
 router.get("/:id/receipt", (req, res, next) => donationController.getReceipt(req, res, next));
 

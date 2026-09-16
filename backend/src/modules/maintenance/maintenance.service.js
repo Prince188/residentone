@@ -331,7 +331,29 @@ class MaintenanceService {
       cycleId: { $in: cycleIds },
       isActive: true,
       gatewayStatus: { $in: ["paid", "cash"] },
-    }).lean();
+    })
+      .populate("recordedBy", "name phone")
+      .lean();
+
+    // Look up society memberships and owned/rented units of users who recorded payments
+    const collectorIds = [...new Set(payments.map((p) => p.recordedBy?._id || p.recordedBy).filter(Boolean))];
+    const { Membership } = require("../membership/membership.model");
+    const [memberships, ownedUnits] = await Promise.all([
+      collectorIds.length
+        ? Membership.find({ societyId, userId: { $in: collectorIds }, isActive: true }).populate("units", "label doorNo block").lean()
+        : [],
+      collectorIds.length
+        ? Unit.find({ societyId, $or: [{ ownerId: { $in: collectorIds } }, { tenantId: { $in: collectorIds } }], isActive: true }).sort({ unitNumber: 1, label: 1 }).lean()
+        : [],
+    ]);
+    const membershipMap = new Map(memberships.map((m) => [String(m.userId), m]));
+    const collectorUnitMap = new Map();
+    ownedUnits.forEach((u) => {
+      const ownerKey = u.ownerId ? String(u.ownerId) : null;
+      const tenantKey = u.tenantId ? String(u.tenantId) : null;
+      if (tenantKey && !collectorUnitMap.has(tenantKey)) collectorUnitMap.set(tenantKey, u);
+      if (ownerKey && !collectorUnitMap.has(ownerKey)) collectorUnitMap.set(ownerKey, u);
+    });
 
     // Index payments by `${cycleId}_${unitId}` and fallback by `unitId`
     const paymentMap = new Map();
@@ -365,12 +387,56 @@ class MaintenanceService {
       const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
       const unitAmount = this.getAmountForUnit(effectiveCycle, unit);
       const status = this.statusFor(payment, effectiveCycle);
+      const isPaid = ["paid", "late_paid"].includes(status);
       const isLate = ["overdue", "late_paid"].includes(status);
       const appliedLateCharge = isLate ? (effectiveCycle.lateCharge || 0) : 0;
-      const finalAmount = payment ? (payment.amount || unitAmount) : (unitAmount + appliedLateCharge);
+
+      const baseMaintAmount = Number(unitAmount || 0);
+      let penaltyAmount = 0;
+      let totalAmt = baseMaintAmount;
+
+      if (payment) {
+        if (payment.penalty !== undefined && payment.penalty !== null) {
+          penaltyAmount = Number(payment.penalty || 0);
+        } else if (payment.totalAmount && payment.amount && payment.totalAmount > payment.amount) {
+          penaltyAmount = Number(payment.totalAmount - payment.amount);
+        } else if (status === "late_paid") {
+          penaltyAmount = Number(appliedLateCharge || 0);
+        }
+        totalAmt = Number(payment.totalAmount || (payment.amount ? payment.amount + penaltyAmount : baseMaintAmount + penaltyAmount));
+      } else {
+        penaltyAmount = isLate ? appliedLateCharge : 0;
+        totalAmt = baseMaintAmount + penaltyAmount;
+      }
+
       // Renter priority for display
       const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
       const displayPhone = unit.tenantId?.phone || unit.ownerId?.phone || null;
+
+      let receivedBy = "—";
+      let recordedByHouse = null;
+      if (isPaid && payment) {
+        if (payment.gatewayStatus === "paid" || (payment.method && payment.method.toLowerCase().includes("razorpay"))) {
+          receivedBy = "Online (Razorpay)";
+        } else if (payment.recordedByHouse) {
+          recordedByHouse = payment.recordedByHouse;
+          receivedBy = recordedByHouse;
+        } else if (payment.recordedBy) {
+          const recUserId = String(payment.recordedBy._id || payment.recordedBy);
+          const recMembership = membershipMap.get(recUserId);
+          const adminUnits = (recMembership?.units || []).filter(Boolean);
+          const firstUnit = adminUnits[0] || collectorUnitMap.get(recUserId);
+          recordedByHouse = firstUnit?.label
+            ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
+            : firstUnit?.doorNo
+            ? `House ${firstUnit.doorNo}`
+            : "Society Office";
+          receivedBy = recordedByHouse;
+        } else {
+          receivedBy = "Society Office";
+        }
+      }
+
       return {
         unitId: unit._id,
         label: unit.label,
@@ -383,11 +449,16 @@ class MaintenanceService {
         tenantId: tenantIdStr,
         isOccupied: Boolean(unit.ownerId || unit.tenantId),
         isRenterOccupied: Boolean(unit.tenantId),
-        amount: finalAmount,
+        amount: baseMaintAmount,
+        baseAmount: baseMaintAmount,
+        penaltyAmount,
+        totalAmount: totalAmt,
         status: status,
         paidOn: payment?.paidOn || null,
         method: payment?.method || null,
         receiptNo: payment?.receiptNo || null,
+        receivedBy: receivedBy || "—",
+        recordedByHouse: recordedByHouse || null,
         cycleId: effectiveCycle._id,
         cycleWing: effectiveCycle.wing || null,
         cycleOwnerAmount: effectiveCycle.ownerAmount,
@@ -544,7 +615,7 @@ class MaintenanceService {
   }
 
   // Admin records/updates a payment for a unit in a cycle (cash/manual)
-  async recordPayment(societyId, cycle, unitId, userId, data) {
+  async recordPayment(societyId, cycle, unitId, userId, data = {}) {
     const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true });
     if (!unit) throw new AppError("House not found", 404);
 
@@ -552,8 +623,28 @@ class MaintenanceService {
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
     const baseAmount = this.getAmountForUnit(cycle, unit);
     const isLate = isAfterDueDay(paidOn, cycle.dueDate);
-    const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+    const waivePenalty = data.waivePenalty === true || data.includePenalty === false;
+    const appliedLateCharge = (isLate && !waivePenalty) ? (cycle.lateCharge || 0) : 0;
     const finalAmount = baseAmount + appliedLateCharge;
+
+    let recordedByHouse = data.recordedByHouse || null;
+    if (!recordedByHouse && userId) {
+      const { Membership } = require("../membership/membership.model");
+      const [recMem, userUnit] = await Promise.all([
+        Membership.findOne({ societyId, userId, isActive: true }).populate("units", "label doorNo block").lean(),
+        Unit.findOne({ societyId, $or: [{ ownerId: userId }, { tenantId: userId }], isActive: true }).sort({ unitNumber: 1, label: 1 }).lean(),
+      ]);
+      const firstUnit = (recMem?.units || []).filter(Boolean)[0] || userUnit;
+      if (firstUnit) {
+        recordedByHouse = firstUnit.label
+          ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
+          : firstUnit.doorNo
+          ? `House ${firstUnit.doorNo}`
+          : "Society Office";
+      } else {
+        recordedByHouse = "Society Office";
+      }
+    }
 
     const paymentRecord = await MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
@@ -563,14 +654,16 @@ class MaintenanceService {
         unitId,
         paidOn,
         method: data.method || "Cash",
-        amount: finalAmount,
+        amount: baseAmount,
         fee: 0,
+        penalty: appliedLateCharge,
         totalAmount: finalAmount,
         gatewayStatus: "cash",
         razorpayOrderId: null,
         razorpayPaymentId: null,
         receiptNo,
         recordedBy: userId,
+        recordedByHouse,
         isActive: true,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -828,12 +921,19 @@ class MaintenanceService {
       ]);
 
       const adminUnits = (recMembership?.units || []).filter(Boolean);
-      const firstUnit = adminUnits[0];
-      const houseLabel = firstUnit?.label
+      let firstUnit = adminUnits[0];
+      if (!firstUnit) {
+        firstUnit = await Unit.findOne({
+          societyId,
+          $or: [{ ownerId: payment.recordedBy }, { tenantId: payment.recordedBy }],
+          isActive: true,
+        }).sort({ unitNumber: 1, label: 1 }).lean();
+      }
+      const houseLabel = payment.recordedByHouse || (firstUnit?.label
         ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
         : firstUnit?.doorNo
         ? `House ${firstUnit.doorNo}`
-        : "Society Office";
+        : "Society Office");
 
       acceptedByInfo = {
         houseNumber: houseLabel,
@@ -863,6 +963,10 @@ class MaintenanceService {
     } catch (e) {
       console.warn("Failed to generate verificationToken", e?.message);
     }
+
+    const penaltyVal = payment.penalty !== undefined && payment.penalty !== null
+      ? payment.penalty
+      : (payment.totalAmount && payment.amount ? Math.max(0, payment.totalAmount - payment.amount) : 0);
 
     return {
       receiptNo: payment.receiptNo,
@@ -894,6 +998,8 @@ class MaintenanceService {
       payment: {
         amount: payment.amount || cycle.amount,
         fee: payment.fee || 0,
+        lateFine: penaltyVal,
+        penalty: penaltyVal,
         totalAmount: payment.totalAmount || payment.amount || cycle.amount,
         method: payment.method,
         paidOn: payment.paidOn,
@@ -907,7 +1013,7 @@ class MaintenanceService {
     };
   }
 
-  // Excel export for a cycle - same shape as collections
+  // Excel export for a cycle - same shape as collections with separate Maintenance & Penalty
   async generateExcelBuffer(societyId, cycle) {
     const units = await this.getCycleUnits(societyId, cycle);
 
@@ -920,8 +1026,8 @@ class MaintenanceService {
       pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
     });
 
-    const totalCols = 8;
-    const widths = [8, 16, 14, 26, 14, 14, 18, 20];
+    const totalCols = 11;
+    const widths = [8, 16, 14, 26, 16, 14, 16, 14, 18, 18, 20];
     widths.forEach((w, idx) => {
       sheet.getColumn(idx + 1).width = w;
     });
@@ -969,7 +1075,7 @@ class MaintenanceService {
     sheet.getRow(3).height = 8;
 
     // Header
-    const headers = ["Sr No", "House Number", "Owner / Renter", "Name", "Amount", "Status", "Paid Date", "Receipt No"];
+    const headers = ["Sr No", "House Number", "Owner / Renter", "Name", "Maintenance", "Penalty", "Total Amount", "Status", "Paid Date", "Received By", "Receipt No"];
     const headerRow = sheet.getRow(4);
     headerRow.values = headers;
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
@@ -985,7 +1091,7 @@ class MaintenanceService {
       };
     });
     sheet.views = [{ state: "frozen", ySplit: 4 }];
-    sheet.autoFilter = { from: "A4", to: `H4` };
+    sheet.autoFilter = { from: "A4", to: `K4` };
 
     const statusMap = {
       paid: { label: "Paid", color: "FF0B6A2B" },
@@ -999,9 +1105,12 @@ class MaintenanceService {
       const name = unit.ownerName || "-";
       const paidDate = unit.paidOn ? new Date(unit.paidOn).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
       const receiptNo = unit.receiptNo || "-";
-      const amount = `₹${Number(unit.amount || 0).toLocaleString("en-IN")}`;
+      const maintStr = `₹${Number(unit.baseAmount || unit.amount || 0).toLocaleString("en-IN")}`;
+      const penaltyStr = Number(unit.penaltyAmount || 0) > 0 ? `₹${Number(unit.penaltyAmount).toLocaleString("en-IN")}` : "—";
+      const totalStr = `₹${Number(unit.totalAmount || unit.amount || 0).toLocaleString("en-IN")}`;
       const st = statusMap[unit.status] || { label: unit.status || "Pending", color: "FF1D1B20" };
-      const row = sheet.addRow([idx + 1, unit.label || "-", residentType, name, amount, st.label, paidDate, receiptNo]);
+      const receivedBy = unit.receivedBy || "—";
+      const row = sheet.addRow([idx + 1, unit.label || "-", residentType, name, maintStr, penaltyStr, totalStr, st.label, paidDate, receivedBy, receiptNo]);
       row.height = 18;
       row.font = { size: 10, color: { argb: "FF1D1B20" } };
       row.alignment = { vertical: "middle", wrapText: true };
@@ -1010,10 +1119,14 @@ class MaintenanceService {
       row.getCell(3).alignment = { horizontal: "center", vertical: "middle" };
       row.getCell(4).alignment = { horizontal: "left", vertical: "middle" };
       row.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
-      row.getCell(6).alignment = { horizontal: "center", vertical: "middle" };
-      row.getCell(6).font = { size: 10, bold: true, color: { argb: st.color } };
-      row.getCell(7).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
+      row.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
+      row.getCell(7).font = { size: 10, bold: true, color: { argb: "FF1D1B20" } };
       row.getCell(8).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(8).font = { size: 10, bold: true, color: { argb: st.color } };
+      row.getCell(9).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(10).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(11).alignment = { horizontal: "center", vertical: "middle" };
       const isEven = idx % 2 === 0;
       row.eachCell((cell) => {
         cell.border = {
@@ -1046,7 +1159,7 @@ class MaintenanceService {
       };
       sheet.getRow(lastRowNum).height = 18;
     } else {
-      const row = sheet.addRow(["-", "-", "-", "No houses found", "-", "-", "-", "-"]);
+      const row = sheet.addRow(["-", "-", "-", "No houses found", "-", "-", "-", "-", "-", "-", "-"]);
       row.alignment = { horizontal: "center", vertical: "middle" };
       row.font = { italic: true, color: { argb: "FF49454F" } };
       row.eachCell((cell) => {
@@ -1059,7 +1172,7 @@ class MaintenanceService {
       });
     }
 
-    sheet.pageSetup.printArea = `A1:H${sheet.rowCount}`;
+    sheet.pageSetup.printArea = `A1:K${sheet.rowCount}`;
     sheet.pageSetup.margins = { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 };
     sheet.headerFooter.oddHeader = `&C&10${title.replace(/&/g, "&&")}`;
     sheet.headerFooter.oddFooter = "&CPage &P of &N";

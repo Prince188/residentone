@@ -1,6 +1,6 @@
 const { z } = require("zod");
 
-const COLLECTION_CATEGORIES = ["festival", "event", "celebration", "repair", "welfare", "other"];
+const COLLECTION_CATEGORIES = ["festival", "event", "celebration", "repair", "welfare", "donation", "other"];
 
 const createCollectionSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(150),
