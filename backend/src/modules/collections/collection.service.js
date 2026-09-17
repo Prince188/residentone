@@ -786,8 +786,41 @@ class CollectionService {
       });
     });
 
+    let paidCollectionSum = 0;
+    exportUnits.forEach((u) => {
+      if (["paid", "late_paid"].includes(u.status)) {
+        paidCollectionSum += Number(u.amount || collection.amount || 0);
+      }
+    });
+
     // --- Summary footer ---
     if (exportUnits.length > 0) {
+      const totalRow = sheet.addRow([
+        "TOTAL COLLECTED (PAID ONLY)",
+        "",
+        "",
+        "",
+        `₹${paidCollectionSum.toLocaleString("en-IN")}`,
+        "",
+        "",
+        "",
+        "",
+      ]);
+      totalRow.height = 22;
+      totalRow.font = { bold: true, size: 10, color: { argb: "FF21005D" } };
+      sheet.mergeCells(totalRow.number, 1, totalRow.number, 4);
+      totalRow.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F0FF" } };
+        cell.border = {
+          top: { style: "double", color: { argb: "FF6750A4" } },
+          left: { style: "thin", color: { argb: "FFCAC4D0" } },
+          bottom: { style: "double", color: { argb: "FF6750A4" } },
+          right: { style: "thin", color: { argb: "FFCAC4D0" } },
+        };
+      });
+
       sheet.addRow([]);
       const paidCount = exportUnits.filter((u) => ["paid", "late_paid"].includes(u.status)).length;
       const pendingCount = exportUnits.length - paidCount;
@@ -795,7 +828,7 @@ class CollectionService {
       sheet.mergeCells(lastRowNum, 1, lastRowNum, totalCols);
       const summaryCell = sheet.getCell(`A${lastRowNum}`);
       const periodLabel = filterPeriodLabel ? `   •  ${filterPeriodLabel.replace(/^  •  /, "")}` : "";
-      summaryCell.value = `Total Records: ${exportUnits.length}   •   Paid: ${paidCount}   •   Pending/Overdue: ${pendingCount}${periodLabel}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+      summaryCell.value = `Total Records: ${exportUnits.length}   •   Paid: ${paidCount}   •   Pending/Overdue: ${pendingCount}   •   Total Collected (Paid): ₹${paidCollectionSum.toLocaleString("en-IN")}${periodLabel}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
       summaryCell.font = { size: 9, italic: true, color: { argb: "FF49454F" } };
       summaryCell.alignment = { horizontal: "center", vertical: "middle" };
       summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBFE" } };

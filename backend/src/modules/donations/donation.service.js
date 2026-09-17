@@ -559,6 +559,32 @@ class DonationService {
 
     // Summary footer
     if (donations.length > 0) {
+      const totalRow = sheet.addRow([
+        "TOTAL DONATIONS COLLECTED",
+        "",
+        "",
+        "",
+        `₹${totalCollected.toLocaleString("en-IN")}`,
+        "",
+        "",
+        "",
+        "",
+      ]);
+      totalRow.height = 22;
+      totalRow.font = { bold: true, size: 10, color: { argb: "FF002116" } };
+      sheet.mergeCells(totalRow.number, 1, totalRow.number, 4);
+      totalRow.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD8FCEA" } };
+        cell.border = {
+          top: { style: "double", color: { argb: "FF006948" } },
+          left: { style: "thin", color: { argb: "FF006948" } },
+          bottom: { style: "double", color: { argb: "FF006948" } },
+          right: { style: "thin", color: { argb: "FF006948" } },
+        };
+      });
+
       sheet.addRow([]);
       const lastRowNum = sheet.lastRow ? sheet.lastRow.number + 1 : 6;
       sheet.mergeCells(lastRowNum, 1, lastRowNum, totalCols);
@@ -568,7 +594,7 @@ class DonationService {
       summaryCell.alignment = { horizontal: "center", vertical: "middle" };
       summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD8FCEA" } };
       summaryCell.border = {
-        top: { style: "double", color: { argb: "FF006948" } },
+        top: { style: "thin", color: { argb: "FF006948" } },
         left: { style: "thin", color: { argb: "FF006948" } },
         bottom: { style: "thin", color: { argb: "FF006948" } },
         right: { style: "thin", color: { argb: "FF006948" } },
