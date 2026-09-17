@@ -1140,14 +1140,55 @@ class MaintenanceService {
       });
     });
 
+    let paidMaintSum = 0;
+    let paidPenaltySum = 0;
+    let paidTotalSum = 0;
+    units.forEach((u) => {
+      if (["paid", "late_paid"].includes(u.status)) {
+        paidMaintSum += Number(u.baseAmount || u.amount || 0);
+        paidPenaltySum += Number(u.penaltyAmount || 0);
+        paidTotalSum += Number(u.totalAmount || (u.baseAmount || u.amount || 0) + (u.penaltyAmount || 0));
+      }
+    });
+
     if (units.length > 0) {
+      const totalRow = sheet.addRow([
+        "TOTAL COLLECTED (PAID ONLY)",
+        "",
+        "",
+        "",
+        `₹${paidMaintSum.toLocaleString("en-IN")}`,
+        paidPenaltySum > 0 ? `₹${paidPenaltySum.toLocaleString("en-IN")}` : "—",
+        `₹${paidTotalSum.toLocaleString("en-IN")}`,
+        "",
+        "",
+        "",
+        "",
+      ]);
+      totalRow.height = 22;
+      totalRow.font = { bold: true, size: 10, color: { argb: "FF21005D" } };
+      sheet.mergeCells(totalRow.number, 1, totalRow.number, 4);
+      totalRow.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
+      totalRow.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F0FF" } };
+        cell.border = {
+          top: { style: "double", color: { argb: "FF6750A4" } },
+          left: { style: "thin", color: { argb: "FFCAC4D0" } },
+          bottom: { style: "double", color: { argb: "FF6750A4" } },
+          right: { style: "thin", color: { argb: "FFCAC4D0" } },
+        };
+      });
+
       sheet.addRow([]);
       const paidCount = units.filter((u) => ["paid", "late_paid"].includes(u.status)).length;
       const pendingCount = units.length - paidCount;
       const lastRowNum = sheet.lastRow ? sheet.lastRow.number + 1 : 6;
       sheet.mergeCells(lastRowNum, 1, lastRowNum, totalCols);
       const summaryCell = sheet.getCell(`A${lastRowNum}`);
-      summaryCell.value = `Total Houses: ${units.length}   •   Paid: ${paidCount}   •   Pending/Overdue: ${pendingCount}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+      summaryCell.value = `Total Houses: ${units.length}   •   Paid: ${paidCount}   •   Pending/Overdue: ${pendingCount}   •   Total Collected (Paid): ₹${paidTotalSum.toLocaleString("en-IN")}   •   Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
       summaryCell.font = { size: 9, italic: true, color: { argb: "FF49454F" } };
       summaryCell.alignment = { horizontal: "center", vertical: "middle" };
       summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBFE" } };

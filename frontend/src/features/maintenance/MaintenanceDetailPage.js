@@ -56,8 +56,9 @@ function renderMaintenanceReceiptHtml(data) {
     <div class="row"><span class="label">Payment Method</span><span class="value">${data.payment.method}${data.payment.razorpayPaymentId ? " · " + data.payment.razorpayPaymentId : ""}</span></div>
     <div class="row"><span class="label">Received By</span><span class="value">${acceptedByDisplay}</span></div>
     <div class="row"><span class="label">Maintenance Amount</span><span class="value">₹${Number(data.payment.amount).toLocaleString("en-IN")}</span></div>
-    <div class="row"><span class="label">Gateway Fee ${data.payment.fee ? "(2% + GST)" : "(Cash - No Fee)"}</span><span class="value">₹${Number(data.payment.fee || 0).toLocaleString("en-IN")}</span></div>
-    <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount).toLocaleString("en-IN")}</span></div>
+    ${Number(data.payment.penalty || 0) > 0 ? `<div class="row"><span class="label">Penalty (Late Fine)</span><span class="value">₹${Number(data.payment.penalty).toLocaleString("en-IN")}</span></div>` : ""}
+    ${Number(data.payment.fee || 0) > 0 ? `<div class="row"><span class="label">Gateway Fee (2% + GST)</span><span class="value">₹${Number(data.payment.fee).toLocaleString("en-IN")}</span></div>` : ""}
+    <div class="row total"><span>Total Paid</span><span>₹${Number(data.payment.totalAmount || data.payment.amount || 0).toLocaleString("en-IN")}</span></div>
     <div class="row"><span class="label">Status</span><span class="value" style="color:#0a7a42">${(data.status || "PAID").toUpperCase()}</span></div>
     <div class="footer">This is a computer generated receipt from ResidentOne. For queries contact society office.<br/>Thank you for your payment!</div>
     </body></html>
