@@ -37,6 +37,9 @@ const createCycleSchema = z.object({
 const paySchema = z.object({
   paidOn: z.coerce.date().optional(),
   method: z.enum(["UPI", "Cash", "Bank Transfer", "Other", "Razorpay"]).optional(),
+  waivePenalty: z.boolean().optional(),
+  includePenalty: z.boolean().optional(),
 });
 
 module.exports = { createCycleSchema, paySchema };
+

@@ -484,6 +484,8 @@ class MaintenanceService {
       method: record.method,
       receiptNo: record.receiptNo,
       amount: record.amount || cycle.amount,
+      baseAmount: record.baseAmount || record.amount || cycle.amount,
+      penaltyAmount: record.penaltyAmount !== undefined ? record.penaltyAmount : 0,
       fee: record.fee || 0,
       totalAmount: record.totalAmount || record.amount || cycle.amount,
       gatewayStatus: record.gatewayStatus || "cash",
@@ -530,7 +532,22 @@ class MaintenanceService {
     const status = this.statusFor(payment, cycle);
     const isLate = ["overdue", "late_paid"].includes(status);
     const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
-    const finalAmount = payment ? (payment.amount || unitAmount) : (unitAmount + appliedLateCharge);
+
+    let penaltyVal = 0;
+    if (payment) {
+      if (payment.penalty !== undefined && payment.penalty !== null) {
+        penaltyVal = Number(payment.penalty || 0);
+      } else if (payment.totalAmount && payment.amount && payment.totalAmount > payment.amount) {
+        penaltyVal = Number(payment.totalAmount - payment.amount);
+      } else if (status === "late_paid") {
+        penaltyVal = Number(appliedLateCharge || 0);
+      }
+    } else {
+      penaltyVal = isLate ? appliedLateCharge : 0;
+    }
+
+    const baseMaintAmount = payment?.amount || unitAmount;
+    const calcTotalAmount = payment?.totalAmount || (baseMaintAmount + penaltyVal);
 
     const record = {
       unitId: unit._id,
@@ -545,14 +562,16 @@ class MaintenanceService {
       isTenant: isTenantFlag,
       houseRole: isTenantFlag ? "tenant" : isOwnerFlag ? "owner" : membership.role,
       isRenterOccupied: Boolean(unit.tenantId),
-      amount: finalAmount,
-      dueAmount: finalAmount,
+      amount: baseMaintAmount,
+      baseAmount: baseMaintAmount,
+      penaltyAmount: penaltyVal,
+      dueAmount: calcTotalAmount,
       status: status,
       paidOn: payment?.paidOn || null,
       method: payment?.method || null,
       receiptNo: payment?.receiptNo || null,
       fee: payment?.fee || 0,
-      totalAmount: payment?.totalAmount || payment?.amount || finalAmount,
+      totalAmount: calcTotalAmount,
       gatewayStatus: payment?.gatewayStatus || "cash",
     };
 

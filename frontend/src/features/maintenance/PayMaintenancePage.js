@@ -35,16 +35,20 @@ export default function PayMaintenancePage() {
   const canManage = hasPermission(activeMembership?.role, "manage_maintenance");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [feeInfo, setFeeInfo] = useState(null);
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
 
   const recordCashMutation = useMutation({
-    mutationFn: () => recordPayment(cycleId, unitId, { method: "Cash" }).then((r) => r.data.data),
+    mutationFn: (payload = {}) => recordPayment(cycleId, unitId, { method: "Cash", ...payload }).then((r) => r.data.data),
     onSuccess: () => {
+      setShowPenaltyModal(false);
       setSuccess("Cash payment recorded successfully. Receipt generated.");
       queryClient.invalidateQueries({ queryKey: ["maintenance"] });
       setTimeout(() => navigate(`/maintenance/${unitId}?cycle=${cycleId}`), 1500);
     },
-    onError: (e) => setError(extractApiError(e, "Failed to record cash payment")),
+    onError: (e) => {
+      setShowPenaltyModal(false);
+      setError(extractApiError(e, "Failed to record cash payment"));
+    },
   });
 
   const detailQuery = useQuery({
@@ -263,8 +267,12 @@ export default function PayMaintenancePage() {
                   type="button"
                   disabled={recordCashMutation.isPending}
                   onClick={() => {
-                    if (window.confirm(`Record offline cash payment of ${formatAmount(base)} for this house? Digital receipt will be generated.`)) {
-                      recordCashMutation.mutate();
+                    const isOverdue = r.status === "overdue" || (r.cycle?.dueDate && new Date() > new Date(r.cycle.dueDate));
+                    const penalty = r.cycle?.lateCharge || 0;
+                    if (isOverdue && penalty > 0) {
+                      setShowPenaltyModal(true);
+                    } else if (window.confirm(`Record offline cash payment of ${formatAmount(base)} for this house? Digital receipt will be generated.`)) {
+                      recordCashMutation.mutate({});
                     }
                   }}
                   className="mt-3 block w-full rounded-full bg-emerald-700 py-2 text-center text-label-md font-semibold text-white no-underline hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
@@ -296,6 +304,57 @@ export default function PayMaintenancePage() {
             Due by {formatDate(r.cycle.dueDate)} · Razorpay = online convenience, Cash = save fee
           </p>
         </section>
+      )}
+
+      {showPenaltyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-2xl border border-outline-variant">
+            <div className="flex items-center gap-3 text-amber-700">
+              <span className="material-symbols-outlined text-[28px]">warning</span>
+              <h3 className="text-body-lg font-bold text-on-surface">Overdue Payment Penalty</h3>
+            </div>
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              This house is overdue. A late penalty fine of <strong>{formatAmount(r?.cycle?.lateCharge)}</strong> applies for this maintenance period.
+            </p>
+            <p className="mt-2 text-body-sm font-semibold text-on-surface">
+              Select how to record this cash payment:
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => recordCashMutation.mutate({ waivePenalty: true })}
+                className="w-full rounded-xl border border-emerald-600 bg-emerald-50/80 p-4 text-left hover:bg-emerald-100 transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-emerald-900 text-body-sm">1. Record Without Penalty (Waive)</div>
+                <div className="text-xs text-emerald-700 mt-1">
+                  Charge base maintenance {formatAmount(r?.amount || r?.cycle?.amount)} only. Penalty fine is waived (₹0).
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => recordCashMutation.mutate({ waivePenalty: false })}
+                className="w-full rounded-xl border border-primary bg-primary/10 p-4 text-left hover:bg-primary/20 transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-primary text-body-sm">2. Record With Penalty</div>
+                <div className="text-xs text-primary/80 mt-1">
+                  Charge base {formatAmount(r?.amount || r?.cycle?.amount)} + penalty {formatAmount(r?.cycle?.lateCharge)} = <strong>{formatAmount((r?.amount || r?.cycle?.amount || 0) + (r?.cycle?.lateCharge || 0))}</strong>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-5 text-right">
+              <button
+                type="button"
+                onClick={() => setShowPenaltyModal(false)}
+                className="rounded-full px-5 py-2 text-label-md font-semibold text-on-surface-variant hover:bg-surface-container-high cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -53,10 +53,14 @@ export default function SocietyDueDetailPage() {
     enabled: Boolean(unitId),
   });
 
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+
   const payMutation = useMutation({
-    mutationFn: () => recordPayment(cycleId, unitId, {}).then((r) => r.data.data),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["maintenance"] }),
+    mutationFn: (payload = {}) => recordPayment(cycleId, unitId, payload).then((r) => r.data.data),
+    onSuccess: () => {
+      setShowPenaltyModal(false);
+      queryClient.invalidateQueries({ queryKey: ["maintenance"] });
+    },
   });
 
   const unpayMutation = useMutation({
@@ -184,7 +188,7 @@ export default function SocietyDueDetailPage() {
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-headline-md font-bold text-white">
-                {isSettled ? formatAmount(record.cycle.amount) + " paid" : formatAmount(record.cycle.amount)}
+                {isSettled ? formatAmount(record.totalAmount || record.cycle.amount) + " paid" : formatAmount(record.cycle.amount)}
               </p>
               <p className="mt-1 text-label-md text-white/70">
                 Due by {formatDate(record.cycle.dueDate)}
@@ -194,8 +198,16 @@ export default function SocietyDueDetailPage() {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => payMutation.mutate()}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed disabled:opacity-60"
+                onClick={() => {
+                  const isOverdue = record?.status === "overdue" || (record?.cycle?.dueDate && new Date() > new Date(record.cycle.dueDate));
+                  const penalty = record?.cycle?.lateCharge || 0;
+                  if (isOverdue && penalty > 0) {
+                    setShowPenaltyModal(true);
+                  } else {
+                    payMutation.mutate({});
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed disabled:opacity-60 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">task_alt</span>
                 {payMutation.isPending ? "Saving..." : "Record Payment"}
@@ -242,11 +254,15 @@ export default function SocietyDueDetailPage() {
             label="Period"
             value={`${new Date(record.cycle.year, record.cycle.month - 1).toLocaleDateString("en-IN", { month: "long" })} ${record.cycle.year}`}
           />
-          <DetailRow label="Amount" value={formatAmount(record.cycle.amount)} />
+          <DetailRow label="Maintenance" value={formatAmount(record.baseAmount || record.cycle.amount)} />
+          {Number(record.penaltyAmount || 0) > 0 && (
+            <DetailRow label="Penalty (Late Fine)" value={formatAmount(record.penaltyAmount)} />
+          )}
+          <DetailRow label={isSettled ? "Total Paid" : "Total Amount"} value={formatAmount(record.totalAmount || record.cycle.amount)} />
           <DetailRow label="Due Date" value={formatDate(record.cycle.dueDate)} />
-          <DetailRow label="Paid On" value={formatDate(record.paidOn)} />
-          <DetailRow label="Payment Method" value={record.method} />
-          <DetailRow label="Receipt No." value={record.receiptNo} />
+          {isSettled && <DetailRow label="Paid On" value={formatDate(record.paidOn)} />}
+          {isSettled && <DetailRow label="Payment Method" value={record.method} />}
+          {isSettled && <DetailRow label="Receipt No." value={record.receiptNo} />}
           {(record.block || record.floor || record.doorNo) && (
             <DetailRow
               label="Unit Location"
@@ -323,6 +339,57 @@ export default function SocietyDueDetailPage() {
           </div>
         )}
       </section>
+
+      {showPenaltyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-2xl border border-outline-variant">
+            <div className="flex items-center gap-3 text-amber-700">
+              <span className="material-symbols-outlined text-[28px]">warning</span>
+              <h3 className="text-body-lg font-bold text-on-surface">Overdue Payment Penalty</h3>
+            </div>
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              This house is overdue. A late penalty fine of <strong>{formatAmount(record?.cycle?.lateCharge)}</strong> applies for this maintenance period.
+            </p>
+            <p className="mt-2 text-body-sm font-semibold text-on-surface">
+              Select how to record this cash payment:
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => payMutation.mutate({ waivePenalty: true })}
+                className="w-full rounded-xl border border-emerald-600 bg-emerald-50/80 p-4 text-left hover:bg-emerald-100 transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-emerald-900 text-body-sm">1. Record Without Penalty (Waive)</div>
+                <div className="text-xs text-emerald-700 mt-1">
+                  Charge base maintenance {formatAmount(record?.amount || record?.cycle?.amount)} only. Penalty fine is waived (₹0).
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => payMutation.mutate({ waivePenalty: false })}
+                className="w-full rounded-xl border border-primary bg-primary/10 p-4 text-left hover:bg-primary/20 transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-primary text-body-sm">2. Record With Penalty</div>
+                <div className="text-xs text-primary/80 mt-1">
+                  Charge base {formatAmount(record?.amount || record?.cycle?.amount)} + penalty {formatAmount(record?.cycle?.lateCharge)} = <strong>{formatAmount((record?.amount || record?.cycle?.amount || 0) + (record?.cycle?.lateCharge || 0))}</strong>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-5 text-right">
+              <button
+                type="button"
+                onClick={() => setShowPenaltyModal(false)}
+                className="rounded-full px-5 py-2 text-label-md font-semibold text-on-surface-variant hover:bg-surface-container-high cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
