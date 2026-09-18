@@ -1,27 +1,42 @@
 const { MaintenancePayment } = require("../maintenance/maintenance.model");
-const Donation = require("../donations/donation.model");
+const { Donation } = require("../donations/donation.model");
 const Expense = require("../expenses/expense.model");
 const { Booking } = require("../amenity/amenity.model");
 
 class WalletService {
   async getSummary(societyId) {
     // 1. Maintenance Income
-    const maintenancePayments = await MaintenancePayment.find({ societyId }).populate("unitId", "label unitNumber block");
+    const maintenancePayments = await MaintenancePayment.find({
+      societyId,
+      isActive: { $ne: false },
+      gatewayStatus: { $in: ["paid", "cash"] },
+    }).populate("unitId", "label unitNumber block");
     const totalMaintenanceIncome = maintenancePayments.reduce((sum, p) => sum + (p.totalAmount || p.amount || 0), 0);
 
     // 2. Donations Income
-    const donations = await Donation.find({ societyId }).populate("unitId", "label unitNumber block");
+    const donations = await Donation.find({
+      societyId,
+      isActive: { $ne: false },
+    }).populate("unitId", "label unitNumber block");
     const totalDonationsIncome = donations.reduce((sum, d) => sum + (d.amount || 0), 0);
 
     // 3. Paid Amenity Bookings Income
-    const bookings = await Booking.find({ societyId, status: "booked", amount: { $gt: 0 } })
+    const bookings = await Booking.find({
+      societyId,
+      status: "booked",
+      isActive: { $ne: false },
+      amount: { $gt: 0 },
+    })
       .populate("amenityId", "name")
       .populate("userId", "name phone")
       .populate("unitId", "label unitNumber block");
     const totalAmenitiesIncome = bookings.reduce((sum, b) => sum + (b.amount || 0), 0);
 
     // 4. Expenses Outflow
-    const expenses = await Expense.find({ societyId }).populate("createdById", "name");
+    const expenses = await Expense.find({
+      societyId,
+      isActive: { $ne: false },
+    }).populate("createdById", "name");
     const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
     // Total Income & Net Wallet Balance
