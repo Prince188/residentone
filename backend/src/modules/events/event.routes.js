@@ -1,6 +1,6 @@
 const express = require("express");
-const { protect } = require("../../middlewares/auth.middleware");
-const { requireTenant } = require("../../middlewares/tenant.middleware");
+const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
+const { resolveSocietyContext } = require("../../middlewares/society.context.middleware");
 const {
   createEvent,
   listEvents,
@@ -11,8 +11,7 @@ const {
 
 const router = express.Router();
 
-router.use(protect);
-router.use(requireTenant);
+router.use(authenticate, resolveSocietyContext, requireSociety);
 
 router.route("/")
   .get(listEvents)
