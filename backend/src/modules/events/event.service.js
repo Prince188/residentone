@@ -1,5 +1,5 @@
 const { SocietyEvent } = require("./event.model");
-const AppError = require("../../shared/utils/AppError");
+const { AppError } = require("../../shared/utils/errors");
 
 class EventService {
   async createEvent(societyId, userId, data) {
