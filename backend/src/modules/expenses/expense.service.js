@@ -14,7 +14,8 @@ class ExpenseService {
       billUrl: data.billUrl || "",
       notes: data.notes || "",
       eventId: data.eventId || null,
-      eventTag: data.eventTag || "",
+      eventTag: data.eventTag || data.event || "",
+      event: data.event || data.eventTag || "",
     });
     return expense;
   }
@@ -34,6 +35,7 @@ class ExpenseService {
         { vendorName: { $regex: q, $options: "i" } },
         { notes: { $regex: q, $options: "i" } },
         { eventTag: { $regex: q, $options: "i" } },
+        { event: { $regex: q, $options: "i" } },
       ];
     }
     if (query.from || query.to) {
@@ -75,7 +77,11 @@ class ExpenseService {
     if (data.billUrl !== undefined) expense.billUrl = data.billUrl;
     if (data.notes !== undefined) expense.notes = data.notes;
     if (data.eventId !== undefined) expense.eventId = data.eventId || null;
-    if (data.eventTag !== undefined) expense.eventTag = data.eventTag || "";
+    if (data.eventTag !== undefined || data.event !== undefined) {
+      const tagVal = data.eventTag || data.event || "";
+      expense.eventTag = tagVal;
+      expense.event = tagVal;
+    }
 
     await expense.save();
     return expense;

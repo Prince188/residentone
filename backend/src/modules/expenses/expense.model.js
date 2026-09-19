@@ -62,6 +62,11 @@ const expenseSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    event: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,
