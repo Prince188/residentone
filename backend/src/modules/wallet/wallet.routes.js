@@ -9,5 +9,6 @@ router.use(authenticate, resolveSocietyContext, requireSociety);
 
 // All society members can view society wallet summary & cashflow stream for transparency
 router.get("/summary", (req, res, next) => walletController.getSummary(req, res, next));
+router.get("/export-excel", (req, res, next) => walletController.exportExcel(req, res, next));
 
 module.exports = router;

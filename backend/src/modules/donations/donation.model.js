@@ -48,6 +48,12 @@ const donationSchema = new mongoose.Schema(
       type: String,
       default: "Cash",
     },
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SocietyEvent",
+      default: null,
+      index: true,
+    },
     isActive: {
       type: Boolean,
       default: true,

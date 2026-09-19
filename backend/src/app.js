@@ -29,6 +29,7 @@ const healthRoutes = require("./modules/health/health.routes");
 const receiptRoutes = require("./modules/receipt/receipt.routes");
 const expenseRoutes = require("./modules/expenses/expense.routes");
 const walletRoutes = require("./modules/wallet/wallet.routes");
+const eventRoutes = require("./modules/events/event.routes");
 
 const app = express();
 
@@ -86,6 +87,7 @@ app.use("/api/v1/staff", staffRoutes);
 app.use("/api/v1/receipts", receiptRoutes);
 app.use("/api/v1/expenses", expenseRoutes);
 app.use("/api/v1/wallet", walletRoutes);
+app.use("/api/v1/events", eventRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

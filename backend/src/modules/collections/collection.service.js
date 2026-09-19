@@ -42,6 +42,8 @@ class CollectionService {
       amount: Number(data.amount),
       dueDate: new Date(data.dueDate),
       status: "active",
+      eventId: data.eventId || null,
+      eventTag: data.eventTag || data.event || "",
     });
     try {
       const socketHelper = require("../../socket");

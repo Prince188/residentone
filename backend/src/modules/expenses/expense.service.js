@@ -13,6 +13,8 @@ class ExpenseService {
       vendorName: data.vendorName || "",
       billUrl: data.billUrl || "",
       notes: data.notes || "",
+      eventId: data.eventId || null,
+      eventTag: data.eventTag || "",
     });
     return expense;
   }
@@ -22,12 +24,16 @@ class ExpenseService {
     if (query.category && query.category !== "all") {
       filter.category = query.category;
     }
+    if (query.eventId) {
+      filter.eventId = query.eventId;
+    }
     if (query.search) {
       const q = String(query.search).trim();
       filter.$or = [
         { title: { $regex: q, $options: "i" } },
         { vendorName: { $regex: q, $options: "i" } },
         { notes: { $regex: q, $options: "i" } },
+        { eventTag: { $regex: q, $options: "i" } },
       ];
     }
     if (query.from || query.to) {
@@ -42,6 +48,7 @@ class ExpenseService {
 
     const expenses = await Expense.find(filter)
       .populate("createdById", "name email phone")
+      .populate("eventId", "name category status")
       .sort({ expenseDate: -1, createdAt: -1 });
 
     const totalExpense = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -67,6 +74,8 @@ class ExpenseService {
     if (data.vendorName !== undefined) expense.vendorName = data.vendorName;
     if (data.billUrl !== undefined) expense.billUrl = data.billUrl;
     if (data.notes !== undefined) expense.notes = data.notes;
+    if (data.eventId !== undefined) expense.eventId = data.eventId || null;
+    if (data.eventTag !== undefined) expense.eventTag = data.eventTag || "";
 
     await expense.save();
     return expense;

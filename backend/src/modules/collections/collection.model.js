@@ -47,6 +47,17 @@ const collectionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SocietyEvent",
+      default: null,
+      index: true,
+    },
+    eventTag: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     isActive: {
       type: Boolean,
       default: true,

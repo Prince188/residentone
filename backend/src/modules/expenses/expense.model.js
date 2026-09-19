@@ -51,6 +51,17 @@ const expenseSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SocietyEvent",
+      default: null,
+      index: true,
+    },
+    eventTag: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,
