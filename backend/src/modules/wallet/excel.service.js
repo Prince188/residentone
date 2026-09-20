@@ -224,6 +224,9 @@ class ExcelReportService {
       if (tag && !eventMap.has(tag)) eventMap.set(tag, { id: tag, name: tag, category: "festival" });
     });
 
+    // Track created worksheet names to ensure uniqueness
+    const usedSheetNames = new Set(["master overview"]);
+
     for (const [key, evInfo] of eventMap.entries()) {
       // Filter records for this event
       const evDonations = donations.filter((d) => String(d.eventId?._id || d.eventId) === key || d.event === evInfo.name);
@@ -233,8 +236,16 @@ class ExcelReportService {
       // Only create tab if there is at least 1 record or active master event
       if (evDonations.length === 0 && evCollections.length === 0 && evExpenses.length === 0) continue;
 
-      // Clean sheet name (Excel tab max 31 chars, no special chars : \ / ? * [ ])
-      const cleanSheetName = evInfo.name.replace(/[:\\/?*\[\]]/g, "").slice(0, 30);
+      // Clean sheet name (Excel tab max 31 chars, no special chars : \ / ? * [ ]) and ensure uniqueness
+      let baseSheetName = (evInfo.name || "Event").replace(/[:\\/?*\[\]]/g, "").trim().slice(0, 25) || "Event";
+      let cleanSheetName = baseSheetName;
+      let counter = 2;
+      while (usedSheetNames.has(cleanSheetName.toLowerCase())) {
+        cleanSheetName = `${baseSheetName.slice(0, 22)} (${counter})`;
+        counter++;
+      }
+      usedSheetNames.add(cleanSheetName.toLowerCase());
+
       const sheet = workbook.addWorksheet(cleanSheetName);
       sheet.properties.defaultRowHeight = 20;
 
