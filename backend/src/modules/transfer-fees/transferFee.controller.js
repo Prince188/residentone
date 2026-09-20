@@ -1,6 +1,4 @@
 const transferFeeService = require("./transferFee.service");
-const { sendSuccess } = require("../../shared/utils/response");
-const { AppError } = require("../../shared/utils/errors");
 
 class TransferFeeController {
   async create(req, res, next) {
@@ -8,7 +6,11 @@ class TransferFeeController {
       const societyId = req.societyId;
       const userId = req.user.id || req.user._id;
       const record = await transferFeeService.create(societyId, userId, req.body);
-      return sendSuccess(res, record, "Transfer fee recorded successfully", 201);
+      return res.status(201).json({
+        success: true,
+        message: "Transfer fee recorded successfully",
+        data: record,
+      });
     } catch (e) {
       next(e);
     }
@@ -18,7 +20,11 @@ class TransferFeeController {
     try {
       const societyId = req.societyId;
       const records = await transferFeeService.list(societyId);
-      return sendSuccess(res, records, "Transfer fee records fetched successfully");
+      return res.json({
+        success: true,
+        message: "Transfer fee records fetched successfully",
+        data: records,
+      });
     } catch (e) {
       next(e);
     }
@@ -29,7 +35,11 @@ class TransferFeeController {
       const societyId = req.societyId;
       const membership = req.membership;
       const records = await transferFeeService.listMy(societyId, membership);
-      return sendSuccess(res, records, "My transfer fee records fetched successfully");
+      return res.json({
+        success: true,
+        message: "My transfer fee records fetched successfully",
+        data: records,
+      });
     } catch (e) {
       next(e);
     }
@@ -41,7 +51,11 @@ class TransferFeeController {
       const { id } = req.params;
       const membership = req.membership;
       const receiptData = await transferFeeService.getReceipt(societyId, id, membership);
-      return sendSuccess(res, receiptData, "Transfer fee receipt fetched successfully");
+      return res.json({
+        success: true,
+        message: "Transfer fee receipt fetched successfully",
+        data: receiptData,
+      });
     } catch (e) {
       next(e);
     }
