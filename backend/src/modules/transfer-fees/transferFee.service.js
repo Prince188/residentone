@@ -52,13 +52,16 @@ const FEE_TYPE_LABELS = {
 class TransferFeeService {
   async create(societyId, userId, data) {
     const unitId = data.unitId;
-    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true }).lean();
+    const unit = await Unit.findOne({ _id: unitId, societyId }).lean();
     if (!unit) throw new AppError("House not found in this society", 404);
 
     const collectedAtRaw = data.collectedAt || data.dueDate || data.date;
     const collectedAt = collectedAtRaw ? new Date(collectedAtRaw) : new Date();
     if (isNaN(collectedAt.getTime())) throw new AppError("Invalid date", 400);
-    if (collectedAt > new Date()) throw new AppError("Date cannot be in the future", 400);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    if (collectedAt > endOfToday) throw new AppError("Date cannot be in the future", 400);
 
     const amount = Number(data.amount);
     if (!Number.isFinite(amount) || amount < 1) throw new AppError("Amount must be at least ₹1", 400);

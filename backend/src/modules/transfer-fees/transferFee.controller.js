@@ -4,7 +4,7 @@ class TransferFeeController {
   async create(req, res, next) {
     try {
       const societyId = req.societyId;
-      const userId = req.user.id || req.user._id;
+      const userId = req.userId || req.user?.id || req.user?._id;
       const record = await transferFeeService.create(societyId, userId, req.body);
       return res.status(201).json({
         success: true,
