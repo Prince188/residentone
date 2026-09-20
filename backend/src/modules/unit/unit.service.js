@@ -591,6 +591,124 @@ class UnitService {
 
     return { id: unit._id, deleted: true };
   }
+
+  async getSocietyVehicles(societyId, query = {}) {
+    const { Visitor } = require("../visitor/visitor.model");
+    const search = String(query.search || "").trim().toLowerCase();
+    const typeFilter = String(query.type || "all").toLowerCase();
+
+    // 1. Fetch all Units in society to map resident vehicles
+    const units = await Unit.find({ societyId, isActive: true })
+      .populate("ownerId", "name email phone vehicles")
+      .populate("tenantId", "name email phone vehicles")
+      .lean();
+
+    const residentMap = new Map();
+
+    units.forEach((u) => {
+      const flatLabel = `Flat ${u.label || u.unitNumber || u.doorNo || ""}`.trim();
+
+      const processResident = (resUser, roleName) => {
+        if (!resUser || !Array.isArray(resUser.vehicles)) return;
+
+        resUser.vehicles.forEach((vStr) => {
+          if (!vStr || typeof vStr !== "string") return;
+          const plate = vStr.trim().toUpperCase();
+          if (!plate) return;
+
+          if (!residentMap.has(plate)) {
+            residentMap.set(plate, {
+              id: `res_${resUser._id}_${plate}`,
+              plateNumber: plate,
+              type: "resident",
+              ownerId: resUser._id,
+              ownerName: resUser.name || "Resident",
+              ownerPhone: resUser.phone || "",
+              role: roleName,
+              flats: [flatLabel],
+            });
+          } else {
+            const existing = residentMap.get(plate);
+            if (!existing.flats.includes(flatLabel)) {
+              existing.flats.push(flatLabel);
+            }
+          }
+        });
+      };
+
+      processResident(u.ownerId, "Owner");
+      processResident(u.tenantId, "Tenant");
+    });
+
+    let residentVehicles = Array.from(residentMap.values());
+
+    // 2. Fetch Active Visitors currently inside the society (status = "inside")
+    const activeVisitors = await Visitor.find({
+      societyId,
+      status: "inside",
+      vehicleNumber: { $ne: "" },
+    })
+      .populate("unitId", "label doorNo unitNumber block")
+      .populate("hostUserId", "name phone")
+      .sort({ checkedInAt: -1, createdAt: -1 })
+      .lean();
+
+    const visitorVehicles = activeVisitors.map((v) => {
+      const hostLabel = v.unitId ? `Flat ${v.unitId.label || v.unitId.unitNumber || ""}` : "";
+      return {
+        id: String(v._id),
+        plateNumber: (v.vehicleNumber || "").trim().toUpperCase(),
+        type: "visitor",
+        visitorName: v.name || "Visitor",
+        visitorPhone: v.phone || "",
+        visitorType: v.visitorType || "guest",
+        company: v.company || "",
+        hostName: v.hostUserId?.name || "",
+        visitingFlat: hostLabel,
+        checkedInAt: v.checkedInAt || v.createdAt,
+        status: v.status,
+      };
+    });
+
+    // 3. Search Filter
+    if (search) {
+      residentVehicles = residentVehicles.filter((r) => {
+        const plateMatch = r.plateNumber.toLowerCase().includes(search);
+        const nameMatch = r.ownerName.toLowerCase().includes(search);
+        const flatMatch = r.flats.some((f) => f.toLowerCase().includes(search));
+        return plateMatch || nameMatch || flatMatch;
+      });
+    }
+
+    let filteredVisitors = visitorVehicles;
+    if (search) {
+      filteredVisitors = visitorVehicles.filter((v) => {
+        const plateMatch = v.plateNumber.toLowerCase().includes(search);
+        const nameMatch = v.visitorName.toLowerCase().includes(search);
+        const flatMatch = v.visitingFlat.toLowerCase().includes(search);
+        const hostMatch = v.hostName.toLowerCase().includes(search);
+        return plateMatch || nameMatch || flatMatch || hostMatch;
+      });
+    }
+
+    let resultList = [];
+    if (typeFilter === "resident") {
+      resultList = residentVehicles;
+    } else if (typeFilter === "visitor") {
+      resultList = filteredVisitors;
+    } else {
+      resultList = [...residentVehicles, ...filteredVisitors];
+    }
+
+    return {
+      residentVehicles,
+      visitorVehicles: filteredVisitors,
+      allVehicles: resultList,
+      totalCount: resultList.length,
+      residentCount: residentVehicles.length,
+      visitorCount: filteredVisitors.length,
+    };
+  }
 }
 
 module.exports = new UnitService();

@@ -250,6 +250,15 @@ class UnitController {
       next(error);
     }
   }
+
+  async getSocietyVehicles(req, res, next) {
+    try {
+      const result = await unitService.getSocietyVehicles(req.societyId, req.query);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UnitController();
