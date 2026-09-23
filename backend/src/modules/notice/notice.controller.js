@@ -21,7 +21,17 @@ class NoticeController {
         req.userId,
         req.body
       );
-      res.status(201).json({ success: true, data: noticeService.mapNotice(notice.toObject()) });
+      const mapped = noticeService.mapNotice(notice.toObject ? notice.toObject() : notice);
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        pushNotificationService.sendPushToSociety({
+          societyId: req.societyId,
+          title: `📢 New Notice: ${req.body.title || 'Society Notice'}`,
+          body: String(req.body.content || req.body.body || 'A new society notice has been published.').slice(0, 120),
+          data: { screen: "NoticeDetail", noticeId: String(mapped.id || notice._id) },
+        });
+      } catch (_) {}
+      res.status(201).json({ success: true, data: mapped });
     } catch (error) {
       next(error);
     }

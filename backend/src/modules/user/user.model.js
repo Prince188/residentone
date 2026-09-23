@@ -53,6 +53,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    pushToken: {
+      type: String,
+      default: null,
+    },
+    pushTokens: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );

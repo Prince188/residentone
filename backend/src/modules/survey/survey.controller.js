@@ -16,6 +16,15 @@ class SurveyController {
   async create(req, res, next) {
     try {
       const survey = await surveyService.create(req.societyId, req.userId, req.body);
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        pushNotificationService.sendPushToSociety({
+          societyId: req.societyId,
+          title: `📝 New Survey: ${req.body.title || 'Resident Survey'}`,
+          body: "Tap to share your feedback.",
+          data: { screen: "Surveys" },
+        });
+      } catch (_) {}
       res.status(201).json({ success: true, data: { id: survey._id, title: survey.title } });
     } catch (e) { next(e); }
   }

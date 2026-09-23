@@ -27,6 +27,21 @@ class VisitorController {
         req.membership,
         req.body
       );
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const { Unit } = require("../unit/unit.model");
+        const targetUnitId = result?.unitId || req.body?.unitId;
+        if (targetUnitId) {
+          const unitDoc = await Unit.findById(targetUnitId).select("ownerId tenantId label").lean();
+          const recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId].filter(Boolean).map(String);
+          pushNotificationService.sendPushToUsers({
+            userIds: recipientUserIds,
+            title: "🚪 Visitor Arrival at Gate",
+            body: `${req.body.name || 'Visitor'} (${req.body.category || 'Guest'}) at gate for House ${unitDoc?.label || 'your unit'}.`,
+            data: { screen: "Visitors" },
+          });
+        }
+      } catch (_) {}
       res.status(201).json({
         success: true,
         message: "Walk-in visitor logged and approval request sent to resident",
@@ -197,6 +212,21 @@ class VisitorController {
         req.membership,
         req.body
       );
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const { Unit } = require("../unit/unit.model");
+        const targetUnitId = result?.unitId || req.body?.unitId;
+        if (targetUnitId) {
+          const unitDoc = await Unit.findById(targetUnitId).select("ownerId tenantId label").lean();
+          const recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId].filter(Boolean).map(String);
+          pushNotificationService.sendPushToUsers({
+            userIds: recipientUserIds,
+            title: "📦 Parcel Received at Gate",
+            body: `Courier parcel (${req.body.courierName || 'Delivery'}) received at Security Desk for House ${unitDoc?.label || 'your unit'}. Code: ${result.pickupCode || 'Available'}`,
+            data: { screen: "GateParcel" },
+          });
+        }
+      } catch (_) {}
       res.status(201).json({
         success: true,
         message: "Parcel delivery logged at gate desk successfully",

@@ -19,5 +19,10 @@ router.post(
   validate(changePasswordSchema),
   (req, res, next) => userController.changePassword(req, res, next)
 );
+router.post(
+  "/push-token",
+  authenticate,
+  (req, res, next) => userController.updatePushToken(req, res, next)
+);
 
 module.exports = router;

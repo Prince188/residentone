@@ -4,6 +4,15 @@ class DonationController {
   async create(req, res, next) {
     try {
       const donation = await donationService.create(req.societyId, req.userId, req.body);
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        pushNotificationService.sendPushToUsers({
+          userIds: [req.userId],
+          title: "🙏 Donation Received",
+          body: `Thank you! Your donation of ₹${Number(req.body.amount || 0).toLocaleString('en-IN')} has been recorded.`,
+          data: { screen: "Donations" },
+        });
+      } catch (_) {}
       res.status(201).json({ success: true, data: donation });
     } catch (error) {
       next(error);

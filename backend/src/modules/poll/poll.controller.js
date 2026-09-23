@@ -25,6 +25,15 @@ class PollController {
       // Return mapped version
       const populated = await poll.populate("createdBy", "name");
       const mapped = pollService.mapPoll(populated.toObject ? populated.toObject() : populated, null);
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        pushNotificationService.sendPushToSociety({
+          societyId: req.societyId,
+          title: `📊 New Poll: ${req.body.question || 'Community Opinion Poll'}`,
+          body: "Tap to cast your vote.",
+          data: { screen: "Polls" },
+        });
+      } catch (_) {}
       res.status(201).json({ success: true, data: mapped });
     } catch (error) {
       next(error);

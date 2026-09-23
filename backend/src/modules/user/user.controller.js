@@ -57,6 +57,26 @@ class UserController {
       next(error);
     }
   }
+
+  async updatePushToken(req, res, next) {
+    try {
+      const { pushToken } = req.body;
+      if (!pushToken) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "BAD_REQUEST", message: "pushToken is required" },
+        });
+      }
+      const { User } = require("./user.model");
+      await User.findByIdAndUpdate(req.userId, {
+        $set: { pushToken },
+        $addToSet: { pushTokens: pushToken },
+      });
+      res.json({ success: true, message: "Push token registered successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UserController();

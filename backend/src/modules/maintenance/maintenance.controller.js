@@ -8,6 +8,17 @@ class MaintenanceController {
         req.userId,
         req.body
       );
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const cycleIdStr = String(cycle._id || cycle.id);
+        const amountStr = cycle.amount ? `₹${Number(cycle.amount).toLocaleString('en-IN')}` : 'dues';
+        pushNotificationService.sendPushToSociety({
+          societyId: req.societyId,
+          title: "💳 New Maintenance Dues",
+          body: `Maintenance bill of ${amountStr} generated. Due date: ${cycle.dueDate ? new Date(cycle.dueDate).toLocaleDateString('en-IN') : '—'}`,
+          data: { screen: "PayMaintenance", cycleId: cycleIdStr },
+        });
+      } catch (_) {}
       res.status(201).json({
         success: true,
         data: maintenanceService.mapCycle(cycle.toObject()),
@@ -182,6 +193,18 @@ class MaintenanceController {
         req.params.unitId,
         req.membership
       );
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const { Unit } = require("../unit/unit.model");
+        const unitDoc = await Unit.findById(req.params.unitId).select("ownerId tenantId label").lean();
+        const recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId, req.userId].filter(Boolean).map(String);
+        pushNotificationService.sendPushToUsers({
+          userIds: recipientUserIds,
+          title: "🧾 Maintenance Payment Recorded",
+          body: `Payment cleared for House ${unitDoc?.label || 'Unit'}. Official receipt generated.`,
+          data: { screen: "MaintenanceDetail", cycleId: String(req.params.cycleId), unitId: String(req.params.unitId) },
+        });
+      } catch (_) {}
       res.json({ success: true, data: record });
     } catch (error) {
       next(error);
@@ -241,6 +264,18 @@ class MaintenanceController {
         req.params.unitId,
         req.membership
       );
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const { Unit } = require("../unit/unit.model");
+        const unitDoc = await Unit.findById(req.params.unitId).select("ownerId tenantId label").lean();
+        const recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId, req.userId].filter(Boolean).map(String);
+        pushNotificationService.sendPushToUsers({
+          userIds: recipientUserIds,
+          title: "💳 Online Maintenance Payment Successful",
+          body: `Payment cleared for House ${unitDoc?.label || 'Unit'}. Official receipt generated.`,
+          data: { screen: "MaintenanceDetail", cycleId: String(req.params.cycleId), unitId: String(req.params.unitId) },
+        });
+      } catch (_) {}
       res.json({ success: true, data: { payment: updated, record } });
     } catch (error) {
       next(error);

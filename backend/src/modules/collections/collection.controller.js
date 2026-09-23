@@ -4,6 +4,15 @@ class CollectionController {
   async create(req, res, next) {
     try {
       const collection = await collectionService.create(req.societyId, req.userId, req.body);
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        pushNotificationService.sendPushToSociety({
+          societyId: req.societyId,
+          title: `🎉 New Contribution Fund: ${req.body.title || 'Collection Fund'}`,
+          body: `Contribution of ₹${Number(req.body.amount || 0).toLocaleString('en-IN')} requested.`,
+          data: { screen: "CollectionUnitPay", collectionId: String(collection._id || collection.id) },
+        });
+      } catch (_) {}
       res.status(201).json({ success: true, data: collectionService.mapCollection({ ...collection.toObject(), createdBy: { name: "You" } }) });
     } catch (error) {
       next(error);

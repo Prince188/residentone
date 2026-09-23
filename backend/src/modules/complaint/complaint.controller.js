@@ -51,6 +51,18 @@ class ComplaintController {
         req.role,
         req.body.status
       );
+      try {
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        if (updated && updated.createdBy) {
+          const targetUserId = String(updated.createdBy._id || updated.createdBy);
+          pushNotificationService.sendPushToUsers({
+            userIds: [targetUserId],
+            title: "🛠️ Complaint Status Updated",
+            body: `Your complaint "${updated.title || 'Ticket'}" has been marked as ${(req.body.status || 'Updated').toUpperCase()}.`,
+            data: { screen: "ComplaintDetail", complaintId: String(updated.id || req.params.id) },
+          });
+        }
+      } catch (_) {}
       res.json({ success: true, data: updated });
     } catch (error) {
       next(error);
