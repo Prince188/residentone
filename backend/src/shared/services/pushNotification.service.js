@@ -17,9 +17,14 @@ class PushNotificationService {
     try {
       if (!userIds || !userIds.length || !title || !body) return;
 
+      const mongoose = require('mongoose');
       const uniqueUserIds = [...new Set(userIds.map((id) => String(id)))];
+      const objectIds = uniqueUserIds
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
       const users = await User.find({
-        _id: { $in: uniqueUserIds },
+        _id: { $in: [...uniqueUserIds, ...objectIds] },
         $or: [
           { pushToken: { $ne: null } },
           { pushTokens: { $exists: true, $not: { $size: 0 } } },
@@ -72,11 +77,13 @@ class PushNotificationService {
    */
   async sendPushToSociety({ societyId, userIds = null, excludeUserId = null, title, body, data = {}, categoryIdentifier = null }) {
     try {
+      const mongoose = require('mongoose');
       const { Membership } = require('../../modules/membership/membership.model');
       let recipients = userIds;
 
       if (!recipients || !recipients.length) {
-        const query = { societyId, isActive: true };
+        const socIdObj = mongoose.Types.ObjectId.isValid(societyId) ? new mongoose.Types.ObjectId(societyId) : societyId;
+        const query = { societyId: { $in: [societyId, socIdObj] }, isActive: true };
         const memberships = await Membership.find(query).select('userId').lean();
         recipients = memberships.map((m) => String(m.userId));
       }
