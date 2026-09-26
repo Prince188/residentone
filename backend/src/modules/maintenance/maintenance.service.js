@@ -264,6 +264,104 @@ class MaintenanceService {
       .lean();
   }
 
+  async getUserUnitsForCycles(societyId, cycles, userId, membership) {
+    const myUnitIds = (membership?.units || []).map((id) => String(id));
+    if (!myUnitIds.length || !cycles || !cycles.length) return new Map();
+
+    const userIdStr = String(userId);
+    const units = await Unit.find({ _id: { $in: myUnitIds }, societyId, isActive: true })
+      .populate("ownerId", "name phone")
+      .populate("tenantId", "name phone")
+      .sort({ block: 1, unitNumber: 1, label: 1 })
+      .lean();
+
+    if (!units.length) return new Map();
+
+    const cycleIds = cycles.map((c) => c._id);
+    const payments = await MaintenancePayment.find({
+      societyId,
+      cycleId: { $in: cycleIds },
+      unitId: { $in: myUnitIds },
+      isActive: true,
+      gatewayStatus: { $in: ["paid", "cash"] },
+    }).lean();
+
+    const paymentMap = new Map();
+    payments.forEach((p) => {
+      paymentMap.set(`${String(p.cycleId)}_${String(p.unitId)}`, p);
+    });
+
+    const result = new Map();
+
+    cycles.forEach((cycle) => {
+      const cycleMyUnits = units.map((unit) => {
+        const paymentKey = `${String(cycle._id)}_${String(unit._id)}`;
+        const payment = paymentMap.get(paymentKey);
+
+        const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
+        const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
+        const isOwner = ownerIdStr ? ownerIdStr === userIdStr : false;
+        const isTenant = tenantIdStr ? tenantIdStr === userIdStr : false;
+
+        const unitAmount = this.getAmountForUnit(cycle, unit);
+        const status = this.statusFor(payment, cycle);
+        const isLate = ["overdue", "late_paid"].includes(status);
+        const appliedLateCharge = isLate ? (cycle.lateCharge || 0) : 0;
+
+        const baseMaintAmount = Number(unitAmount || 0);
+        let penaltyAmount = 0;
+        let totalAmt = baseMaintAmount;
+
+        if (payment) {
+          if (payment.penalty !== undefined && payment.penalty !== null) {
+            penaltyAmount = Number(payment.penalty || 0);
+          } else if (payment.totalAmount && payment.amount && payment.totalAmount > payment.amount) {
+            penaltyAmount = Number(payment.totalAmount - payment.amount);
+          } else if (status === "late_paid") {
+            penaltyAmount = Number(appliedLateCharge || 0);
+          }
+          totalAmt = Number(payment.totalAmount || (payment.amount ? payment.amount + penaltyAmount : baseMaintAmount + penaltyAmount));
+        } else {
+          penaltyAmount = isLate ? appliedLateCharge : 0;
+          totalAmt = baseMaintAmount + penaltyAmount;
+        }
+
+        const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
+        const displayPhone = unit.tenantId?.phone || unit.ownerId?.phone || null;
+
+        return {
+          unitId: unit._id,
+          label: unit.label,
+          block: unit.block || null,
+          floor: unit.floor || null,
+          unitNumber: unit.unitNumber || null,
+          ownerName: displayName,
+          ownerPhone: displayPhone,
+          ownerId: ownerIdStr,
+          tenantId: tenantIdStr,
+          isOwner,
+          isTenant,
+          houseRole: isOwner ? "owner" : isTenant ? "tenant" : membership.role,
+          isOccupied: Boolean(unit.ownerId || unit.tenantId),
+          isRenterOccupied: Boolean(unit.tenantId),
+          amount: baseMaintAmount,
+          baseAmount: baseMaintAmount,
+          penaltyAmount,
+          totalAmount: totalAmt,
+          status: status,
+          paidOn: payment?.paidOn || null,
+          method: payment?.method || null,
+          receiptNo: payment?.receiptNo || null,
+          cycleId: cycle._id,
+        };
+      });
+
+      result.set(String(cycle._id), cycleMyUnits);
+    });
+
+    return result;
+  }
+
   async getCycle(societyId, cycleId) {
     const cycle = await MaintenanceCycle.findOne({
       _id: cycleId,
