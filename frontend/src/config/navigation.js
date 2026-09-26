@@ -33,6 +33,11 @@ export const ADMIN_NAV_SECTIONS = [
         to: "/admin/societies/pending",
         icon: "pending_actions",
       },
+      {
+        label: "User Management",
+        to: "/admin/users",
+        icon: "manage_accounts",
+      },
     ],
   },
   {

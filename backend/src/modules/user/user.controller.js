@@ -77,6 +77,46 @@ class UserController {
       next(error);
     }
   }
+
+  async adminListUsers(req, res, next) {
+    try {
+      const { search, role, status, page, limit } = req.query;
+      const data = await userService.listAllUsersForAdmin({ search, role, status, page, limit });
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminUpdateUser(req, res, next) {
+    try {
+      const { id } = req.params;
+      const updated = await userService.adminUpdateUser(id, req.body);
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminFreezeUser(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await userService.adminToggleFreezeUser(id);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminDeleteUser(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await userService.adminDeleteUser(id);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UserController();
