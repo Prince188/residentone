@@ -568,6 +568,13 @@ function SuperAdminDashboardView({ user }) {
               <span className="material-symbols-outlined text-[20px]">apartment</span>
               Societies Directory
             </Link>
+            <Link
+              to="/admin/users"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-label-md font-semibold text-white backdrop-blur-sm no-underline transition-all hover:bg-white/25"
+            >
+              <span className="material-symbols-outlined text-[20px]">manage_accounts</span>
+              User Management
+            </Link>
           </div>
         </div>
       </section>
@@ -640,24 +647,28 @@ function SuperAdminDashboardView({ user }) {
           </div>
 
           {/* Active Users */}
-          <div className="relative overflow-hidden rounded-3xl border-2 border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
+          <Link
+            to="/admin/users"
+            className="group relative overflow-hidden rounded-3xl border-2 border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md no-underline block"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">
                 Active Users
               </span>
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 shadow-sm">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 shadow-sm transition-transform group-hover:scale-105">
                 <span className="material-symbols-outlined text-[26px]">how_to_reg</span>
               </span>
             </div>
             <p className="mt-4 text-[38px] font-extrabold leading-none text-on-surface tracking-tight">
               {statsQuery.isLoading ? "..." : (overview.activeUsers || 0).toLocaleString("en-IN")}
             </p>
-            <div className="mt-3 flex items-center gap-2 text-label-sm text-on-surface-variant">
+            <div className="mt-3 flex items-center justify-between text-label-sm text-on-surface-variant">
               <span className="font-semibold text-primary">Linked with societies</span>
-              <span>·</span>
-              <span>{(overview.registeredUsers || 0).toLocaleString("en-IN")} Registered</span>
+              <span className="font-bold text-primary flex items-center gap-0.5">
+                Manage <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+              </span>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
 
