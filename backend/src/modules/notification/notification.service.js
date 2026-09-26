@@ -146,6 +146,19 @@ class NotificationService {
     type = null,
     search = "",
   }) {
+    // 30-Day Sliding Window Auto-Cleanup: Delete READ notifications older than 30 days
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      await Notification.deleteMany({
+        societyId,
+        userId,
+        isRead: true,
+        createdAt: { $lt: thirtyDaysAgo },
+      });
+    } catch (cleanupErr) {
+      logger.warn("Sliding window notification cleanup warning:", cleanupErr?.message);
+    }
+
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * limitNum;
