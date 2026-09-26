@@ -63,9 +63,23 @@ class MaintenanceController {
     try {
       const wing = req.query.wing !== undefined ? (req.query.wing ? String(req.query.wing).trim().toUpperCase() : null) : undefined;
       const cycles = await maintenanceService.listCycles(req.societyId, wing);
+
+      let userUnitsMap = new Map();
+      if (req.membership?.units?.length) {
+        userUnitsMap = await maintenanceService.getUserUnitsForCycles(
+          req.societyId,
+          cycles,
+          req.userId,
+          req.membership
+        );
+      }
+
       res.json({
         success: true,
-        data: cycles.map((c) => maintenanceService.mapCycle(c)),
+        data: cycles.map((c) => ({
+          ...maintenanceService.mapCycle(c),
+          myUnits: userUnitsMap.get(String(c._id)) || [],
+        })),
       });
     } catch (error) {
       next(error);
