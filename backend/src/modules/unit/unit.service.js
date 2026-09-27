@@ -731,23 +731,6 @@ class UnitService {
         .lean(),
     ]);
 
-    // Build family map
-    const familyByHouse = new Map();
-    units.forEach((unit) => {
-      const activeResidentId = unit.tenantId?._id || unit.ownerId?._id || null;
-      let famList = [];
-      if (activeResidentId) {
-        famList = familyMembers.filter(
-          (m) => String(m.addedBy?._id || m.addedBy) === String(activeResidentId)
-        );
-      } else {
-        famList = familyMembers.filter(
-          (m) => String(m.unitId?._id || m.unitId) === String(unit._id)
-        );
-      }
-      familyByHouse.set(String(unit._id), famList);
-    });
-
     // Apply Filter
     let filteredUnits = units;
     if (filter === "owner") {
@@ -758,6 +741,65 @@ class UnitService {
       filteredUnits = units.filter((u) => !u.ownerId && !u.tenantId);
     }
 
+    // Rules implementation:
+    // Rule 1: If someone has >1 house, we show their details on every house, BUT their family members are assigned ONLY to their primary house (so family members are NOT added a 2nd time).
+    // Rule 2: If a house is rented, we count and show ONLY the tenant's (renter's) family members, ignoring the non-resident owner's family members.
+    // Rule 3: Total House Resident Count = 1 (Head/Resident: Owner or Tenant) + Family Member Count.
+
+    const seenResidentIds = new Set();
+    let totalSocietyPrimaryCount = 0;
+    let totalSocietyFamilyCount = 0;
+
+    const houseProcessedData = filteredUnits.map((unit) => {
+      const isRented = Boolean(unit.tenantId);
+      const isOwner = Boolean(unit.ownerId);
+      const isVacant = !isRented && !isOwner;
+
+      // Active resident living in the house (Rule 2: Tenant if rented, Owner if owned & occupied)
+      const activeResident = isRented ? unit.tenantId : isOwner ? unit.ownerId : null;
+      const activeResidentId = activeResident ? String(activeResident._id || activeResident) : null;
+
+      let famList = [];
+
+      if (activeResidentId) {
+        if (!seenResidentIds.has(activeResidentId)) {
+          seenResidentIds.add(activeResidentId);
+
+          // Rule 2: Fetch family members belonging to active resident (tenant if rented, owner if owned)
+          famList = familyMembers.filter(
+            (m) => String(m.addedBy?._id || m.addedBy) === activeResidentId
+          );
+        } else {
+          // Rule 1: Resident seen on a previous house. Do NOT add family members a 2nd time!
+          famList = [];
+        }
+      }
+
+      const famCount = famList.length;
+      // Rule 3: Include the resident (Head of house) + family member count
+      const headCount = isVacant ? 0 : 1;
+      const totalHouseResidents = headCount + famCount;
+
+      if (headCount > 0) totalSocietyPrimaryCount += 1;
+      totalSocietyFamilyCount += famCount;
+
+      return {
+        unit,
+        isRented,
+        isVacant,
+        status: isRented ? "Rented" : isOwner ? "Owner" : "Vacant",
+        resident: activeResident || {},
+        owner: unit.ownerId || {},
+        tenant: unit.tenantId || {},
+        famList,
+        famCount,
+        headCount,
+        totalHouseResidents,
+      };
+    });
+
+    const grandTotalSocietyResidents = totalSocietyPrimaryCount + totalSocietyFamilyCount;
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "ResidentOne";
     workbook.created = new Date();
@@ -767,28 +809,28 @@ class UnitService {
     });
 
     // Page Title (Row 1)
-    sheet.mergeCells(1, 1, 1, 16);
+    sheet.mergeCells(1, 1, 1, 17);
     const titleCell = sheet.getCell("A1");
     titleCell.value = `${societyName}  —  Houses & Residents Directory`;
     titleCell.font = { size: 14, bold: true, color: { argb: "FF006948" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     sheet.getRow(1).height = 28;
 
-    // Subtitle (Row 2)
-    sheet.mergeCells(2, 1, 2, 16);
+    // Subtitle (Row 2) - Demographics summary line
+    sheet.mergeCells(2, 1, 2, 17);
     const subCell = sheet.getCell("A2");
     const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     const filterLabel = filter === "owner" ? "Owned Houses" : filter === "renter" ? "Rented Houses" : filter === "vacant" ? "Vacant Houses" : "All Houses";
-    subCell.value = `Filter: ${filterLabel}  •  Total Units: ${filteredUnits.length}  •  Exported on ${dateStr}`;
+    subCell.value = `Filter: ${filterLabel}  •  Total Units: ${filteredUnits.length}  •  Total Residents: ${grandTotalSocietyResidents} (${totalSocietyPrimaryCount} Primary + ${totalSocietyFamilyCount} Family)  •  Exported on ${dateStr}`;
     subCell.font = { size: 10, italic: true, color: { argb: "FF49454F" } };
     subCell.alignment = { horizontal: "center", vertical: "middle" };
     sheet.getRow(2).height = 20;
 
     // Blank row 3
-    sheet.mergeCells(3, 1, 3, 16);
+    sheet.mergeCells(3, 1, 3, 17);
     sheet.getRow(3).height = 8;
 
-    // Header (Row 4)
+    // Header (Row 4) - 17 Columns
     const headers = [
       "Sr No",
       "Flat Number",
@@ -803,7 +845,8 @@ class UnitService {
       "Tenant Name",
       "Tenant Phone",
       "Vehicles",
-      "Total Family Count",
+      "Family Member Count",
+      "Total House Residents",
       "Family Member Name",
       "Relation",
     ];
@@ -812,7 +855,7 @@ class UnitService {
     headerRow.values = headers;
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
     headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-    headerRow.height = 24;
+    headerRow.height = 26;
     headerRow.eachCell((cell) => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF006948" } };
       cell.border = {
@@ -824,17 +867,12 @@ class UnitService {
     });
 
     // Enable Excel Header AutoFilter
-    sheet.autoFilter = { from: "A4", to: "P4" };
+    sheet.autoFilter = { from: "A4", to: "Q4" };
 
     let currentExcelRow = 5;
 
-    filteredUnits.forEach((unit, idx) => {
-      const fam = familyByHouse.get(String(unit._id)) || [];
-      const totalFamilyCount = fam.length;
-      const status = unit.tenantId ? "Rented" : unit.ownerId ? "Owner" : "Vacant";
-      const resident = unit.tenantId || unit.ownerId || {};
-      const owner = unit.ownerId || {};
-      const tenant = unit.tenantId || {};
+    houseProcessedData.forEach((item, idx) => {
+      const { unit, status, resident, owner, tenant, famList, famCount, totalHouseResidents } = item;
 
       const vehicles = [
         ...(owner.vehicles || []),
@@ -845,7 +883,7 @@ class UnitService {
 
       const startRow = currentExcelRow;
 
-      if (totalFamilyCount === 0) {
+      if (famCount === 0) {
         const rowData = [
           idx + 1,
           unit.label || "-",
@@ -861,6 +899,7 @@ class UnitService {
           tenant.phone || "-",
           vehicles,
           0,
+          totalHouseResidents,
           "—",
           "—",
         ];
@@ -868,7 +907,7 @@ class UnitService {
         row.height = 20;
         currentExcelRow++;
       } else {
-        fam.forEach((m) => {
+        famList.forEach((m) => {
           const rowData = [
             idx + 1,
             unit.label || "-",
@@ -883,7 +922,8 @@ class UnitService {
             tenant.name || "-",
             tenant.phone || "-",
             vehicles,
-            totalFamilyCount,
+            famCount,
+            totalHouseResidents,
             m.name || "-",
             m.relation || "Member",
           ];
@@ -896,7 +936,7 @@ class UnitService {
 
         // OPTION B: Vertically merge cells for House details across the family sub-rows
         if (endRow > startRow) {
-          for (let col = 1; col <= 14; col++) {
+          for (let col = 1; col <= 15; col++) {
             sheet.mergeCells(startRow, col, endRow, col);
           }
         }
@@ -912,8 +952,9 @@ class UnitService {
       row.getCell(8).alignment = { vertical: "middle", horizontal: "left" };
       row.getCell(9).alignment = { vertical: "middle", horizontal: "left" };
       row.getCell(11).alignment = { vertical: "middle", horizontal: "left" };
-      row.getCell(15).alignment = { vertical: "middle", horizontal: "left", bold: true };
-      row.getCell(16).alignment = { vertical: "middle", horizontal: "center" };
+      row.getCell(15).font = { size: 10, bold: true, color: { argb: "FF006948" } };
+      row.getCell(16).alignment = { vertical: "middle", horizontal: "left", bold: true };
+      row.getCell(17).alignment = { vertical: "middle", horizontal: "center" };
 
       row.eachCell((cell) => {
         cell.border = {
@@ -926,7 +967,7 @@ class UnitService {
     }
 
     // Set Column Widths
-    const widths = [8, 14, 14, 10, 16, 22, 16, 24, 22, 16, 22, 16, 22, 18, 22, 16];
+    const widths = [8, 14, 14, 10, 16, 22, 16, 24, 22, 16, 22, 16, 22, 18, 20, 22, 16];
     widths.forEach((w, colIdx) => {
       sheet.getColumn(colIdx + 1).width = w;
     });
