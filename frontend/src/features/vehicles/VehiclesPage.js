@@ -2,12 +2,34 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
+import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
+import useAuthStore from "../../stores/auth.store";
 import { getHouseCards, extractApiError } from "../../lib/houses";
+
+function maskPhone(phone) {
+  if (!phone) return "";
+  const str = String(phone).trim();
+  const digitsOnly = str.replace(/\D/g, "");
+  if (digitsOnly.length < 10) return "••••••••••";
+  const last3 = digitsOnly.slice(-3);
+  const first2 = digitsOnly.slice(-10, -8);
+  const prefix = str.startsWith("+") ? str.split(" ")[0] || "+91" : "";
+  return `${prefix ? prefix + " " : ""}${first2}*** ***${last3}`;
+}
 
 export default function VehiclesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
+  const activeMembership = useSocietyStore(selectActiveMembership);
+  const authUser = useAuthStore((s) => s.user);
   const [search, setSearch] = useState("");
+
+  const isPrivileged =
+    authUser?.role === "super_admin" ||
+    authUser?.role === "platform_admin" ||
+    activeMembership?.role === "society_admin" ||
+    activeMembership?.role === "security_guard" ||
+    (activeMembership?.additionalRoles || []).includes("society_admin") ||
+    (activeMembership?.additionalRoles || []).includes("security_guard");
 
   const housesQuery = useQuery({
     queryKey: ["house-cards", activeSociety?.id],
@@ -185,7 +207,18 @@ export default function VehiclesPage() {
                         </p>
                         <p className="flex items-center gap-1 truncate text-label-sm text-on-surface-variant">
                           <span className="material-symbols-outlined text-[14px]">call</span>
-                          {e.phone}
+                          <span>
+                            {e.phone
+                              ? isPrivileged
+                                ? e.phone
+                                : maskPhone(e.phone)
+                              : "No phone"}
+                          </span>
+                          {!isPrivileged && e.phone && (
+                            <span className="rounded bg-surface-container-high px-1 py-0.5 text-[10px] font-semibold text-outline shrink-0 ml-1">
+                              Protected
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
