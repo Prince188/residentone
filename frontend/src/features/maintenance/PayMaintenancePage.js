@@ -36,6 +36,7 @@ export default function PayMaintenancePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [feeInfo, setFeeInfo] = useState(null);
 
   const recordCashMutation = useMutation({
     mutationFn: (payload = {}) => recordPayment(cycleId, unitId, { method: "Cash", ...payload }).then((r) => r.data.data),
