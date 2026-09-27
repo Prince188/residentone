@@ -117,6 +117,16 @@ class UserController {
       next(error);
     }
   }
+
+  async deleteOwnAccount(req, res, next) {
+    try {
+      const { password } = req.body || {};
+      const result = await userService.deleteOwnAccount(req.userId, password);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UserController();

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import useAuthStore from "../../stores/auth.store";
-import { changePassword, extractApiError } from "../../lib/userSettings";
+import { changePassword, deleteAccount, extractApiError } from "../../lib/userSettings";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("security"); // "security" | "notifications" | "session"
@@ -81,6 +81,38 @@ export default function SettingsPage() {
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  // Delete Account State & Mutation
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      return deleteAccount({ password: deleteConfirmPassword });
+    },
+    onSuccess: () => {
+      logout();
+      navigate("/login");
+    },
+    onError: (err) => {
+      setDeleteError(extractApiError(err, "Failed to delete account."));
+    },
+  });
+
+  const handleOpenDeleteModal = () => {
+    setDeleteConfirmPassword("");
+    setDeleteError("");
+    setShowDeletePassword(false);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDeleteAccount = (e) => {
+    e.preventDefault();
+    setDeleteError("");
+    deleteAccountMutation.mutate();
   };
 
   // Password strength calculation
@@ -339,6 +371,29 @@ export default function SettingsPage() {
               </div>
             </form>
           </div>
+
+          {/* Danger Zone: Delete Account */}
+          <div className="rounded-2xl border border-error/30 bg-error/5 p-5 sm:p-7 shadow-sm">
+            <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-nowrap">
+              <div>
+                <h2 className="text-title-md font-bold text-error flex items-center gap-2">
+                  <span className="material-symbols-outlined text-error">warning</span>
+                  Danger Zone: Delete Account
+                </h2>
+                <p className="mt-1 text-body-sm text-on-surface-variant max-w-2xl">
+                  Once you delete your account, your profile and membership details will be permanently removed. This action cannot be undone.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenDeleteModal}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-error px-4 py-2.5 text-label-md font-semibold text-on-error hover:bg-error/90 transition-colors cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[20px]">delete_forever</span>
+                <span>Delete Account</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -548,6 +603,84 @@ export default function SettingsPage() {
                 <span>Logout</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-xl border border-outline-variant animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-error">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-error/10 text-error">
+                <span className="material-symbols-outlined text-[24px]">delete_forever</span>
+              </div>
+              <div>
+                <h3 className="text-title-md font-bold text-on-surface">Delete Account</h3>
+                <p className="text-label-sm text-on-surface-variant">This action is permanent and irreversible</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-body-sm text-on-surface-variant">
+              Are you sure you want to delete your account? All your personal information, membership links, and access rights will be revoked.
+            </p>
+
+            {deleteError && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-error/30 bg-error/5 p-3 text-body-sm text-error">
+                <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmDeleteAccount} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">
+                  Enter your current password to confirm *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDeletePassword ? "text" : "password"}
+                    value={deleteConfirmPassword}
+                    onChange={(e) => setDeleteConfirmPassword(e.target.value)}
+                    required
+                    placeholder="Enter password"
+                    className="w-full rounded-xl border border-outline-variant bg-surface py-2.5 pl-3.5 pr-10 text-body-sm text-on-surface placeholder:text-outline focus:border-error focus:outline-none focus:ring-1 focus:ring-error"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {showDeletePassword ? "visibility_off" : "visibility"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  disabled={deleteAccountMutation.isPending}
+                  className="rounded-xl border border-outline-variant px-4 py-2 text-label-md font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteAccountMutation.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-error px-4 py-2 text-label-md font-semibold text-on-error hover:bg-error/90 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {deleteAccountMutation.isPending ? "hourglass_top" : "delete_forever"}
+                  </span>
+                  <span>
+                    {deleteAccountMutation.isPending ? "Deleting..." : "Permanently Delete"}
+                  </span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -265,6 +265,53 @@ class UserService {
 
     return { id: targetUserId, message: "User deleted successfully" };
   }
+
+  async deleteOwnAccount(userId, password) {
+    const { AppError } = require("../../shared/utils/errors");
+    const user = await User.findById(userId).select("+passwordHash");
+    if (!user) throw new AppError("User not found", 404);
+
+    if (password && String(password).trim()) {
+      const isMatch = await user.comparePassword(String(password).trim());
+      if (!isMatch) {
+        throw new AppError("Incorrect password. Please enter your correct password to confirm account deletion.", 400);
+      }
+    }
+
+    const { Society } = require("../society/society.model");
+    const { Membership } = require("../membership/membership.model");
+
+    const adminMemberships = await Membership.find({
+      userId,
+      role: "society_admin",
+      isActive: true,
+    }).lean();
+
+    for (const mem of adminMemberships) {
+      const otherAdminsCount = await Membership.countDocuments({
+        societyId: mem.societyId,
+        role: "society_admin",
+        isActive: true,
+        userId: { $ne: userId },
+      });
+      if (otherAdminsCount === 0) {
+        const soc = await Society.findById(mem.societyId).select("name status").lean();
+        if (soc && soc.status === "active") {
+          throw new AppError(
+            `You are the sole admin of society "${soc.name}". Please assign another Society Admin before deleting your account.`,
+            400
+          );
+        }
+      }
+    }
+
+    await User.findByIdAndDelete(userId);
+    try {
+      await Membership.deleteMany({ userId });
+    } catch (_) {}
+
+    return { message: "Your account has been deleted successfully" };
+  }
 }
 
 module.exports = new UserService();

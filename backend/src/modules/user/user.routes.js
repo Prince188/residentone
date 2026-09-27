@@ -24,6 +24,9 @@ router.post(
   authenticate,
   (req, res, next) => userController.updatePushToken(req, res, next)
 );
+router.delete("/delete-account", authenticate, (req, res, next) =>
+  userController.deleteOwnAccount(req, res, next)
+);
 
 // Super Admin User Management Routes
 router.get("/admin/all", authenticate, requirePlatformAdmin, (req, res, next) =>
