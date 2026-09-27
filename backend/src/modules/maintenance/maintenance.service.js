@@ -496,12 +496,12 @@ class MaintenanceService {
       if (payment) {
         if (payment.penalty !== undefined && payment.penalty !== null) {
           penaltyAmount = Number(payment.penalty || 0);
-        } else if (payment.totalAmount && payment.amount && payment.totalAmount > payment.amount) {
-          penaltyAmount = Number(payment.totalAmount - payment.amount);
         } else if (status === "late_paid") {
           penaltyAmount = Number(appliedLateCharge || 0);
+        } else {
+          penaltyAmount = 0;
         }
-        totalAmt = Number(payment.totalAmount || (payment.amount ? payment.amount + penaltyAmount : baseMaintAmount + penaltyAmount));
+        totalAmt = baseMaintAmount + penaltyAmount;
       } else {
         penaltyAmount = isLate ? appliedLateCharge : 0;
         totalAmt = baseMaintAmount + penaltyAmount;
@@ -858,9 +858,10 @@ class MaintenanceService {
         unitId,
         paidOn: new Date(),
         method: "Razorpay",
-        amount: order.baseAmount,
+        amount: baseAmount,
         fee: order.fee,
-        totalAmount: order.total,
+        penalty: appliedLateCharge,
+        totalAmount: finalAmount,
         razorpayOrderId: order.id,
         gatewayStatus: "created",
         recordedBy: userId,
