@@ -61,10 +61,14 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
 
   const isNavLocked = (isSubscriptionUnpaid || isSubscriptionExpired) && !isPlatformAdmin;
 
-  // If Super Admin has entered a specific society, show full society resident/admin nav
+  // If Super Admin has entered a specific society, include resident nav + platform section
   const isManagingSpecificSociety = isPlatformAdmin && isSuperAdminManaging && Boolean(activeSociety);
+  const platformSection = ADMIN_NAV_SECTIONS.find((s) => s.id === "platform");
   const navSections = isManagingSpecificSociety
-    ? RESIDENT_NAV_SECTIONS
+    ? [
+        ...RESIDENT_NAV_SECTIONS,
+        ...(platformSection ? [platformSection] : []),
+      ]
     : isPlatformAdmin
       ? ADMIN_NAV_SECTIONS
       : RESIDENT_NAV_SECTIONS;
