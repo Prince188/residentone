@@ -31,6 +31,7 @@ router.post("/bulk-generate", requirePermission("manage_houses"), (req, res, nex
 router.get("/", (req, res, next) => unitController.list(req, res, next));
 router.get("/society-vehicles", (req, res, next) => unitController.getSocietyVehicles(req, res, next));
 router.get("/search-users", requirePermission("manage_houses"), (req, res, next) => unitController.searchUsers(req, res, next));
+router.get("/export-excel", (req, res, next) => unitController.exportExcel(req, res, next));
 router.get(
   "/:unitId",
   (req, res, next) => unitController.getById(req, res, next)

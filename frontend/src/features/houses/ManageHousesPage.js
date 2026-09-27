@@ -127,81 +127,32 @@ export default function ManageHousesPage() {
     return result;
   }, [houses, search, statusFilter, familyByHouse, activeMembership]);
 
-  const handleExportExcel = (filterType) => {
-    let dataset = houses;
-    if (filterType === "owner") {
-      dataset = houses.filter((h) => h.isAssigned && !h.isRented);
-    } else if (filterType === "renter") {
-      dataset = houses.filter((h) => h.isRented);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportExcel = async (filterType) => {
+    try {
+      setIsExporting(true);
+      const res = await api.get("/units/export-excel", {
+        responseType: "blob",
+        params: { filter: filterType },
+      });
+      const safeSocietyName = (activeSociety?.name || "Society").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const filename = `${safeSocietyName}_Houses_Directory_${filterType}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setExportModalVisible(false);
+    } catch (e) {
+      alert("Failed to download Excel directory.");
+    } finally {
+      setIsExporting(false);
     }
-
-    if (dataset.length === 0) {
-      alert("No units match the selected filter.");
-      return;
-    }
-
-    const escapeCell = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
-    const header = [
-      "Flat Number",
-      "Block / Wing",
-      "Floor",
-      "Occupancy Status",
-      "Resident Name",
-      "Resident Phone",
-      "Resident Email",
-      "Owner Name",
-      "Owner Phone",
-      "Tenant Name",
-      "Tenant Phone",
-      "Vehicles",
-      "Family Members",
-    ]
-      .map(escapeCell)
-      .join(",");
-
-    const rows = dataset.map((h) => {
-      const status = h.isRented ? "Rented" : h.isAssigned ? "Owner" : "Vacant";
-      const resident = h.isRented ? h.tenant || {} : h.owner || {};
-      const fam = familyByHouse[String(h.id)] || [];
-      const famText = fam.map((m) => `${m.name} (${m.relation || "Member"})`).join("; ");
-      const vehicles = [
-        ...(h.owner?.vehicles || []),
-        ...(h.tenant?.vehicles || []),
-      ].join(", ");
-
-      return [
-        h.label || "",
-        h.block || h.wing || "",
-        h.floor !== undefined && h.floor !== null ? h.floor : "",
-        status,
-        resident.name || "",
-        resident.phone || "",
-        resident.email || "",
-        h.owner?.name || "",
-        h.owner?.phone || "",
-        h.tenant?.name || "",
-        h.tenant?.phone || "",
-        vehicles,
-        famText,
-      ]
-        .map(escapeCell)
-        .join(",");
-    });
-
-    const csvContent = "\uFEFF" + [header, ...rows].join("\r\n");
-    const safeSocietyName = (activeSociety?.name || "Society").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const filename = `${safeSocietyName}_Houses_${filterType}_${new Date().toISOString().slice(0, 10)}.csv`;
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setExportModalVisible(false);
   };
 
   const displayedCount = filtered.length;

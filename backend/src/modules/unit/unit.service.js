@@ -6,6 +6,7 @@ const { Membership } = require("../membership/membership.model");
 const { Society } = require("../society/society.model");
 const { AppError } = require("../../shared/utils/errors");
 const { ROLE_HIERARCHY, DEFAULT_ACCOUNT_ROLE } = require("../../shared/types");
+const ExcelJS = require("exceljs");
 
 const INVITE_EXPIRY_DAYS = 7;
 
@@ -708,6 +709,229 @@ class UnitService {
       residentCount: residentVehicles.length,
       visitorCount: filteredVisitors.length,
     };
+  }
+
+  async generateHousesExcelBuffer(societyId, options = {}) {
+    const filter = options.filter || "all";
+    const society = await Society.findById(societyId).select("name").lean();
+    const societyName = society?.name || "Society";
+
+    const { FamilyMember } = require("../family-member/family-member.model");
+
+    // Fetch units and family members in parallel
+    const [units, familyMembers] = await Promise.all([
+      Unit.find({ societyId, isActive: true })
+        .populate("ownerId", "name phone email vehicles")
+        .populate("tenantId", "name phone email vehicles")
+        .sort({ block: 1, unitNumber: 1, label: 1 })
+        .lean(),
+      FamilyMember.find({ societyId, isActive: true })
+        .populate("addedBy", "_id name")
+        .populate("unitId", "_id label")
+        .lean(),
+    ]);
+
+    // Build family map
+    const familyByHouse = new Map();
+    units.forEach((unit) => {
+      const activeResidentId = unit.tenantId?._id || unit.ownerId?._id || null;
+      let famList = [];
+      if (activeResidentId) {
+        famList = familyMembers.filter(
+          (m) => String(m.addedBy?._id || m.addedBy) === String(activeResidentId)
+        );
+      } else {
+        famList = familyMembers.filter(
+          (m) => String(m.unitId?._id || m.unitId) === String(unit._id)
+        );
+      }
+      familyByHouse.set(String(unit._id), famList);
+    });
+
+    // Apply Filter
+    let filteredUnits = units;
+    if (filter === "owner") {
+      filteredUnits = units.filter((u) => u.ownerId && !u.tenantId);
+    } else if (filter === "renter") {
+      filteredUnits = units.filter((u) => Boolean(u.tenantId));
+    } else if (filter === "vacant") {
+      filteredUnits = units.filter((u) => !u.ownerId && !u.tenantId);
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "ResidentOne";
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet("Houses & Residents", {
+      views: [{ state: "frozen", ySplit: 4 }],
+    });
+
+    // Page Title (Row 1)
+    sheet.mergeCells(1, 1, 1, 16);
+    const titleCell = sheet.getCell("A1");
+    titleCell.value = `${societyName}  —  Houses & Residents Directory`;
+    titleCell.font = { size: 14, bold: true, color: { argb: "FF006948" } };
+    titleCell.alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getRow(1).height = 28;
+
+    // Subtitle (Row 2)
+    sheet.mergeCells(2, 1, 2, 16);
+    const subCell = sheet.getCell("A2");
+    const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const filterLabel = filter === "owner" ? "Owned Houses" : filter === "renter" ? "Rented Houses" : filter === "vacant" ? "Vacant Houses" : "All Houses";
+    subCell.value = `Filter: ${filterLabel}  •  Total Units: ${filteredUnits.length}  •  Exported on ${dateStr}`;
+    subCell.font = { size: 10, italic: true, color: { argb: "FF49454F" } };
+    subCell.alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getRow(2).height = 20;
+
+    // Blank row 3
+    sheet.mergeCells(3, 1, 3, 16);
+    sheet.getRow(3).height = 8;
+
+    // Header (Row 4)
+    const headers = [
+      "Sr No",
+      "Flat Number",
+      "Block / Wing",
+      "Floor",
+      "Occupancy Status",
+      "Resident Name",
+      "Resident Phone",
+      "Resident Email",
+      "Owner Name",
+      "Owner Phone",
+      "Tenant Name",
+      "Tenant Phone",
+      "Vehicles",
+      "Total Family Count",
+      "Family Member Name",
+      "Relation",
+    ];
+
+    const headerRow = sheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF006948" } };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF86EFAC" } },
+        left: { style: "thin", color: { argb: "FF86EFAC" } },
+        bottom: { style: "thin", color: { argb: "FF86EFAC" } },
+        right: { style: "thin", color: { argb: "FF86EFAC" } },
+      };
+    });
+
+    // Enable Excel Header AutoFilter
+    sheet.autoFilter = { from: "A4", to: "P4" };
+
+    let currentExcelRow = 5;
+
+    filteredUnits.forEach((unit, idx) => {
+      const fam = familyByHouse.get(String(unit._id)) || [];
+      const totalFamilyCount = fam.length;
+      const status = unit.tenantId ? "Rented" : unit.ownerId ? "Owner" : "Vacant";
+      const resident = unit.tenantId || unit.ownerId || {};
+      const owner = unit.ownerId || {};
+      const tenant = unit.tenantId || {};
+
+      const vehicles = [
+        ...(owner.vehicles || []),
+        ...(tenant.vehicles || []),
+      ]
+        .filter(Boolean)
+        .join(", ") || "—";
+
+      const startRow = currentExcelRow;
+
+      if (totalFamilyCount === 0) {
+        const rowData = [
+          idx + 1,
+          unit.label || "-",
+          unit.block || unit.wing || "-",
+          unit.floor !== undefined && unit.floor !== null ? unit.floor : "-",
+          status,
+          resident.name || "-",
+          resident.phone || "-",
+          resident.email || "-",
+          owner.name || "-",
+          owner.phone || "-",
+          tenant.name || "-",
+          tenant.phone || "-",
+          vehicles,
+          0,
+          "—",
+          "—",
+        ];
+        const row = sheet.addRow(rowData);
+        row.height = 20;
+        currentExcelRow++;
+      } else {
+        fam.forEach((m) => {
+          const rowData = [
+            idx + 1,
+            unit.label || "-",
+            unit.block || unit.wing || "-",
+            unit.floor !== undefined && unit.floor !== null ? unit.floor : "-",
+            status,
+            resident.name || "-",
+            resident.phone || "-",
+            resident.email || "-",
+            owner.name || "-",
+            owner.phone || "-",
+            tenant.name || "-",
+            tenant.phone || "-",
+            vehicles,
+            totalFamilyCount,
+            m.name || "-",
+            m.relation || "Member",
+          ];
+          const row = sheet.addRow(rowData);
+          row.height = 20;
+          currentExcelRow++;
+        });
+
+        const endRow = currentExcelRow - 1;
+
+        // OPTION B: Vertically merge cells for House details across the family sub-rows
+        if (endRow > startRow) {
+          for (let col = 1; col <= 14; col++) {
+            sheet.mergeCells(startRow, col, endRow, col);
+          }
+        }
+      }
+    });
+
+    // Formatting cell styles & borders
+    for (let r = 5; r < currentExcelRow; r++) {
+      const row = sheet.getRow(r);
+      row.font = { size: 10, color: { argb: "FF1D1B20" } };
+      row.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      row.getCell(6).alignment = { vertical: "middle", horizontal: "left" };
+      row.getCell(8).alignment = { vertical: "middle", horizontal: "left" };
+      row.getCell(9).alignment = { vertical: "middle", horizontal: "left" };
+      row.getCell(11).alignment = { vertical: "middle", horizontal: "left" };
+      row.getCell(15).alignment = { vertical: "middle", horizontal: "left", bold: true };
+      row.getCell(16).alignment = { vertical: "middle", horizontal: "center" };
+
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE2E8F0" } },
+          left: { style: "thin", color: { argb: "FFE2E8F0" } },
+          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+          right: { style: "thin", color: { argb: "FFE2E8F0" } },
+        };
+      });
+    }
+
+    // Set Column Widths
+    const widths = [8, 14, 14, 10, 16, 22, 16, 24, 22, 16, 22, 16, 22, 18, 22, 16];
+    widths.forEach((w, colIdx) => {
+      sheet.getColumn(colIdx + 1).width = w;
+    });
+
+    return workbook.xlsx.writeBuffer();
   }
 }
 

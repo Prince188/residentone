@@ -259,6 +259,22 @@ class UnitController {
       next(error);
     }
   }
+
+  async exportExcel(req, res, next) {
+    try {
+      const canManage = await hasManageHousesPermission(req);
+      if (!canManage) throw new AppError("You do not have permission to export houses", 403);
+      const { filter } = req.query;
+      const buffer = await unitService.generateHousesExcelBuffer(req.societyId, { filter });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `Houses_Directory_${filter || "all"}_${dateStr}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UnitController();
