@@ -595,28 +595,34 @@ class SocietyService {
     let discountAppliedAmount = 0;
     let referrerUserId = null;
 
-    if (restData.referralCode) {
-      try {
-        const referralService = require("../referral/referral.service");
-        const valRes = await referralService.validateReferralCode(restData.referralCode);
-        if (valRes.valid) {
-          appliedReferralCode = valRes.code;
-          referrerUserId = valRes.referrer._id;
-          discountAppliedAmount = valRes.discountValue || 0;
-        }
-      } catch (err) {
-        console.warn("Invalid referral code provided during registration:", err.message);
-      }
-    } else if (restData.couponCode) {
+    const promoCode = (restData.promoCode || restData.referralCode || restData.couponCode || "").trim().toUpperCase();
+
+    if (promoCode) {
+      const estimatedUnits = effectiveMapped.totalUnits || 50;
+      const estimatedPlanRate = 6;
+      const estimatedOrderAmount = estimatedUnits * estimatedPlanRate;
+
+      // 1. Try validating as a Coupon Code first
       try {
         const couponService = require("../coupon/coupon.service");
-        const valRes = await couponService.validateCoupon(restData.couponCode, 1000);
-        if (valRes.valid) {
-          appliedCouponCode = valRes.coupon.code;
-          discountAppliedAmount = valRes.discountAmount || 0;
+        const couponRes = await couponService.validateCoupon(promoCode, estimatedOrderAmount);
+        if (couponRes.valid) {
+          appliedCouponCode = couponRes.coupon.code;
+          discountAppliedAmount = couponRes.discountAmount || 0;
         }
-      } catch (err) {
-        console.warn("Invalid coupon code provided during registration:", err.message);
+      } catch (_) {
+        // 2. If not a coupon code, try validating as a Referral Code
+        try {
+          const referralService = require("../referral/referral.service");
+          const refRes = await referralService.validateReferralCode(promoCode);
+          if (refRes.valid) {
+            appliedReferralCode = refRes.code;
+            referrerUserId = refRes.referrer._id;
+            discountAppliedAmount = refRes.discountValue || 0;
+          }
+        } catch (err) {
+          console.warn(`Provided promo code '${promoCode}' is neither a valid coupon nor referral code:`, err.message);
+        }
       }
     }
 

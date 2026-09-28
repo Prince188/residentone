@@ -507,6 +507,7 @@ export function toApiPayload(values) {
     contactMobile: values.contactMobile.trim(),
     contactEmail: values.contactEmail.trim().toLowerCase(),
     logoUrl: values.logoUrl || null,
+    promoCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
     referralCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
     couponCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
   };
