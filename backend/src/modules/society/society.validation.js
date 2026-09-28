@@ -31,6 +31,9 @@ const registrationBaseSchema = z.object({
   logoUrl: z.string().nullable().optional(),
   subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional().default("starter"),
   subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional().default("monthly"),
+  promoCode: z.string().optional(),
+  referralCode: z.string().optional(),
+  couponCode: z.string().optional(),
 });
 
 const structureWingSchema = z.object({
