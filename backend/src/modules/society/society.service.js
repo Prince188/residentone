@@ -589,61 +589,27 @@ class SocietyService {
       }
       if (computed > 0) effectiveMapped.totalUnits = computed;
     }
-    // Handle Referral Code or Coupon Code if provided
-    let appliedReferralCode = null;
-    let appliedCouponCode = null;
-    let discountAppliedAmount = 0;
-    let referrerUserId = null;
-
-    const promoCode = (restData.promoCode || restData.referralCode || restData.couponCode || "").trim().toUpperCase();
-
-    if (promoCode) {
-      const estimatedUnits = effectiveMapped.totalUnits || 50;
-      const estimatedPlanRate = 6;
-      const estimatedOrderAmount = estimatedUnits * estimatedPlanRate;
-
-      // 1. Try validating as a Coupon Code first
-      try {
-        const couponService = require("../coupon/coupon.service");
-        const couponRes = await couponService.validateCoupon(promoCode, estimatedOrderAmount);
-        if (couponRes.valid) {
-          appliedCouponCode = couponRes.coupon.code;
-          discountAppliedAmount = couponRes.discountAmount || 0;
-        }
-      } catch (_) {
-        // 2. If not a coupon code, try validating as a Referral Code
-        try {
-          const referralService = require("../referral/referral.service");
-          const refRes = await referralService.validateReferralCode(promoCode);
-          if (refRes.valid) {
-            appliedReferralCode = refRes.code;
-            referrerUserId = refRes.referrer._id;
-            discountAppliedAmount = refRes.discountValue || 0;
-          }
-        } catch (err) {
-          console.warn(`Provided promo code '${promoCode}' is neither a valid coupon nor referral code:`, err.message);
-        }
-      }
-    }
+    // Resolve Promo Code (Coupon or Referral)
+    const promo = await this.resolvePromoCode(restData, effectiveMapped.totalUnits);
 
     const society = await Society.create({
       ...effectiveMapped,
       status: "pending",
       source: "public_registration",
-      appliedReferralCode,
-      appliedCouponCode,
-      discountAppliedAmount,
+      appliedReferralCode: promo.appliedReferralCode,
+      appliedCouponCode: promo.appliedCouponCode,
+      discountAppliedAmount: promo.discountAppliedAmount,
     });
 
-    if (referrerUserId && appliedReferralCode) {
+    if (promo.referrerUserId && promo.appliedReferralCode) {
       try {
         const { Referral } = require("../referral/referral.model");
         await Referral.create({
-          referrerUser: referrerUserId,
+          referrerUser: promo.referrerUserId,
           referredSociety: society._id,
-          referralCodeUsed: appliedReferralCode,
+          referralCodeUsed: promo.appliedReferralCode,
           status: "REGISTERED",
-          discountAmountGiven: discountAppliedAmount,
+          discountAmountGiven: promo.discountAppliedAmount,
         });
       } catch (e) {
         console.error("Failed to create referral log:", e.message);
@@ -665,16 +631,83 @@ class SocietyService {
     return society;
   }
 
+  async resolvePromoCode(data, totalUnits = 50) {
+    let appliedReferralCode = null;
+    let appliedCouponCode = null;
+    let discountAppliedAmount = 0;
+    let referrerUserId = null;
+
+    const promoCode = (data.promoCode || data.referralCode || data.couponCode || "").trim().toUpperCase();
+
+    if (promoCode) {
+      const estimatedUnits = Number(totalUnits) || 50;
+      const estimatedPlanRate = 6;
+      const estimatedOrderAmount = estimatedUnits * estimatedPlanRate;
+
+      // 1. Try validating as a Coupon Code first
+      try {
+        const couponService = require("../coupon/coupon.service");
+        const couponRes = await couponService.validateCoupon(promoCode, estimatedOrderAmount);
+        if (couponRes.valid) {
+          appliedCouponCode = couponRes.coupon.code;
+          discountAppliedAmount = couponRes.discountAmount || 0;
+        }
+      } catch (couponErr) {
+        console.warn(`Coupon validation failed for code '${promoCode}':`, couponErr.message);
+        // 2. If not a coupon code, try validating as a Referral Code
+        try {
+          const referralService = require("../referral/referral.service");
+          const refRes = await referralService.validateReferralCode(promoCode);
+          if (refRes.valid) {
+            appliedReferralCode = refRes.code;
+            referrerUserId = refRes.referrer._id;
+            discountAppliedAmount = refRes.discountValue || 0;
+          }
+        } catch (refErr) {
+          console.warn(`Referral validation failed for code '${promoCode}':`, refErr.message);
+        }
+      }
+    }
+
+    return {
+      appliedReferralCode,
+      appliedCouponCode,
+      discountAppliedAmount,
+      referrerUserId,
+    };
+  }
+
   async createByAdmin(data, adminId) {
+    const mapped = this.mapRegistrationPayload(data);
+    const promo = await this.resolvePromoCode(data, mapped.totalUnits);
+
     const society = await Society.create({
-      ...this.mapRegistrationPayload(data),
+      ...mapped,
       status: "active",
       isActive: true,
       source: "manual",
+      appliedReferralCode: promo.appliedReferralCode,
+      appliedCouponCode: promo.appliedCouponCode,
+      discountAppliedAmount: promo.discountAppliedAmount,
       approvedAt: new Date(),
       approvedBy: adminId,
       updatedBy: adminId,
     });
+
+    if (promo.referrerUserId && promo.appliedReferralCode) {
+      try {
+        const { Referral } = require("../referral/referral.model");
+        await Referral.create({
+          referrerUser: promo.referrerUserId,
+          referredSociety: society._id,
+          referralCodeUsed: promo.appliedReferralCode,
+          status: "REGISTERED",
+          discountAmountGiven: promo.discountAppliedAmount,
+        });
+      } catch (e) {
+        console.error("Failed to create referral log:", e.message);
+      }
+    }
     let adminAccount = null;
     try {
       adminAccount = await this.onboardContactAsSocietyAdmin(society);
