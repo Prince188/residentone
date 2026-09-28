@@ -38,6 +38,16 @@ export const ADMIN_NAV_SECTIONS = [
         to: "/admin/users",
         icon: "manage_accounts",
       },
+      {
+        label: "Referrals & Gifts 🎁",
+        to: "/admin/referrals",
+        icon: "card_giftcard",
+      },
+      {
+        label: "Coupon Codes",
+        to: "/admin/coupons",
+        icon: "confirmation_number",
+      },
     ],
   },
   {

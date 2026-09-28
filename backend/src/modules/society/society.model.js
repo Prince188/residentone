@@ -126,6 +126,22 @@ const societySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    appliedReferralCode: {
+      type: String,
+      default: null,
+      uppercase: true,
+      trim: true,
+    },
+    appliedCouponCode: {
+      type: String,
+      default: null,
+      uppercase: true,
+      trim: true,
+    },
+    discountAppliedAmount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

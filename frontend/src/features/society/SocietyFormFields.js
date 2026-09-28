@@ -441,6 +441,31 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
           />
         </FormField>
       </div>
+
+      {/* Referral or Promo Code */}
+      <div className="pt-2">
+        <FormField
+          id="referralCode"
+          label="Referral Code or Coupon Code (Optional)"
+          hint="Have a referral code from a friend or coupon code? Enter it to get discount on registration."
+          error={errors.referralCode}
+        >
+          <div className="relative">
+            <input
+              id="referralCode"
+              type="text"
+              className={`${inputClass} font-mono font-bold uppercase tracking-wider pl-9`}
+              placeholder="e.g. REF-A8X92K or WELCOME100"
+              value={values.referralCode || ""}
+              onChange={(e) => onChange("referralCode", e.target.value.toUpperCase())}
+              disabled={disabled}
+            />
+            <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">
+              local_offer
+            </span>
+          </div>
+        </FormField>
+      </div>
     </div>
   );
 }
@@ -482,6 +507,8 @@ export function toApiPayload(values) {
     contactMobile: values.contactMobile.trim(),
     contactEmail: values.contactEmail.trim().toLowerCase(),
     logoUrl: values.logoUrl || null,
+    referralCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
+    couponCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
   };
 }
 
@@ -499,6 +526,7 @@ export const EMPTY_SOCIETY_FORM = {
   contactMobile: "",
   contactEmail: "",
   logoUrl: null,
+  referralCode: "",
 };
 
 export default SocietyFormFields;

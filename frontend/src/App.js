@@ -20,6 +20,8 @@ import AdminCreateSocietyPage from "./features/admin/AdminCreateSocietyPage";
 import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
 import AdminAnalyticsPage from "./features/admin/AdminAnalyticsPage";
 import AdminUsersPage from "./features/admin/AdminUsersPage";
+import AdminReferralsPage from "./features/admin/AdminReferralsPage";
+import AdminCouponsPage from "./features/admin/AdminCouponsPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MaintenancePage from "./features/maintenance/MaintenancePage";
 import MaintenanceDetailPage from "./features/maintenance/MaintenanceDetailPage";
@@ -178,6 +180,14 @@ function App() {
               <Route
                 path="/admin/users"
                 element={<SuperAdminRoute><AdminUsersPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/referrals"
+                element={<SuperAdminRoute><AdminReferralsPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/coupons"
+                element={<SuperAdminRoute><AdminCouponsPage /></SuperAdminRoute>}
               />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

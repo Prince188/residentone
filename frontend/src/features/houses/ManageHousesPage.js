@@ -155,8 +155,6 @@ export default function ManageHousesPage() {
     }
   };
 
-  const displayedCount = filtered.length;
-  const assignedCount = houses.filter((h) => h.isAssigned || h.isRented).length;
   const isWingAdmin = isPureWingAdmin(activeMembership);
 
   // Apartment detection: wings exist via block field
@@ -531,38 +529,47 @@ export default function ManageHousesPage() {
             <div className="mt-5 space-y-3">
               <button
                 type="button"
+                disabled={isExporting}
                 onClick={() => handleExportExcel("all")}
-                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group"
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group disabled:opacity-50"
               >
                 <div>
                   <p className="text-body-md font-bold text-on-surface group-hover:text-emerald-800">All Houses ({houses.length})</p>
                   <p className="text-body-xs text-on-surface-variant">Complete society housing directory including vacant units</p>
                 </div>
-                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">download</span>
+                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">
+                  {isExporting ? "hourglass_top" : "download"}
+                </span>
               </button>
 
               <button
                 type="button"
+                disabled={isExporting}
                 onClick={() => handleExportExcel("owner")}
-                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group"
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group disabled:opacity-50"
               >
                 <div>
                   <p className="text-body-md font-bold text-on-surface group-hover:text-emerald-800">Owners Only ({totalOwned})</p>
                   <p className="text-body-xs text-on-surface-variant">Export houses occupied by verified resident owners</p>
                 </div>
-                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">download</span>
+                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">
+                  {isExporting ? "hourglass_top" : "download"}
+                </span>
               </button>
 
               <button
                 type="button"
+                disabled={isExporting}
                 onClick={() => handleExportExcel("renter")}
-                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group"
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/80 bg-surface-container-low/40 p-3.5 text-left hover:border-emerald-600 hover:bg-emerald-50/50 transition-all cursor-pointer group disabled:opacity-50"
               >
                 <div>
                   <p className="text-body-md font-bold text-on-surface group-hover:text-emerald-800">Renters / Tenants ({totalRented})</p>
                   <p className="text-body-xs text-on-surface-variant">Export units occupied by registered active tenants</p>
                 </div>
-                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">download</span>
+                <span className="material-symbols-outlined text-[20px] text-outline group-hover:text-emerald-700">
+                  {isExporting ? "hourglass_top" : "download"}
+                </span>
               </button>
             </div>
 

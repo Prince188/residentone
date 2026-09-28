@@ -589,11 +589,60 @@ class SocietyService {
       }
       if (computed > 0) effectiveMapped.totalUnits = computed;
     }
+    // Handle Referral Code or Coupon Code if provided
+    let appliedReferralCode = null;
+    let appliedCouponCode = null;
+    let discountAppliedAmount = 0;
+    let referrerUserId = null;
+
+    if (restData.referralCode) {
+      try {
+        const referralService = require("../referral/referral.service");
+        const valRes = await referralService.validateReferralCode(restData.referralCode);
+        if (valRes.valid) {
+          appliedReferralCode = valRes.code;
+          referrerUserId = valRes.referrer._id;
+          discountAppliedAmount = valRes.discountValue || 0;
+        }
+      } catch (err) {
+        console.warn("Invalid referral code provided during registration:", err.message);
+      }
+    } else if (restData.couponCode) {
+      try {
+        const couponService = require("../coupon/coupon.service");
+        const valRes = await couponService.validateCoupon(restData.couponCode, 1000);
+        if (valRes.valid) {
+          appliedCouponCode = valRes.coupon.code;
+          discountAppliedAmount = valRes.discountAmount || 0;
+        }
+      } catch (err) {
+        console.warn("Invalid coupon code provided during registration:", err.message);
+      }
+    }
+
     const society = await Society.create({
       ...effectiveMapped,
       status: "pending",
       source: "public_registration",
+      appliedReferralCode,
+      appliedCouponCode,
+      discountAppliedAmount,
     });
+
+    if (referrerUserId && appliedReferralCode) {
+      try {
+        const { Referral } = require("../referral/referral.model");
+        await Referral.create({
+          referrerUser: referrerUserId,
+          referredSociety: society._id,
+          referralCodeUsed: appliedReferralCode,
+          status: "REGISTERED",
+          discountAmountGiven: discountAppliedAmount,
+        });
+      } catch (e) {
+        console.error("Failed to create referral log:", e.message);
+      }
+    }
     if (structure && Array.isArray(structure.wings) && structure.wings.length > 0) {
       try {
         await unitService.bulkGenerateFromStructure(society._id, structure);
@@ -1070,6 +1119,41 @@ class SocietyService {
     society.subscriptionStartedAt = society.subscriptionStartedAt || nowPay;
     society.subscriptionExpiresAt = expiresAt;
     await society.save();
+
+    // Trigger Referral Status Transition & Gift Eligibility (REGISTERED -> PAID & PENDING_GIFT)
+    try {
+      if (society.appliedReferralCode) {
+        const { Referral } = require("../referral/referral.model");
+        const referral = await Referral.findOne({ referredSociety: society._id });
+        if (referral && referral.status === "REGISTERED") {
+          referral.status = "PAID";
+          referral.paidAt = nowPay;
+          referral.giftStatus = "PENDING_GIFT";
+          await referral.save();
+        }
+      }
+      if (society.appliedCouponCode) {
+        const { Coupon } = require("../coupon/coupon.model");
+        const { CouponRedemption } = require("../coupon/coupon-redemption.model");
+        const coupon = await Coupon.findOne({ code: society.appliedCouponCode });
+        if (coupon) {
+          coupon.usedCount = (coupon.usedCount || 0) + 1;
+          await coupon.save();
+
+          await CouponRedemption.create({
+            couponId: coupon._id,
+            societyId: society._id,
+            userId,
+            originalAmount: amount + (society.discountAppliedAmount || 0),
+            discountAmount: society.discountAppliedAmount || 0,
+            finalAmount: amount,
+            redeemedAt: nowPay,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to update referral/coupon on subscription payment:", e.message);
+    }
 
     try {
       const s = require("../../socket");

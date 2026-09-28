@@ -61,11 +61,23 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      uppercase: true,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
 
+const crypto = require("crypto");
+
 userSchema.pre("save", async function () {
+  if (!this.referralCode) {
+    this.referralCode = "REF-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+  }
   if (!this.isModified("passwordHash")) return;
   this.passwordHash = await bcrypt.hash(this.passwordHash, 12);
 });
