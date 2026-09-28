@@ -179,8 +179,10 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   const multiplier = selectedCycle === "yearly" ? 12 : 1;
   const fullCycleAmount = units * rate * multiplier;
 
-  // Amount due depends on whether it's a mid-cycle prorated upgrade or full renewal/activation
-  const totalAmount = (isMidCycleActive && isUpgrade) ? proratedPayable : fullCycleAmount;
+  // Amount due depends on whether it's a mid-cycle prorated upgrade or full renewal/activation, minus any applied promo discount
+  const baseAmount = (isMidCycleActive && isUpgrade) ? proratedPayable : fullCycleAmount;
+  const appliedDiscount = (!activeSociety?.isSubscriptionPaid && activeSociety?.discountAppliedAmount) ? Number(activeSociety.discountAppliedAmount) : 0;
+  const totalAmount = Math.max(0, baseAmount - appliedDiscount);
 
   const handlePay = async (isDemo = false, paymentMethod = "demo_upi") => {
     setLoading(true);
@@ -519,6 +521,11 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             <span className="text-[11px] font-bold uppercase text-outline block">
               {isMidCycleActive && isUpgrade ? "Net Payable Today" : "Total Due Now"}
             </span>
+            {appliedDiscount > 0 && (
+              <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
+                🎁 Promo Discount: -₹{appliedDiscount}
+              </span>
+            )}
             <span className="text-[28px] font-black text-primary leading-none">
               ₹{totalAmount.toLocaleString("en-IN")}
             </span>

@@ -1095,6 +1095,14 @@ class SocietyService {
       } else {
         expiresAt.setMonth(expiresAt.getMonth() + 1);
       }
+
+      // Apply Referral / Coupon Promo Discount on initial payment
+      if (paymentType === "initial" && society.discountAppliedAmount > 0) {
+        const originalAmount = amount;
+        amount = Math.max(0, amount - society.discountAppliedAmount);
+        const codeText = society.appliedReferralCode || society.appliedCouponCode || "PROMO";
+        notes += ` [Discount applied via ${codeText}: -₹${society.discountAppliedAmount}. Original: ₹${originalAmount}]`;
+      }
     }
 
     const payment = await SubscriptionPayment.create({
