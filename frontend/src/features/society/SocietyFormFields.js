@@ -2,6 +2,8 @@ import { useState } from "react";
 import FormField from "../../components/form/FormField";
 import PhoneInput from "../../components/ui/PhoneInput";
 import { uploadSocietyLogo } from "../../lib/societies";
+import { validateCouponCode } from "../../lib/coupons";
+import { validateReferralCode } from "../../lib/referrals";
 
 export const SOCIETY_TYPE_OPTIONS = [
   { value: "apartment", label: "Apartment" },
@@ -40,7 +42,54 @@ const inputClass =
 function SocietyFormFields({ values, errors, onChange, disabled = false }) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoError, setLogoError] = useState("");
+  const [validatingPromo, setValidatingPromo] = useState(false);
+  const [promoFeedback, setPromoFeedback] = useState(null);
   const set = (field) => (e) => onChange(field, e.target.value);
+
+  const handleApplyPromo = async () => {
+    const code = values.referralCode?.trim()?.toUpperCase();
+    if (!code) return;
+    setValidatingPromo(true);
+    setPromoFeedback(null);
+    try {
+      const orderAmount = (Number(values.totalUnits) || 50) * 6;
+      // 1. Check coupon first
+      try {
+        const res = await validateCouponCode({ code, orderAmount });
+        if (res.data?.data?.valid) {
+          const discount = res.data.data.discountAmount;
+          setPromoFeedback({
+            success: true,
+            message: `Coupon "${code}" applied! ₹${discount} Discount will be deducted at checkout.`,
+          });
+          return;
+        }
+      } catch (couponErr) {
+        // 2. Check referral code
+        try {
+          const refRes = await validateReferralCode(code);
+          if (refRes.data?.data?.valid) {
+            const discount = refRes.data.data.discountValue;
+            setPromoFeedback({
+              success: true,
+              message: `Referral code "${code}" applied! ₹${discount} Discount will be deducted at checkout.`,
+            });
+            return;
+          }
+        } catch (refErr) {
+          setPromoFeedback({
+            success: false,
+            message:
+              couponErr.response?.data?.error?.message ||
+              refErr.response?.data?.error?.message ||
+              "Invalid or expired promo code.",
+          });
+        }
+      }
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
 
   const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
@@ -450,20 +499,48 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
           hint="Have a referral code from a friend or coupon code? Enter it to get discount on registration."
           error={errors.referralCode}
         >
-          <div className="relative">
-            <input
-              id="referralCode"
-              type="text"
-              className={`${inputClass} font-mono font-bold uppercase tracking-wider pl-9`}
-              placeholder="e.g. REF-A8X92K or WELCOME100"
-              value={values.referralCode || ""}
-              onChange={(e) => onChange("referralCode", e.target.value.toUpperCase())}
-              disabled={disabled}
-            />
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">
-              local_offer
-            </span>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                id="referralCode"
+                type="text"
+                className={`${inputClass} font-mono font-bold uppercase tracking-wider pl-9`}
+                placeholder="e.g. REF-A8X92K or NAV26"
+                value={values.referralCode || ""}
+                onChange={(e) => {
+                  onChange("referralCode", e.target.value.toUpperCase());
+                  setPromoFeedback(null);
+                }}
+                disabled={disabled}
+              />
+              <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">
+                local_offer
+              </span>
+            </div>
+            <button
+              type="button"
+              disabled={disabled || !values.referralCode?.trim() || validatingPromo}
+              onClick={handleApplyPromo}
+              className="px-4 py-2 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              {validatingPromo ? "Checking..." : "Apply Code"}
+            </button>
           </div>
+
+          {promoFeedback && (
+            <div
+              className={`mt-2 p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 ${
+                promoFeedback.success
+                  ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/30"
+                  : "bg-error-container/30 text-error border border-error-container"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {promoFeedback.success ? "check_circle" : "error"}
+              </span>
+              <span>{promoFeedback.message}</span>
+            </div>
+          )}
         </FormField>
       </div>
     </div>
