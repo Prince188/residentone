@@ -18,12 +18,20 @@ async function validateCoupon(code, orderAmount = 0, societyId = null) {
   }
 
   const now = new Date();
-  if (coupon.validFrom && now < new Date(coupon.validFrom)) {
-    throw new Error("This coupon is not active yet");
+  if (coupon.validFrom) {
+    const startDate = new Date(coupon.validFrom);
+    startDate.setHours(0, 0, 0, 0);
+    if (now < startDate) {
+      throw new Error("This coupon is not active yet");
+    }
   }
 
-  if (coupon.validUntil && now > new Date(coupon.validUntil)) {
-    throw new Error("This coupon has expired");
+  if (coupon.validUntil) {
+    const expiryDate = new Date(coupon.validUntil);
+    expiryDate.setHours(23, 59, 59, 999);
+    if (now > expiryDate) {
+      throw new Error("This coupon has expired");
+    }
   }
 
   if (coupon.globalUsageLimit !== null && coupon.usedCount >= coupon.globalUsageLimit) {
@@ -88,13 +96,16 @@ async function createCoupon(payload) {
 async function getAllCoupons({ search = "", status = "" }) {
   const query = {};
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   if (status === "active") {
     query.isActive = true;
-    query.validUntil = { $gte: new Date() };
+    query.validUntil = { $gte: todayStart };
   } else if (status === "inactive") {
     query.isActive = false;
   } else if (status === "expired") {
-    query.validUntil = { $lt: new Date() };
+    query.validUntil = { $lt: todayStart };
   }
 
   if (search) {
