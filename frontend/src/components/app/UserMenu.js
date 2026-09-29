@@ -5,6 +5,7 @@ import useAuthStore from "../../stores/auth.store";
 import useSocietyStore, { selectActiveSociety } from "../../stores/society.store";
 import { getUnreadNotificationCount } from "../../lib/notifications";
 import sound from "../../lib/sound";
+import MyReferralsModal from "../../features/profile/MyReferralsModal";
 
 export default function UserMenu() {
   const user = useAuthStore((state) => state.user);
@@ -14,6 +15,7 @@ export default function UserMenu() {
   const activeSocietyId = activeSociety?.id;
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showReferralsModal, setShowReferralsModal] = useState(false);
   const [isMuted, setIsMuted] = useState(sound.isMuted());
   const containerRef = useRef(null);
 
@@ -126,6 +128,27 @@ export default function UserMenu() {
               Profile
             </button>
 
+            {/* Refer & Earn Gifts Item */}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setIsOpen(false);
+                setShowReferralsModal(true);
+              }}
+              className="flex w-full items-center justify-between px-4 py-2.5 text-body-sm text-on-surface hover:bg-emerald-500/10 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-[20px] text-amber-500 group-hover:scale-110 transition-transform">
+                  card_giftcard
+                </span>
+                <span className="font-semibold text-emerald-800">Refer & Earn Gifts</span>
+              </div>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs">
+                🎁 Gifts
+              </span>
+            </button>
+
             {/* Notifications Item with Unread Badge */}
             <button
               type="button"
@@ -201,6 +224,12 @@ export default function UserMenu() {
           </div>
         </div>
       )}
+
+      {/* Referrals & Gifts Modal */}
+      <MyReferralsModal
+        isOpen={showReferralsModal}
+        onClose={() => setShowReferralsModal(false)}
+      />
     </div>
   );
 }

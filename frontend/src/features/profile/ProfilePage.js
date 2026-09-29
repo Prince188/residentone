@@ -10,6 +10,7 @@ import {
   updateFamilyMember,
   removeFamilyMember,
 } from "../../lib/familyMembers";
+import { getMyReferralInfo } from "../../lib/referrals";
 import PhoneInput from "../../components/ui/PhoneInput";
 
 const RELATION_OPTIONS = [
@@ -81,6 +82,15 @@ export default function ProfilePage() {
     queryFn: async () => (await getFamilyMembers({ mine: true })).data.data,
     enabled: Boolean(user),
   });
+
+  // Referral Info Query
+  const referralQuery = useQuery({
+    queryKey: ["my-referrals"],
+    queryFn: async () => (await getMyReferralInfo()).data.data,
+    enabled: Boolean(user),
+  });
+
+  const [copiedReferral, setCopiedReferral] = useState(false);
 
   const memberships = membershipsQuery.data || [];
   const familyMembersList = familyMembersQuery.data || [];
@@ -714,8 +724,100 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Right Column (1 col): Societies & Houses */}
+        {/* Right Column (1 col): Refer & Earn Gifts + Societies & Houses */}
         <div className="space-y-6">
+          {/* Refer & Earn Gifts Card */}
+          <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-500">card_giftcard</span>
+                Refer & Earn Gifts 🎁
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 border border-emerald-500/30">
+                Earn Gifts
+              </span>
+            </div>
+
+            <p className="text-body-xs text-on-surface-variant">
+              Share your unique referral code with other societies. When they register and activate their plan, you receive physical gifts!
+            </p>
+
+            {referralQuery.isLoading ? (
+              <div className="p-4 text-center text-xs text-outline">Loading your referral code...</div>
+            ) : (
+              <div className="space-y-3">
+                {/* Referral Code Box */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-900 to-emerald-800 text-white shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase tracking-wider text-emerald-200 font-semibold">Your Referral Code</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 bg-emerald-950/60 p-2.5 rounded-xl border border-emerald-700/50">
+                    <span className="font-mono text-base font-bold tracking-widest text-emerald-300 truncate">
+                      {referralQuery.data?.referralCode || user.referralCode || "—"}
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const code = referralQuery.data?.referralCode || user.referralCode;
+                          if (code) {
+                            navigator.clipboard.writeText(code);
+                            setCopiedReferral(true);
+                            setTimeout(() => setCopiedReferral(false), 2000);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          {copiedReferral ? "check" : "content_copy"}
+                        </span>
+                        {copiedReferral ? "Copied" : "Copy"}
+                      </button>
+                      <a
+                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                          `Use my referral code *${
+                            referralQuery.data?.referralCode || user.referralCode
+                          }* when registering your society on ResidentOne to get exclusive discounts!`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-emerald-950 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm no-underline"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">share</span>
+                        WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Referral Stats */}
+                <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                  <div className="p-2 rounded-xl bg-surface-container-low border border-outline-variant/60">
+                    <p className="text-[10px] uppercase text-outline font-semibold">Referred</p>
+                    <p className="text-base font-bold text-on-surface">
+                      {referralQuery.data?.stats?.totalReferred || 0}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                    <p className="text-[10px] uppercase text-emerald-700 font-semibold">Paid</p>
+                    <p className="text-base font-bold text-emerald-900">
+                      {referralQuery.data?.stats?.paidCount || 0}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-[10px] uppercase text-amber-700 font-semibold">Gifts 🎁</p>
+                    <p className="text-base font-bold text-amber-900">
+                      {(referralQuery.data?.stats?.pendingGiftsCount || 0) +
+                        (referralQuery.data?.stats?.dispatchedGiftsCount || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Societies & Houses Section */}
           <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm space-y-4">
             <div className="border-b border-outline-variant/60 pb-3">
               <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
