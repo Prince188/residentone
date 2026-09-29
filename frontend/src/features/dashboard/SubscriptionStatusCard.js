@@ -445,6 +445,12 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             <div>
               <p className="text-body-xs text-on-surface-variant flex flex-wrap items-center gap-2">
                 <span>{units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}</span>
+                {appliedDiscount > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                    <span className="material-symbols-outlined text-[13px]">local_offer</span>
+                    {activeSociety?.appliedCouponCode || activeSociety?.appliedReferralCode || "Coupon"} (-₹{appliedDiscount})
+                  </span>
+                )}
                 {!isPaid && !editingUnits && (
                   <button
                     type="button"

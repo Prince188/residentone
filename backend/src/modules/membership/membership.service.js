@@ -253,7 +253,7 @@ class MembershipService {
 
   async findUserSocieties(userId) {
     let memberships = await Membership.find({ userId, isActive: true })
-      .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt")
+      .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt appliedReferralCode appliedCouponCode discountAppliedAmount")
       .populate("units")
       .sort({ createdAt: 1 })
       .lean();
@@ -293,7 +293,7 @@ class MembershipService {
               await FamilyMember.findByIdAndUpdate(fl._id, { userId });
             }
             const populated = await Membership.findById(newMem._id)
-              .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt")
+              .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt appliedReferralCode appliedCouponCode discountAppliedAmount")
               .populate("units")
               .lean();
             if (populated) memberships.push(populated);
@@ -332,6 +332,9 @@ class MembershipService {
           subscriptionStartedAt: membership.societyId.subscriptionStartedAt,
           subscriptionExpiresAt: membership.societyId.subscriptionExpiresAt,
           totalUnits: membership.societyId.totalUnits || 0,
+          appliedReferralCode: membership.societyId.appliedReferralCode || null,
+          appliedCouponCode: membership.societyId.appliedCouponCode || null,
+          discountAppliedAmount: membership.societyId.discountAppliedAmount || 0,
         },
         units: (membership.units || [])
           .filter((unit) => unit && unit.isActive !== false)
