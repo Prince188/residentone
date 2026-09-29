@@ -24,7 +24,8 @@ const registrationBaseSchema = z.object({
     .number()
     .int("Number of units must be a whole number")
     .min(1, "Number of units must be at least 1")
-    .max(100000, "Number of units cannot exceed 100000"),
+    .max(100000, "Number of units cannot exceed 100000")
+    .optional(),
   contactName: z.string().min(1, "Contact person name is required").max(100),
   contactMobile: phoneSchema,
   contactEmail: z.string().email("Invalid email address"),

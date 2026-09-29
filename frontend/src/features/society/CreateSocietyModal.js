@@ -125,7 +125,11 @@ export default function CreateSocietyModal() {
     try {
       const structure = buildStructure();
       const payload = toApiPayload(values);
-      if (structure) payload.structure = structure;
+      if (structure) {
+        payload.structure = structure;
+        const { total } = computeStructureTotal(structure.wings, structure.numberingMode);
+        payload.totalUnits = total;
+      }
       const response = await registerSociety(payload);
       setResult(response.data.data);
       setStep(3);

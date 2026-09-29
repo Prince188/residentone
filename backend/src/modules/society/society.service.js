@@ -589,6 +589,9 @@ class SocietyService {
       }
       if (computed > 0) effectiveMapped.totalUnits = computed;
     }
+    if (!effectiveMapped.totalUnits || effectiveMapped.totalUnits <= 0) {
+      effectiveMapped.totalUnits = 1;
+    }
     // Resolve Promo Code (Coupon or Referral)
     const promo = await this.resolvePromoCode(restData, effectiveMapped.totalUnits);
 

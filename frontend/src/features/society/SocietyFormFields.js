@@ -276,25 +276,34 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
         </FormField>
       </div>
 
-      <FormField
-        id="totalUnits"
-        label="Number of Units"
-        required
-        error={errors.totalUnits}
-        hint="Total flats, apartments, or row houses (subscription pricing is based on total units)"
-      >
-        <input
+      {values.societyType !== "apartment" ? (
+        <FormField
           id="totalUnits"
-          type="number"
-          min="1"
-          step="1"
-          className={inputClass}
-          placeholder="120"
-          value={values.totalUnits}
-          onChange={set("totalUnits")}
-          disabled={disabled}
-        />
-      </FormField>
+          label="Number of Units"
+          required
+          error={errors.totalUnits}
+          hint="Total houses/units (subscription pricing is based on total units)"
+        >
+          <input
+            id="totalUnits"
+            type="number"
+            min="1"
+            step="1"
+            className={inputClass}
+            placeholder="120"
+            value={values.totalUnits}
+            onChange={set("totalUnits")}
+            disabled={disabled}
+          />
+        </FormField>
+      ) : (
+        <div className="p-3.5 rounded-xl bg-surface-container-high border border-outline-variant/50 flex items-center gap-2.5">
+          <span className="material-symbols-outlined text-primary text-[22px] shrink-0">domain</span>
+          <p className="text-body-xs text-on-surface-variant">
+            <strong className="text-on-surface">Apartment Units:</strong> Total unit count and flat numbers will be automatically calculated in Step 2 based on your Wings &amp; Floors structure.
+          </p>
+        </div>
+      )}
 
       {/* Subscription Plan Selection */}
       <div className="pt-2 border-t border-outline-variant/30">
@@ -555,10 +564,14 @@ export function validateSocietyForm(values) {
   if (!values.state?.trim()) errors.state = "State is required";
   if (!/^\d{6}$/.test(values.pincode))
     errors.pincode = "Enter a valid 6-digit pincode";
-  const units = Number(values.totalUnits);
-  if (!values.totalUnits || Number.isNaN(units) || !Number.isInteger(units) || units < 1)
-    errors.totalUnits = "Enter a valid number of units (min 1)";
-  else if (units > 100000) errors.totalUnits = "Number of units cannot exceed 100000";
+
+  // Only validate manual totalUnits if not apartment (Apartments auto-compute units from wings in Step 2)
+  if (values.societyType !== "apartment") {
+    const units = Number(values.totalUnits);
+    if (!values.totalUnits || Number.isNaN(units) || !Number.isInteger(units) || units < 1)
+      errors.totalUnits = "Enter a valid number of units (min 1)";
+    else if (units > 100000) errors.totalUnits = "Number of units cannot exceed 100000";
+  }
 
   if (!values.contactName?.trim()) errors.contactName = "Contact person name is required";
   if (!/^[+\d][\d\s-]{6,14}$/.test(values.contactMobile?.trim() || ""))
@@ -570,14 +583,13 @@ export function validateSocietyForm(values) {
 
 export function toApiPayload(values) {
   const units = Number(values.totalUnits);
-  return {
+  const payload = {
     societyName: values.societyName.trim(),
     societyType: values.societyType,
     address: values.address.trim(),
     city: values.city.trim(),
     state: values.state.trim(),
     pincode: values.pincode,
-    totalUnits: units,
     subscriptionPlan: values.subscriptionPlan || "starter",
     subscriptionBilling: values.subscriptionBilling || "monthly",
     contactName: values.contactName.trim(),
@@ -588,6 +600,12 @@ export function toApiPayload(values) {
     referralCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
     couponCode: values.referralCode?.trim() ? values.referralCode.trim() : undefined,
   };
+
+  if (values.societyType !== "apartment" && !Number.isNaN(units) && units > 0) {
+    payload.totalUnits = units;
+  }
+
+  return payload;
 }
 
 export const EMPTY_SOCIETY_FORM = {
