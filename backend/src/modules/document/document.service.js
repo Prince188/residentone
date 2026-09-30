@@ -2,23 +2,41 @@ const path = require("path");
 const fs = require("fs");
 const { Document } = require("./document.model");
 const { AppError } = require("../../shared/utils/errors");
+const { uploadBuffer } = require("../../shared/utils/cloudinary");
 
 class DocumentService {
   async create(societyId, userId, data, file) {
     if (!file) throw new AppError("File is required (pdf or image, max 10MB)", 400);
 
-    // file already saved by multer to disk
+    let fileUrl = "";
+    let publicId = null;
+
+    if (file.buffer) {
+      const isPdf = file.mimetype === "application/pdf" || (file.originalname && file.originalname.toLowerCase().endsWith(".pdf"));
+      const uploadResult = await uploadBuffer(file.buffer, {
+        folder: "residentone/documents",
+        resource_type: isPdf ? "raw" : "auto",
+      });
+      fileUrl = uploadResult.secure_url || uploadResult.url;
+      publicId = uploadResult.public_id;
+    } else if (file.path) {
+      fileUrl = `/uploads/documents/${path.basename(file.path)}`;
+    } else {
+      throw new AppError("Invalid file upload payload", 400);
+    }
+
     const doc = await Document.create({
       societyId,
       uploadedBy: userId,
       title: data.title.trim(),
       category: data.category || "other",
       description: (data.description || "").trim(),
-      fileUrl: `/uploads/documents/${path.basename(file.path)}`,
+      fileUrl,
       fileName: file.originalname,
       fileType: file.mimetype,
       fileSize: file.size,
-      filePath: file.path,
+      filePath: file.path || "",
+      publicId,
       isActive: true,
     });
     return doc;

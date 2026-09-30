@@ -4,7 +4,22 @@ const { authenticate, requirePlatformAdmin } = require("../../middlewares/auth.m
 const { validate } = require("../../middlewares/validate.middleware");
 const { updateProfileSchema, changePasswordSchema } = require("./user.validation");
 
+const multer = require("multer");
+const { AppError } = require("../../shared/utils/errors");
+
 const router = express.Router();
+
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new AppError("Only image files are allowed", 400), false);
+    }
+  },
+});
 
 router.get("/profile", authenticate, (req, res, next) => userController.getProfile(req, res, next));
 router.patch(
@@ -12,6 +27,18 @@ router.patch(
   authenticate,
   validate(updateProfileSchema),
   (req, res, next) => userController.updateProfile(req, res, next)
+);
+router.post(
+  "/avatar",
+  authenticate,
+  memoryUpload.single("image"),
+  (req, res, next) => userController.uploadAvatar(req, res, next)
+);
+router.post(
+  "/upload-avatar",
+  authenticate,
+  memoryUpload.single("image"),
+  (req, res, next) => userController.uploadAvatar(req, res, next)
 );
 router.post(
   "/change-password",

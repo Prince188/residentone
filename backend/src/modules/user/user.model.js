@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema(
       maxlength: [100, "Occupation cannot exceed 100 characters"],
       default: "",
     },
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
     familyMembers: {
       type: Number,
       min: [0, "Family members cannot be negative"],

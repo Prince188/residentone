@@ -40,10 +40,14 @@ const documentSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    // Relative path on disk for download
+    // Optional path on disk or Cloudinary public ID
     filePath: {
       type: String,
-      required: true,
+      default: "",
+    },
+    publicId: {
+      type: String,
+      default: null,
     },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,

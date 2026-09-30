@@ -25,12 +25,13 @@ class UserController {
 
   async updateProfile(req, res, next) {
     try {
-      const { name, email, phone, occupation, familyMembers, vehicles } = req.body;
+      const { name, email, phone, occupation, avatarUrl, familyMembers, vehicles } = req.body;
       const updateData = {};
       if (name !== undefined) updateData.name = name;
       if (email !== undefined) updateData.email = email;
       if (phone !== undefined) updateData.phone = phone;
       if (occupation !== undefined) updateData.occupation = occupation;
+      if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
       if (familyMembers !== undefined) updateData.familyMembers = familyMembers;
       if (vehicles !== undefined) {
         const cleanVehicles = Array.isArray(vehicles)
@@ -43,6 +44,42 @@ class UserController {
 
       const user = await userService.update(req.userId, updateData);
       res.json({ success: true, data: user });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async uploadAvatar(req, res, next) {
+    try {
+      const { uploadBuffer, uploadBase64 } = require("../../shared/utils/cloudinary");
+      const file = req.file;
+      const base64Data = req.body?.image || req.body?.base64 || req.body?.avatar;
+      const folder = "residentone/users/avatars";
+      let avatarUrl = null;
+
+      if (base64Data && typeof base64Data === "string") {
+        let formatted = base64Data.trim();
+        if (!formatted.startsWith("data:image")) {
+          formatted = `data:image/png;base64,${formatted}`;
+        }
+        const result = await uploadBase64(formatted, { folder });
+        avatarUrl = result.secure_url || result.url;
+      } else if (file && file.buffer) {
+        const result = await uploadBuffer(file.buffer, { folder });
+        avatarUrl = result.secure_url || result.url;
+      } else {
+        const { AppError } = require("../../shared/utils/errors");
+        throw new AppError("No image file or base64 provided", 400);
+      }
+
+      const user = await userService.update(req.userId, { avatarUrl });
+      return res.json({
+        success: true,
+        data: {
+          avatarUrl,
+          user,
+        },
+      });
     } catch (error) {
       next(error);
     }

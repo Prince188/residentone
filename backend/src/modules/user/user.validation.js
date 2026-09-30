@@ -5,6 +5,7 @@ const updateProfileSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().min(1).optional(),
   occupation: z.string().max(100).optional(),
+  avatarUrl: z.string().optional().nullable(),
   familyMembers: z.coerce.number().int().min(0).max(50).optional().nullable(),
   vehicles: z.array(z.string().trim()).optional(),
 });

@@ -57,6 +57,7 @@ export default function ProfilePage() {
   });
 
   const [vehiclePlateInput, setVehiclePlateInput] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -274,6 +275,46 @@ export default function ProfilePage() {
     },
   });
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("Please select an image file (PNG, JPG, JPEG, WEBP)");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Image size exceeds 5MB limit");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setErrorMsg("");
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result;
+          const res = await api.post("/users/avatar", { image: base64Data });
+          const updated = res.data?.data?.user || res.data?.data;
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
+          if (updated) useAuthStore.setState({ user: updated });
+          setSuccessMsg("Profile photo uploaded to Cloudinary successfully!");
+          setTimeout(() => setSuccessMsg(""), 3500);
+        } catch (err) {
+          setErrorMsg(err?.response?.data?.error?.message || err?.message || "Failed to upload photo to Cloudinary");
+        } finally {
+          setUploadingAvatar(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setErrorMsg("Failed to read image file");
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleOpenEdit = () => {
     setForm({
       name: user.name || "",
@@ -394,8 +435,36 @@ export default function ProfilePage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4 sm:gap-6">
               {/* Large Avatar */}
-              <div className="relative flex h-20 w-20 sm:h-24 sm:w-24 shrink-0 items-center justify-center rounded-3xl bg-white text-primary font-extrabold text-[32px] sm:text-[40px] shadow-xl ring-4 ring-white/30">
-                {user.name?.charAt(0)?.toUpperCase() || "U"}
+              <div className="relative group flex h-20 w-20 sm:h-24 sm:w-24 shrink-0 items-center justify-center rounded-3xl bg-white text-primary font-extrabold text-[32px] sm:text-[40px] shadow-xl ring-4 ring-white/30 overflow-hidden">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="h-full w-full object-cover rounded-3xl"
+                  />
+                ) : (
+                  <span>{user.name?.charAt(0)?.toUpperCase() || "U"}</span>
+                )}
+
+                {/* Upload Overlay */}
+                <label
+                  title="Upload profile photo"
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-3xl"
+                >
+                  <span className="material-symbols-outlined text-[24px]">
+                    {uploadingAvatar ? "progress_activity" : "photo_camera"}
+                  </span>
+                  <span className="text-[10px] font-bold mt-0.5">
+                    {uploadingAvatar ? "Uploading..." : "Change"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                  />
+                </label>
               </div>
 
               {/* Name & Role */}

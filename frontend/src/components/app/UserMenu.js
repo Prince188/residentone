@@ -81,9 +81,17 @@ export default function UserMenu() {
         className="relative flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-container-low cursor-pointer"
       >
         <div className="relative">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-semibold">
-            {firstName.charAt(0).toUpperCase()}
-          </span>
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user?.name || "User"}
+              className="h-8 w-8 rounded-full object-cover ring-1 ring-outline-variant"
+            />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-semibold">
+              {firstName.charAt(0).toUpperCase()}
+            </span>
+          )}
           {unreadCount > 0 && (
             <span
               title={`${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`}

@@ -29,16 +29,19 @@ class DocumentController {
   async download(req, res, next) {
     try {
       const doc = await documentService.getRawById(req.societyId, req.params.id);
-      const filePath = doc.filePath;
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "File not found on server" } });
+      if (doc.fileUrl && (doc.fileUrl.startsWith("http://") || doc.fileUrl.startsWith("https://"))) {
+        return res.redirect(doc.fileUrl);
       }
-      const filename = doc.fileName || path.basename(filePath);
-      res.setHeader("Content-Type", doc.fileType || "application/octet-stream");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename.replace(/"/g, "")}"`);
-      res.setHeader("Content-Length", doc.fileSize);
-      const stream = fs.createReadStream(filePath);
-      stream.pipe(res);
+      const filePath = doc.filePath;
+      if (filePath && fs.existsSync(filePath)) {
+        const filename = doc.fileName || path.basename(filePath);
+        res.setHeader("Content-Type", doc.fileType || "application/octet-stream");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename.replace(/"/g, "")}"`);
+        res.setHeader("Content-Length", doc.fileSize);
+        const stream = fs.createReadStream(filePath);
+        return stream.pipe(res);
+      }
+      return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "File not found on server" } });
     } catch (error) {
       next(error);
     }
