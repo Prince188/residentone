@@ -739,8 +739,15 @@ export default function ProfilePage() {
             </div>
 
             <p className="text-body-xs text-on-surface-variant">
-              Share your unique referral code with other societies. When they register and activate their plan, you receive physical gifts!
+              Share your unique referral code with other societies. When they register and make their first subscription payment, you receive physical gifts!
             </p>
+
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2 text-xs text-amber-900">
+              <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">info</span>
+              <p className="text-[11px] leading-tight text-amber-800">
+                <strong>Policy:</strong> Rewards are dispatched once the referred society completes their <strong>first subscription payment</strong>.
+              </p>
+            </div>
 
             {referralQuery.isLoading ? (
               <div className="p-4 text-center text-xs text-outline">Loading your referral code...</div>

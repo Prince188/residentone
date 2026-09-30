@@ -54,13 +54,24 @@ export default function MyReferralsModal({ isOpen, onClose }) {
             <div>
               <h3 className="text-lg font-bold text-on-surface">Refer & Earn Gifts 🎁</h3>
               <p className="text-xs text-on-surface-variant">
-                Invite societies to ResidentOne & earn gifts when they subscribe!
+                Invite societies to ResidentOne & earn gifts when they make their first subscription payment!
               </p>
             </div>
           </div>
           <button onClick={onClose} className="text-outline hover:text-on-surface">
             <span className="material-symbols-outlined">close</span>
           </button>
+        </div>
+
+        {/* Important Info Callout */}
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-950">
+          <span className="material-symbols-outlined text-amber-600 text-lg shrink-0 mt-0.5">info</span>
+          <div>
+            <p className="font-bold text-amber-900">Reward Policy</p>
+            <p className="text-[11.5px] text-amber-800 leading-snug mt-0.5">
+              Physical reward gifts are unlocked and dispatched <strong>only after</strong> your referred society completes their <strong>first subscription payment</strong>.
+            </p>
+          </div>
         </div>
 
         {loading ? (
