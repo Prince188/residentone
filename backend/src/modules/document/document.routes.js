@@ -9,6 +9,16 @@ const { requirePermission } = require("../../middlewares/permission.middleware")
 
 const router = express.Router();
 
+const fileFilter = (req, file, cb) => {
+  const allowed = /\.(pdf|png|jpg|jpeg|webp)$/i;
+  const isAllowedExt = file.originalname && file.originalname.match(allowed);
+  const isAllowedMime = file.mimetype && (file.mimetype.startsWith("image/") || file.mimetype === "application/pdf" || file.mimetype === "application/octet-stream");
+  if (!isAllowedExt && !isAllowedMime) {
+    return cb(new Error("Only PDF and images (PNG, JPG, JPEG, WEBP) are allowed"), false);
+  }
+  cb(null, true);
+};
+
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter,

@@ -11,15 +11,15 @@ router.use(authenticate, resolveSocietyContext, requireSociety);
 router.get("/my", (req, res, next) => transferFeeController.listMy(req, res, next));
 
 // Export Excel report
-router.get("/export", (req, res, next) => transferFeeController.exportExcel(req, res, next));
+router.get("/export", requirePermission("collect_transfer_fees"), (req, res, next) => transferFeeController.exportExcel(req, res, next));
 
 // Receipt
 router.get("/:id/receipt", (req, res, next) => transferFeeController.getReceipt(req, res, next));
 
 // Admin list — list all transfer fee records in society
-router.get("/", (req, res, next) => transferFeeController.list(req, res, next));
+router.get("/", requirePermission("collect_transfer_fees"), (req, res, next) => transferFeeController.list(req, res, next));
 
 // Create transfer fee record
-router.post("/", (req, res, next) => transferFeeController.create(req, res, next));
+router.post("/", requirePermission("collect_transfer_fees"), (req, res, next) => transferFeeController.create(req, res, next));
 
 module.exports = router;

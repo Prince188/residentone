@@ -67,6 +67,7 @@ const paySubscriptionSchema = z.object({
   isDemoSimulation: z.boolean().optional().default(false),
   paymentMethod: z.string().optional().default("demo_upi"),
   transactionId: z.string().optional(),
+  couponCode: z.string().optional(),
 });
 
 const updateSocietySchema = z.object({

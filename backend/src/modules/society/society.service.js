@@ -1077,7 +1077,7 @@ class SocietyService {
     const hasActiveSubscription = existingExpiry && existingExpiry > nowPay;
     const msLeft = hasActiveSubscription ? (existingExpiry.getTime() - nowPay.getTime()) : 0;
     const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
-    const isMidCycle = hasActiveSubscription && daysLeft > 7;
+    const isMidCycle = hasActiveSubscription && daysLeft > 15;
 
     let plan = requestedPlan;
     let billingCycle = requestedBillingCycle;
@@ -1088,36 +1088,28 @@ class SocietyService {
     let paymentType = "initial"; // "initial" | "renewal" | "upgrade"
     let notes = data.isDemoSimulation ? "Demo simulation payment" : "Online card/UPI payment";
 
-    if (isMidCycle) {
-      // MID-CYCLE FLOW
-      if (requestedRate > currentRate) {
-        // Legitimate Mid-Cycle Upgrade (e.g. Basic -> Standard/Premium)
-        paymentType = "upgrade";
-        plan = requestedPlan;
-        billingCycle = society.subscriptionBilling || "monthly"; // Keep cycle during remaining duration
+    if (data.isUpgrade && isMidCycle && requestedRate > currentRate) {
+      // Legitimate Mid-Cycle Upgrade (e.g. Basic -> Standard/Premium proration)
+      paymentType = "upgrade";
+      plan = requestedPlan;
+      billingCycle = society.subscriptionBilling || "monthly"; // Keep cycle during remaining duration
 
-        // Proration math based on remaining days
-        const currentDailyRate = (units * currentRate) / 30; // Daily burn of old plan
-        const newDailyRate = (units * requestedRate) / 30;     // Daily burn of new plan
+      // Proration math based on remaining days
+      const currentDailyRate = (units * currentRate) / 30; // Daily burn of old plan
+      const newDailyRate = (units * requestedRate) / 30;     // Daily burn of new plan
 
-        const unusedCredit = Math.round(currentDailyRate * daysLeft);
-        const newPeriodCost = Math.round(newDailyRate * daysLeft);
-        const upgradeDifference = Math.max(1, newPeriodCost - unusedCredit);
+      const unusedCredit = Math.round(currentDailyRate * daysLeft);
+      const newPeriodCost = Math.round(newDailyRate * daysLeft);
+      const upgradeDifference = Math.max(1, newPeriodCost - unusedCredit);
 
-        amount = upgradeDifference;
-        baseDate = nowPay;
-        expiresAt = existingExpiry; // Expiry date remains unchanged
+      amount = upgradeDifference;
+      baseDate = nowPay;
+      expiresAt = existingExpiry; // Expiry date remains unchanged
 
-        notes = `Mid-cycle plan upgrade from ${currentPlan} to ${requestedPlan} for remaining ${daysLeft} days. Credit: ₹${unusedCredit}, New Cost: ₹${newPeriodCost}`;
-      } else if (requestedRate < currentRate) {
-        // Mid-cycle downgrade attempt is not allowed mid-cycle
-        throw new AppError("Downgrading plan is only available at the time of renewal (within 7 days of expiry).", 400);
-      } else {
-        // Same plan attempt mid-cycle (extension not needed)
-        throw new AppError("Your subscription is already active and healthy. Advance plan extensions are not required.", 400);
-      }
+      notes = `Mid-cycle plan upgrade from ${currentPlan} to ${requestedPlan} for remaining ${daysLeft} days. Credit: ₹${unusedCredit}, New Cost: ₹${newPeriodCost}`;
     } else {
-      // INITIAL OR RENEWAL FLOW (New subscription, expired, or <= 7 days left)
+      // INITIAL, RENEWAL, OR ADVANCE PLAN EXTENSION FLOW
+      // If currently active, advance payment extends time after the current expiration date
       paymentType = hasActiveSubscription ? "renewal" : "initial";
       plan = requestedPlan;
       billingCycle = requestedBillingCycle;
@@ -1137,14 +1129,31 @@ class SocietyService {
       } else {
         expiresAt.setMonth(expiresAt.getMonth() + 1);
       }
+    }
 
-      // Apply Referral / Coupon Promo Discount on initial payment
-      if (paymentType === "initial" && society.discountAppliedAmount > 0) {
+    // Coupon / Referral promo discount processing
+    let appliedCouponInfo = null;
+    let couponDiscountAmount = 0;
+
+    if (data.couponCode) {
+      const couponService = require("../coupon/coupon.service");
+      const couponRes = await couponService.validateCoupon(
+        data.couponCode,
+        amount,
+        society._id
+      );
+      if (couponRes && couponRes.valid) {
+        appliedCouponInfo = couponRes.coupon;
+        couponDiscountAmount = couponRes.discountAmount || 0;
         const originalAmount = amount;
-        amount = Math.max(0, amount - society.discountAppliedAmount);
-        const codeText = society.appliedReferralCode || society.appliedCouponCode || "PROMO";
-        notes += ` [Discount applied via ${codeText}: -₹${society.discountAppliedAmount}. Original: ₹${originalAmount}]`;
+        amount = couponRes.finalAmount;
+        notes += ` [Coupon ${appliedCouponInfo.code} applied: -₹${couponDiscountAmount}. Original: ₹${originalAmount}]`;
       }
+    } else if (paymentType === "initial" && society.discountAppliedAmount > 0) {
+      const originalAmount = amount;
+      amount = Math.max(0, amount - society.discountAppliedAmount);
+      const codeText = society.appliedReferralCode || society.appliedCouponCode || "PROMO";
+      notes += ` [Discount applied via ${codeText}: -₹${society.discountAppliedAmount}. Original: ₹${originalAmount}]`;
     }
 
     const payment = await SubscriptionPayment.create({
@@ -1170,19 +1179,27 @@ class SocietyService {
     society.subscriptionExpiresAt = expiresAt;
     await society.save();
 
-    // Trigger Referral Status Transition & Gift Eligibility (REGISTERED -> PAID & PENDING_GIFT)
+    // Trigger Referral / Coupon Status & Usage logging
     try {
-      if (society.appliedReferralCode) {
-        const { Referral } = require("../referral/referral.model");
-        const referral = await Referral.findOne({ referredSociety: society._id });
-        if (referral && referral.status === "REGISTERED") {
-          referral.status = "PAID";
-          referral.paidAt = nowPay;
-          referral.giftStatus = "PENDING_GIFT";
-          await referral.save();
+      if (appliedCouponInfo) {
+        const { Coupon } = require("../coupon/coupon.model");
+        const { CouponRedemption } = require("../coupon/coupon-redemption.model");
+        const coupon = await Coupon.findById(appliedCouponInfo._id);
+        if (coupon) {
+          coupon.usedCount = (coupon.usedCount || 0) + 1;
+          await coupon.save();
+
+          await CouponRedemption.create({
+            couponId: coupon._id,
+            societyId: society._id,
+            userId,
+            originalAmount: amount + couponDiscountAmount,
+            discountAmount: couponDiscountAmount,
+            finalAmount: amount,
+            redeemedAt: nowPay,
+          });
         }
-      }
-      if (society.appliedCouponCode) {
+      } else if (paymentType === "initial" && society.appliedCouponCode) {
         const { Coupon } = require("../coupon/coupon.model");
         const { CouponRedemption } = require("../coupon/coupon-redemption.model");
         const coupon = await Coupon.findOne({ code: society.appliedCouponCode });
@@ -1199,6 +1216,17 @@ class SocietyService {
             finalAmount: amount,
             redeemedAt: nowPay,
           });
+        }
+      }
+
+      if (paymentType === "initial" && society.appliedReferralCode) {
+        const { Referral } = require("../referral/referral.model");
+        const referral = await Referral.findOne({ referredSociety: society._id });
+        if (referral && referral.status === "REGISTERED") {
+          referral.status = "PAID";
+          referral.paidAt = nowPay;
+          referral.giftStatus = "PENDING_GIFT";
+          await referral.save();
         }
       }
     } catch (e) {

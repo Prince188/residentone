@@ -86,7 +86,7 @@ export function getSubscriptionRenewalMeta(society) {
   const now = new Date();
   const diffMs = renewalDate.getTime() - now.getTime();
   const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  const isExpiringSoon = daysRemaining <= 7 && daysRemaining >= 0;
+  const isExpiringSoon = daysRemaining <= 15 && daysRemaining >= 0;
   const isExpired = daysRemaining < 0;
 
   return {
@@ -126,6 +126,12 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   const [unitSaveLoading, setUnitSaveLoading] = useState(false);
   const [unitSaveError, setUnitSaveError] = useState("");
 
+  // Coupon state for renewals & payments (only coupon code is allowed on renewal)
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
+
   useEffect(() => {
     if (activeSociety?.subscriptionPlan) {
       setSelectedPlan(activeSociety.subscriptionPlan);
@@ -137,6 +143,14 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
       setTempUnits(activeSociety.totalUnits);
     }
   }, [activeSociety?.id, activeSociety?.subscriptionPlan, activeSociety?.subscriptionBilling, activeSociety?.totalUnits]);
+
+  // Reset applied coupon when user changes plan or billing cycle to ensure calculation accuracy
+  useEffect(() => {
+    if (appliedCoupon) {
+      setAppliedCoupon(null);
+      setCouponError("");
+    }
+  }, [selectedPlan, selectedCycle]);
 
   if (!isAdmin || !activeSociety) {
     return null;
@@ -157,7 +171,7 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   const paidPlanName = SUBSCRIPTION_PLAN_LABELS[activeSociety.subscriptionPlan] || "Basic";
 
   const isWarning = renewalMeta.isExpiringSoon || renewalMeta.isExpired;
-  const isMidCycleActive = isPaid && !isWarning && renewalMeta.daysRemaining > 7;
+  const isMidCycleActive = isPaid && !isWarning && renewalMeta.daysRemaining > 15;
 
   // Proration Calculation for Mid-Cycle Upgrades
   const currentRate = registeredPlanMeta.rate || 6;
@@ -179,10 +193,42 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   const multiplier = selectedCycle === "yearly" ? 12 : 1;
   const fullCycleAmount = units * rate * multiplier;
 
-  // Amount due depends on whether it's a mid-cycle prorated upgrade or full renewal/activation, minus any applied promo discount
+  // Amount due calculation including coupons or registration promo discounts
   const baseAmount = (isMidCycleActive && isUpgrade) ? proratedPayable : fullCycleAmount;
-  const appliedDiscount = (!activeSociety?.isSubscriptionPaid && activeSociety?.discountAppliedAmount) ? Number(activeSociety.discountAppliedAmount) : 0;
-  const totalAmount = Math.max(0, baseAmount - appliedDiscount);
+  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount || 0 : 0;
+  const registrationDiscount = (!activeSociety?.isSubscriptionPaid && activeSociety?.discountAppliedAmount) ? Number(activeSociety.discountAppliedAmount) : 0;
+  const effectiveDiscount = couponDiscount > 0 ? couponDiscount : registrationDiscount;
+  const totalAmount = Math.max(0, baseAmount - effectiveDiscount);
+
+  const handleApplyCoupon = async () => {
+    const cleanCode = couponInput.trim().toUpperCase();
+    if (!cleanCode) return;
+    setCouponLoading(true);
+    setCouponError("");
+    try {
+      const res = await api.post("/coupons/validate", {
+        code: cleanCode,
+        orderAmount: baseAmount,
+        societyId: activeSociety.id,
+      });
+      if (res.data?.success && res.data?.data) {
+        setAppliedCoupon(res.data.data);
+        setCouponError("");
+      } else {
+        setCouponError(res.data?.message || "Invalid coupon code");
+      }
+    } catch (err) {
+      setCouponError(extractApiError(err, "Invalid or expired coupon code"));
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+  };
 
   const handlePay = async (isDemo = false, paymentMethod = "demo_upi") => {
     setLoading(true);
@@ -194,6 +240,7 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
         billingCycle: isMidCycleActive ? activeSociety.subscriptionBilling : selectedCycle,
         isDemoSimulation: isDemo,
         paymentMethod,
+        couponCode: appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code || couponInput.trim().toUpperCase()) : undefined,
       });
 
       const updatedSociety = res.data?.data?.society;
@@ -407,6 +454,74 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
         </div>
       </div>
 
+      {/* Coupon Code Section (Only Coupon Code allowed on renewal, no referral code) */}
+      <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[22px]">local_offer</span>
+          </div>
+          <div>
+            <p className="text-label-md font-bold text-on-surface">Have a Coupon Code?</p>
+            <p className="text-[12px] text-on-surface-variant">
+              Apply a promo coupon code to receive an instant discount on your renewal.
+            </p>
+          </div>
+        </div>
+
+        {appliedCoupon ? (
+          <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-300 px-3.5 py-2 rounded-xl">
+            <span className="material-symbols-outlined text-[18px] text-emerald-700 font-bold">check_circle</span>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-label-sm font-black text-emerald-950 tracking-wider">
+                  {appliedCoupon.coupon?.code || appliedCoupon.code}
+                </span>
+                <span className="text-[10px] font-bold bg-emerald-200 text-emerald-800 px-1.5 py-0.2 rounded uppercase">
+                  Applied
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-emerald-700">
+                You save ₹{appliedCoupon.discountAmount}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveCoupon}
+              className="ml-2 inline-flex items-center gap-0.5 text-red-600 hover:text-red-800 text-[11px] font-bold underline cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[14px]">cancel</span>
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:items-end gap-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={couponInput}
+                onChange={(e) => {
+                  setCouponInput(e.target.value.toUpperCase());
+                  if (couponError) setCouponError("");
+                }}
+                placeholder="ENTER COUPON"
+                className="w-40 rounded-xl border border-outline-variant bg-white px-3 py-2 text-label-sm font-bold uppercase tracking-wider text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+              />
+              <button
+                type="button"
+                onClick={handleApplyCoupon}
+                disabled={!couponInput.trim() || couponLoading}
+                className="rounded-xl bg-primary px-4 py-2 text-label-sm font-bold text-on-primary hover:bg-inverse-surface transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
+              >
+                {couponLoading ? "Applying..." : "Apply"}
+              </button>
+            </div>
+            {couponError && (
+              <p className="text-[11px] font-semibold text-error text-left sm:text-right">{couponError}</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Summary Box & Checkout Actions */}
       <div className="rounded-2xl bg-surface-container border border-outline-variant/60 p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -445,10 +560,10 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             <div>
               <p className="text-body-xs text-on-surface-variant flex flex-wrap items-center gap-2">
                 <span>{units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}</span>
-                {appliedDiscount > 0 && (
+                {effectiveDiscount > 0 && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
                     <span className="material-symbols-outlined text-[13px]">local_offer</span>
-                    {activeSociety?.appliedCouponCode || activeSociety?.appliedReferralCode || "Coupon"} (-₹{appliedDiscount})
+                    {appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code) : (activeSociety?.appliedCouponCode || activeSociety?.appliedReferralCode || "Coupon")} (-₹{effectiveDiscount})
                   </span>
                 )}
                 {!isPaid && !editingUnits && (
@@ -527,9 +642,9 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             <span className="text-[11px] font-bold uppercase text-outline block">
               {isMidCycleActive && isUpgrade ? "Net Payable Today" : "Total Due Now"}
             </span>
-            {appliedDiscount > 0 && (
+            {effectiveDiscount > 0 && (
               <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
-                🎁 Promo Discount: -₹{appliedDiscount}
+                🎁 Coupon Discount: -₹{effectiveDiscount}
               </span>
             )}
             <span className="text-[28px] font-black text-primary leading-none">
@@ -796,6 +911,13 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
                   <span className="font-semibold capitalize text-on-surface">{selectedCycle}</span>
                 </div>
               </>
+            )}
+
+            {effectiveDiscount > 0 && (
+              <div className="flex justify-between text-body-sm text-emerald-700 font-medium">
+                <span>Coupon / Promo Discount ({appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code) : (activeSociety?.appliedCouponCode || activeSociety?.appliedReferralCode || "Coupon")})</span>
+                <span>-₹{effectiveDiscount.toLocaleString("en-IN")}</span>
+              </div>
             )}
 
             <div className="border-t border-outline-variant/40 pt-2 flex justify-between font-bold text-title-sm text-primary">
