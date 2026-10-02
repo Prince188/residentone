@@ -318,7 +318,7 @@ export default function CollectionDetailPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const isAdmin = hasPermission(membership?.role, "manage_collections", permissionsQuery.data) || hasPermission(membership?.role, "manage_maintenance", permissionsQuery.data);
+  const isAdmin = hasPermission(membership?.role, "manage_collections", permissionsQuery.data);
   const canExport = hasPermission(membership?.role, "manage_collections", permissionsQuery.data);
 
   const collectionQuery = useQuery({

@@ -52,7 +52,7 @@ export default function CollectionsPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canCreate = hasPermission(membership?.role, "manage_collections", permissionsQuery.data) || hasPermission(membership?.role, "manage_maintenance", permissionsQuery.data);
+  const canCreate = hasPermission(membership?.role, "manage_collections", permissionsQuery.data);
 
   const collectionsQuery = useQuery({
     queryKey: ["collections", activeSociety?.id],

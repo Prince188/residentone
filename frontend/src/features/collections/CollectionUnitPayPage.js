@@ -46,8 +46,7 @@ export default function CollectionUnitPayPage() {
     enabled: Boolean(activeSociety),
   });
   const isAdmin =
-    hasPermission(membership?.role, "manage_collections", permQuery.data) ||
-    hasPermission(membership?.role, "manage_maintenance", permQuery.data);
+    hasPermission(membership?.role, "manage_collections", permQuery.data);
 
   const detailQuery = useQuery({
     queryKey: ["collection-unit-detail", id, unitId],

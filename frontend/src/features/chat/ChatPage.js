@@ -51,7 +51,7 @@ export default function ChatPage() {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canManageChat = hasPermission(membership?.role, "manage_amenities", permissionsQuery.data);
+  const canManageChat = ["society_admin", "super_admin"].includes(membership?.role) || hasPermission(membership?.role, "manage_committee", permissionsQuery.data);
   const isAdmin = canManageChat;
   const queryClient = useQueryClient();
 
@@ -560,7 +560,7 @@ function GroupInfoModal({ groupId, onClose, onLeft }) {
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
   });
-  const canManageChat = hasPermission(membership?.role, "manage_amenities", permissionsQuery.data);
+  const canManageChat = ["society_admin", "super_admin"].includes(membership?.role) || hasPermission(membership?.role, "manage_committee", permissionsQuery.data);
   const isAdmin = canManageChat;
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
