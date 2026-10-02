@@ -21,89 +21,25 @@ const PERMISSIONS = [
 const DEFAULT_ROLE_PERMISSIONS = {
   society_admin: PERMISSIONS.map((p) => p.key),
   super_admin: PERMISSIONS.map((p) => p.key),
-  wing_admin: [
-    "manage_houses",
-    "manage_maintenance",
-    "manage_complaints",
-    "create_notice",
-    "create_poll",
-    "create_survey",
-    "manage_visitors",
-    "view_financials",
-    "manage_staff",
-  ],
-  manager: [
-    "manage_houses",
-    "manage_maintenance",
-    "manage_collections",
-    "collect_transfer_fees",
-    "manage_expenses",
-    "manage_wallet",
-    "create_notice",
-    "manage_amenities",
-    "create_poll",
-    "create_survey",
-    "manage_complaints",
-    "manage_visitors",
-    "view_financials",
-    "manage_committee",
-    "collect_donations",
-    "manage_documents",
-    "manage_staff",
-  ],
-  treasurer: [
-    "manage_maintenance",
-    "manage_collections",
-    "collect_transfer_fees",
-    "manage_expenses",
-    "manage_wallet",
-    "collect_donations",
-    "manage_documents",
-    "view_financials",
-  ],
-  accountant: [
-    "manage_maintenance",
-    "manage_collections",
-    "collect_transfer_fees",
-    "manage_expenses",
-    "manage_wallet",
-    "collect_donations",
-    "manage_documents",
-    "view_financials",
-  ],
-  helpdesk_manager: [
-    "manage_complaints",
-    "manage_visitors",
-  ],
-  auditor: [
-    "view_financials",
-    "manage_expenses",
-    "manage_wallet",
-  ],
-  committee_member: [
-    "create_notice",
-    "create_poll",
-    "create_survey",
-  ],
+  wing_admin: [],
+  manager: [],
+  treasurer: [],
+  accountant: [],
+  helpdesk_manager: [],
+  auditor: [],
+  committee_member: [],
   owner: [],
   tenant: [],
   resident: [],
   staff: [],
-  security_guard: [
-    "manage_visitors",
-  ],
+  security_guard: [],
 };
 
 function getPermissionsForRole(role, customPermissions) {
-  const defaults = DEFAULT_ROLE_PERMISSIONS[role] || [];
   if (customPermissions && customPermissions[role]) {
-    // If role is wing_admin, ensure new base capabilities like manage_maintenance are always preserved even if society had old saved permissions
-    if (role === "wing_admin" && defaults.includes("manage_maintenance") && !customPermissions[role].includes("manage_maintenance")) {
-      return [...customPermissions[role], "manage_maintenance"];
-    }
     return customPermissions[role];
   }
-  return defaults;
+  return DEFAULT_ROLE_PERMISSIONS[role] || [];
 }
 
 function hasPermission(role, permission, customPermissions) {
