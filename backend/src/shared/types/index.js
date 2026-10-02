@@ -23,7 +23,19 @@ const SOCIETY_STATUSES = ["pending", "active", "rejected", "suspended", "archive
 
 const SOCIETY_TYPES = ["apartment", "row_house", "mixed"];
 
-const PROPERTY_TYPES = ["flat", "row_house"];
+const PROPERTY_TYPES = [
+  "flat",
+  "row_house",
+  "villa",
+  "penthouse",
+  "studio",
+  "shop",
+  "office",
+  "plot",
+  "bungalow",
+  "duplex",
+  "other",
+];
 
 const SUBSCRIPTION_PLANS = ["starter", "professional", "enterprise"];
 
