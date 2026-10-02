@@ -99,8 +99,25 @@ export default function HouseCard({
   // Vehicles list
   const vehicles = (house?.tenant || house?.owner)?.vehicles || house?.vehicles || [];
 
-  // Card container classes
-  const cardClasses = `group flex flex-col justify-between rounded-2xl border border-outline-variant/70 bg-surface-container-lowest p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer no-underline min-h-[140px] ${activeStatusConfig.border} ${className}`;
+  const propType = (house?.propertyType || "").toLowerCase();
+  const isPlot = propType === "plot";
+  const isVilla = propType === "villa";
+  const isPenthouse = propType === "penthouse";
+  const isShop = propType === "shop" || propType === "office";
+  const isBungalow = propType === "bungalow" || propType === "duplex";
+
+  const prefix = isPlot ? "Plot" : isVilla ? "Villa" : isPenthouse ? "Penthouse" : isShop ? "Shop" : isBungalow ? "Bungalow" : "House";
+
+  // Card container classes with special Open Plot highlighting
+  const plotExtraClasses = isPlot
+    ? "border-dashed !border-emerald-500/80 !bg-emerald-50/30 hover:!border-emerald-600"
+    : isVilla
+    ? "!border-purple-200 !bg-purple-50/20"
+    : isPenthouse
+    ? "!border-amber-200 !bg-amber-50/20"
+    : "";
+
+  const cardClasses = `group flex flex-col justify-between rounded-2xl border border-outline-variant/70 bg-surface-container-lowest p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer no-underline min-h-[140px] ${activeStatusConfig.border} ${plotExtraClasses} ${className}`;
 
   const cardContent = (
     <>
@@ -108,12 +125,30 @@ export default function HouseCard({
         {/* Top Header Row: House Title/Floor & Status Badge */}
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h4 className="text-title-md font-extrabold text-on-surface leading-tight truncate group-hover:text-primary transition-colors">
-              House {house?.label || house?.unitNumber || "—"}
-            </h4>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h4 className="text-title-md font-extrabold text-on-surface leading-tight truncate group-hover:text-primary transition-colors">
+                {prefix} {house?.label || house?.unitNumber || "—"}
+              </h4>
+              {isPlot ? (
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-black tracking-wider text-emerald-800 border border-emerald-300 uppercase">
+                  <span className="material-symbols-outlined text-[11px]">landscape</span>
+                  Open Plot
+                </span>
+              ) : isVilla ? (
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-purple-100 px-1.5 py-0.5 text-[9.5px] font-black tracking-wider text-purple-800 border border-purple-200 uppercase">
+                  <span className="material-symbols-outlined text-[11px]">villa</span>
+                  Villa
+                </span>
+              ) : isPenthouse ? (
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9.5px] font-black tracking-wider text-amber-800 border border-amber-200 uppercase">
+                  <span className="material-symbols-outlined text-[11px]">domain</span>
+                  Penthouse
+                </span>
+              ) : null}
+            </div>
             <span className="truncate text-[11px] font-semibold text-outline">
-              {house?.block ? `Wing ${house.block}` : "General"}
-              {house?.floor != null ? ` · Floor ${house.floor}` : ""}
+              {isPlot ? "Land Plot" : house?.block ? `Wing ${house.block}` : "General"}
+              {!isPlot && house?.floor != null ? ` · Floor ${house.floor}` : ""}
             </span>
           </div>
 
