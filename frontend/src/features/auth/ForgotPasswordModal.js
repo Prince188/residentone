@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { auth } from "../../lib/firebase";
 import api from "../../lib/api";
 
 export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSuccess }) {
@@ -11,6 +13,8 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resetToken, setResetToken] = useState("");
+  const [firebaseToken, setFirebaseToken] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -23,7 +27,37 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     return () => clearInterval(timer);
   }, [countdown]);
 
+  // Clean up recaptcha widget when modal unmounts or closes
+  useEffect(() => {
+    return () => {
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {}
+        window.recaptchaVerifier = null;
+      }
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const initRecaptchaVerifier = () => {
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (e) {}
+      window.recaptchaVerifier = null;
+    }
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+      size: "invisible",
+      callback: () => {
+        // reCAPTCHA solved
+      },
+      "expired-callback": () => {
+        setError("reCAPTCHA expired. Please try requesting OTP again.");
+      },
+    });
+  };
 
   const handleSendOtp = async (e) => {
     if (e) e.preventDefault();
@@ -35,16 +69,53 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     setError("");
     setLoading(true);
     try {
+      // 1. Verify user exists in backend first
       const res = await api.post("/auth/forgot-password/send-otp", { identifier: cleanId });
       setMaskedTarget(res.data?.data?.masked || cleanId);
+
+      const isEmail = cleanId.includes("@");
+      if (!isEmail) {
+        // Initialize Firebase invisible reCAPTCHA
+        initRecaptchaVerifier();
+        const appVerifier = window.recaptchaVerifier;
+
+        // Format to standard E.164 format (+91 for 10-digit Indian numbers)
+        const digitsOnly = cleanId.replace(/[^0-9]/g, "");
+        const formattedPhone = cleanId.startsWith("+")
+          ? cleanId
+          : digitsOnly.length === 10
+          ? `+91${digitsOnly}`
+          : `+${digitsOnly}`;
+
+        const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+        setConfirmationResult(confirmation);
+      }
+
       setStep(2);
       setCountdown(45);
     } catch (err) {
-      setError(
+      console.error("Send OTP Error:", err);
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {}
+        window.recaptchaVerifier = null;
+      }
+      let errorMsg =
         err.response?.data?.error?.message ||
         err.response?.data?.message ||
-        "No account found with this phone number or email."
-      );
+        err.message ||
+        "Failed to send verification code. Please check the mobile number and try again.";
+      
+      if (errorMsg.includes("auth/invalid-phone-number")) {
+        errorMsg = "Invalid mobile number format. Please enter a valid 10-digit mobile number.";
+      } else if (errorMsg.includes("auth/too-many-requests")) {
+        errorMsg = "Too many OTP requests. Please wait a few minutes before trying again.";
+      } else if (errorMsg.includes("auth/quota-exceeded")) {
+        errorMsg = "Daily SMS quota reached. Please contact support or try again tomorrow.";
+      }
+
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -60,18 +131,34 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     setError("");
     setLoading(true);
     try {
-      const res = await api.post("/auth/forgot-password/verify-otp", {
-        identifier: identifier.trim(),
-        otp: cleanOtp,
-      });
-      setResetToken(res.data?.data?.resetToken || "");
-      setStep(3);
+      if (confirmationResult) {
+        // Verify code directly via Firebase
+        const userCredential = await confirmationResult.confirm(cleanOtp);
+        const idToken = await userCredential.user.getIdToken();
+        setFirebaseToken(idToken);
+        setStep(3);
+      } else {
+        // Backend verification fallback
+        const res = await api.post("/auth/forgot-password/verify-otp", {
+          identifier: identifier.trim(),
+          otp: cleanOtp,
+        });
+        setResetToken(res.data?.data?.resetToken || "");
+        setStep(3);
+      }
     } catch (err) {
-      setError(
+      console.error("Verify OTP Error:", err);
+      let errorMsg =
         err.response?.data?.error?.message ||
         err.response?.data?.message ||
-        "Invalid OTP code. Please check and try again."
-      );
+        err.message ||
+        "Invalid OTP code. Please check and try again.";
+      if (errorMsg.includes("auth/invalid-verification-code")) {
+        errorMsg = "Invalid 6-digit OTP. Please enter the code received on your phone.";
+      } else if (errorMsg.includes("auth/code-expired")) {
+        errorMsg = "OTP code has expired. Please click Resend OTP.";
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -92,6 +179,8 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     try {
       await api.post("/auth/forgot-password/reset", {
         resetToken,
+        firebaseToken,
+        identifier: identifier.trim(),
         newPassword,
       });
       setStep(4);
@@ -113,12 +202,20 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
   };
 
   const handleClose = () => {
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (e) {}
+      window.recaptchaVerifier = null;
+    }
     setStep(1);
     setIdentifier("");
     setOtp("");
     setNewPassword("");
     setConfirmPassword("");
     setResetToken("");
+    setFirebaseToken("");
+    setConfirmationResult(null);
     setError("");
     setCountdown(0);
     onClose();
@@ -126,6 +223,9 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+      {/* Invisible reCAPTCHA container for Firebase */}
+      <div id="recaptcha-container" />
+
       <div
         className="w-full max-w-[480px] bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -154,8 +254,8 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
                 {step === 4 && "Password Reset Complete"}
               </h3>
               <p className="text-xs text-white/80 mt-0.5">
-                {step === 1 && "Recover access via your registered mobile or email"}
-                {step === 2 && `Code sent to ${maskedTarget}`}
+                {step === 1 && "Recover access via your registered mobile number"}
+                {step === 2 && `SMS code sent to ${maskedTarget}`}
                 {step === 3 && "Create a new secure password for your account"}
                 {step === 4 && "Your password has been successfully updated"}
               </p>
@@ -201,20 +301,20 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
             </div>
           )}
 
-          {/* STEP 1: Enter Mobile / Email */}
+          {/* STEP 1: Enter Mobile */}
           {step === 1 && (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                  Registered Mobile Number or Email
+                  Registered Mobile Number
                 </label>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors text-[20px] pointer-events-none">
                     phone_android
                   </span>
                   <input
-                    type="text"
-                    placeholder="e.g. 9876543210 or name@gmail.com"
+                    type="tel"
+                    placeholder="e.g. 9876543210"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
@@ -223,7 +323,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  We will send a 6-digit OTP to verify your identity.
+                  We will send a 6-digit SMS verification code to your phone.
                 </p>
               </div>
 
@@ -243,11 +343,11 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
                   {loading ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Sending OTP...
+                      Sending SMS...
                     </>
                   ) : (
                     <>
-                      Send OTP Code
+                      Send SMS OTP
                       <span className="material-symbols-outlined text-[18px]">
                         arrow_forward
                       </span>
@@ -264,7 +364,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Enter 6-Digit OTP
+                    Enter 6-Digit SMS OTP
                   </label>
                   <button
                     type="button"
@@ -292,7 +392,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
                 </div>
 
                 <div className="flex items-center justify-between mt-3 text-xs">
-                  <span className="text-slate-500">Didn&apos;t receive the code?</span>
+                  <span className="text-slate-500">Didn&apos;t receive SMS?</span>
                   {countdown > 0 ? (
                     <span className="text-slate-400 font-medium font-mono">
                       Resend in {countdown}s
@@ -304,7 +404,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
                       disabled={loading}
                       className="text-emerald-700 font-bold hover:underline"
                     >
-                      Resend OTP
+                      Resend SMS OTP
                     </button>
                   )}
                 </div>

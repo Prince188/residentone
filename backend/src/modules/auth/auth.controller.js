@@ -52,8 +52,13 @@ class AuthController {
 
   async resetPassword(req, res, next) {
     try {
-      const { resetToken, newPassword } = req.body;
-      const result = await authService.resetPasswordWithToken(resetToken, newPassword);
+      const { resetToken, firebaseToken, identifier, newPassword } = req.body;
+      const result = await authService.resetPasswordWithToken({
+        resetToken,
+        firebaseToken,
+        identifier,
+        newPassword,
+      });
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

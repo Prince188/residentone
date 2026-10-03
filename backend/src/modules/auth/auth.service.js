@@ -222,26 +222,57 @@ class AuthService {
   }
 
   /**
-   * 3. Reset password using the verified resetToken
+   * 3. Reset password using the verified resetToken or Firebase verification token
    */
-  async resetPasswordWithToken(resetToken, newPassword) {
-    if (!resetToken) throw new AppError("Reset token is required", 400);
+  async resetPasswordWithToken({ resetToken, firebaseToken, identifier, newPassword }) {
     if (!newPassword || newPassword.length < 6) {
       throw new AppError("Password must be at least 6 characters long", 400);
     }
 
-    let decoded;
-    try {
-      decoded = jwt.verify(resetToken, config.jwt.accessSecret);
-    } catch (err) {
-      throw new AppError("Reset session has expired or is invalid. Please restart the OTP process.", 401);
+    let targetUserId = null;
+    let targetIdentifier = null;
+
+    if (firebaseToken) {
+      // Decode Firebase ID token to verify phone number
+      const decodedFirebase = jwt.decode(firebaseToken);
+      if (
+        !decodedFirebase ||
+        decodedFirebase.aud !== "residentone-7d9d3" ||
+        (decodedFirebase.exp && decodedFirebase.exp < Date.now() / 1000)
+      ) {
+        throw new AppError("Firebase verification session is invalid or has expired.", 401);
+      }
+
+      const phoneInToken = (decodedFirebase.phone_number || "").replace(/[^0-9]/g, "");
+      const inputPhone = String(identifier || "").replace(/[^0-9]/g, "");
+
+      if (!phoneInToken || !inputPhone.endsWith(phoneInToken.slice(-10))) {
+        throw new AppError("Verified phone number does not match requested account.", 400);
+      }
+
+      const user = await userService.findByPhone(inputPhone.slice(-10));
+      if (!user) throw new AppError("User account not found for this phone number.", 404);
+      targetUserId = user._id;
+      targetIdentifier = inputPhone.slice(-10);
+    } else if (resetToken) {
+      let decoded;
+      try {
+        decoded = jwt.verify(resetToken, config.jwt.accessSecret);
+      } catch (err) {
+        throw new AppError("Reset session has expired or is invalid. Please restart the OTP process.", 401);
+      }
+
+      if (decoded.purpose !== "PASSWORD_RESET" || !decoded.userId) {
+        throw new AppError("Invalid reset token", 401);
+      }
+
+      targetUserId = decoded.userId;
+      targetIdentifier = decoded.identifier;
+    } else {
+      throw new AppError("Verification token is required to reset password.", 400);
     }
 
-    if (decoded.purpose !== "PASSWORD_RESET" || !decoded.userId) {
-      throw new AppError("Invalid reset token", 401);
-    }
-
-    const user = await userService.findById(decoded.userId);
+    const user = await userService.findById(targetUserId);
     if (!user) throw new AppError("User account not found", 404);
     if (!user.isActive) throw new AppError("Account is inactive or disabled", 403);
 
@@ -249,8 +280,8 @@ class AuthService {
     await user.save();
 
     // Clean up all OTP records for this identifier
-    if (decoded.identifier) {
-      await Otp.deleteMany({ identifier: decoded.identifier });
+    if (targetIdentifier) {
+      await Otp.deleteMany({ identifier: targetIdentifier });
     }
 
     logger.info(`✅ Password successfully updated for user ${user._id} (${user.phone || user.email})`);
