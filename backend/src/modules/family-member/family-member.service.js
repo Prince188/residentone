@@ -5,13 +5,16 @@ const { AppError } = require("../../shared/utils/errors");
 class FamilyMemberService {
   async list(societyId, userId, membership, query = {}) {
     const isMine = query?.mine === true || query?.mine === "true";
+    const scopeAll = query?.all === true || query?.all === "true" || query?.scope === "society";
     let filter = { isActive: true };
 
     if (query?.userId || query?.addedBy) {
       filter.addedBy = query.userId || query.addedBy;
-    } else if (isMine) {
-      filter.addedBy = userId;
-    } else {
+      if (societyId) filter.societyId = societyId;
+    } else if (query?.unitId) {
+      filter.unitId = query.unitId;
+      if (societyId) filter.societyId = societyId;
+    } else if (scopeAll && !isMine) {
       const isAdmin = membership && ["super_admin", "society_admin"].includes(membership.role);
       let canManageHouses = isAdmin;
 
@@ -41,8 +44,19 @@ class FamilyMemberService {
         }
         filter.$or = orConditions;
       } else {
-        // User seeing their own family members
         filter.addedBy = userId;
+        if (societyId) filter.societyId = societyId;
+      }
+    } else {
+      // Default: Return ONLY household members belonging to the current user or their assigned units
+      const myUnitIds = (membership?.units || []).map((u) => u?._id || u?.id || u).filter(Boolean);
+      const userConditions = [{ addedBy: userId }];
+      if (myUnitIds.length > 0) {
+        userConditions.push({ unitId: { $in: myUnitIds } });
+      }
+      filter.$or = userConditions;
+      if (societyId) {
+        filter.societyId = societyId;
       }
     }
 
