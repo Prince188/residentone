@@ -30,23 +30,32 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
   // Clean up recaptcha widget when modal unmounts or closes
   useEffect(() => {
     return () => {
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-        window.recaptchaVerifier = null;
-      }
+      cleanupRecaptcha();
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const initRecaptchaVerifier = () => {
+  const cleanupRecaptcha = () => {
     if (window.recaptchaVerifier) {
       try {
         window.recaptchaVerifier.clear();
       } catch (e) {}
       window.recaptchaVerifier = null;
+    }
+    const container = document.getElementById("recaptcha-container");
+    if (container) {
+      container.innerHTML = "";
+    }
+  };
+
+  const getOrCreateRecaptchaVerifier = () => {
+    if (window.recaptchaVerifier) {
+      return window.recaptchaVerifier;
+    }
+    const container = document.getElementById("recaptcha-container");
+    if (container) {
+      container.innerHTML = "";
     }
     window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
       size: "invisible",
@@ -57,6 +66,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
         setError("reCAPTCHA expired. Please try requesting OTP again.");
       },
     });
+    return window.recaptchaVerifier;
   };
 
   const handleSendOtp = async (e) => {
@@ -75,9 +85,13 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
 
       const isEmail = cleanId.includes("@");
       if (!isEmail) {
-        // Initialize Firebase invisible reCAPTCHA
-        initRecaptchaVerifier();
-        const appVerifier = window.recaptchaVerifier;
+        let appVerifier;
+        try {
+          appVerifier = getOrCreateRecaptchaVerifier();
+        } catch (verr) {
+          cleanupRecaptcha();
+          appVerifier = getOrCreateRecaptchaVerifier();
+        }
 
         // Format to standard E.164 format (+91 for 10-digit Indian numbers)
         const digitsOnly = cleanId.replace(/[^0-9]/g, "");
@@ -95,12 +109,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
       setCountdown(45);
     } catch (err) {
       console.error("Send OTP Error:", err);
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-        window.recaptchaVerifier = null;
-      }
+      cleanupRecaptcha();
       let errorMsg =
         err.response?.data?.error?.message ||
         err.response?.data?.message ||
