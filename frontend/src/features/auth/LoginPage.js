@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuthStore from "../../stores/auth.store";
 import SEO from "../../components/SEO";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
@@ -274,13 +276,16 @@ export default function LoginPage() {
                         >
                           Password
                         </label>
-                        <a
-                          href="#forgot"
-                          onClick={(e) => e.preventDefault()}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowForgotModal(true);
+                            setError("");
+                          }}
                           className="text-xs font-semibold text-primary hover:text-primary/80 hover:underline underline-offset-4 transition-colors"
                         >
                           Forgot password?
-                        </a>
+                        </button>
                       </div>
                       <div className="relative group">
                         <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">
@@ -425,6 +430,16 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        onPasswordResetSuccess={(id) => {
+          setEmail(id);
+          setPassword("");
+          setError("");
+        }}
+      />
     </div>
   );
 }

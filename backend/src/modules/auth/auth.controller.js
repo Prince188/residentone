@@ -30,6 +30,36 @@ class AuthController {
     }
   }
 
+  async sendForgotOtp(req, res, next) {
+    try {
+      const { identifier } = req.body;
+      const result = await authService.sendForgotOtp(identifier);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyForgotOtp(req, res, next) {
+    try {
+      const { identifier, otp } = req.body;
+      const result = await authService.verifyForgotOtp(identifier, otp);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async resetPassword(req, res, next) {
+    try {
+      const { resetToken, newPassword } = req.body;
+      const result = await authService.resetPasswordWithToken(resetToken, newPassword);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async forgotPassword(req, res, next) {
     try {
       const { identifier, newPassword } = req.body;
