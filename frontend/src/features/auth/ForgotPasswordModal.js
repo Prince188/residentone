@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 import api from "../../lib/api";
@@ -19,24 +19,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setInterval(() => setCountdown((c) => c - 1), 1000);
-    }
-    return () => clearInterval(timer);
-  }, [countdown]);
-
-  // Clean up recaptcha widget when modal unmounts or closes
-  useEffect(() => {
-    return () => {
-      cleanupRecaptcha();
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const cleanupRecaptcha = () => {
+  const cleanupRecaptcha = useCallback(() => {
     if (window.recaptchaVerifier) {
       try {
         window.recaptchaVerifier.clear();
@@ -47,9 +30,9 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     if (container) {
       container.innerHTML = "";
     }
-  };
+  }, []);
 
-  const getOrCreateRecaptchaVerifier = () => {
+  const getOrCreateRecaptchaVerifier = useCallback(() => {
     if (window.recaptchaVerifier) {
       return window.recaptchaVerifier;
     }
@@ -59,14 +42,45 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     }
     window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
       size: "invisible",
-      callback: () => {
-        // reCAPTCHA solved
-      },
+      callback: () => {},
       "expired-callback": () => {
         setError("reCAPTCHA expired. Please try requesting OTP again.");
       },
     });
     return window.recaptchaVerifier;
+  }, []);
+
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => setCountdown((c) => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  // Clean up recaptcha widget when modal closes or unmounts
+  useEffect(() => {
+    if (!isOpen) {
+      cleanupRecaptcha();
+    }
+    return () => {
+      cleanupRecaptcha();
+    };
+  }, [isOpen, cleanupRecaptcha]);
+
+  const handleClose = () => {
+    cleanupRecaptcha();
+    setStep(1);
+    setIdentifier("");
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetToken("");
+    setFirebaseToken("");
+    setConfirmationResult(null);
+    setError("");
+    setCountdown(0);
+    onClose();
   };
 
   const handleSendOtp = async (e) => {
@@ -210,25 +224,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onPasswordResetSu
     }
   };
 
-  const handleClose = () => {
-    if (window.recaptchaVerifier) {
-      try {
-        window.recaptchaVerifier.clear();
-      } catch (e) {}
-      window.recaptchaVerifier = null;
-    }
-    setStep(1);
-    setIdentifier("");
-    setOtp("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setResetToken("");
-    setFirebaseToken("");
-    setConfirmationResult(null);
-    setError("");
-    setCountdown(0);
-    onClose();
-  };
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
