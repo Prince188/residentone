@@ -31,6 +31,10 @@ const collectionSchema = new mongoose.Schema(
       min: [1, "Amount must be at least ₹1"],
       max: [1000000, "Amount too large"],
     },
+    targetAmount: {
+      type: Number,
+      default: 0,
+    },
     dueDate: {
       type: Date,
       required: [true, "Due date is required"],

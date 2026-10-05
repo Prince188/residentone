@@ -33,13 +33,21 @@ function isAfterDueDay(date, dueDate) {
 
 class CollectionService {
   async create(societyId, userId, data) {
+    const totalUnits = await Unit.countDocuments({ societyId, isActive: true });
+    const amount = Number(data.amount || data.amountPerHouse || 0);
+    let targetAmount =
+      data.targetAmount !== undefined && data.targetAmount !== null && data.targetAmount !== "" && Number(data.targetAmount) > 0
+        ? Number(data.targetAmount)
+        : amount * (totalUnits || 0);
+
     const collection = await Collection.create({
       societyId,
       createdBy: userId,
       title: data.title.trim(),
       description: (data.description || "").trim(),
       category: data.category || "festival",
-      amount: Number(data.amount),
+      amount,
+      targetAmount,
       dueDate: new Date(data.dueDate),
       status: "active",
       eventId: data.eventId || null,
@@ -89,7 +97,7 @@ class CollectionService {
     return collections.map((c) => {
       const stats = paymentStatsMap.get(String(c._id)) || { totalCollected: 0, paidCount: 0 };
       const base = this.mapCollection(c);
-      const targetGoal = (c.amount || 0) * totalUnits;
+      const targetGoal = Number(c.targetAmount || (c.amount || 0) * totalUnits);
       const totalCollected = stats.totalCollected || (stats.paidCount * (c.amount || 0));
       return {
         ...base,
@@ -97,6 +105,8 @@ class CollectionService {
         paidCount: stats.paidCount,
         pendingCount: Math.max(0, totalUnits - stats.paidCount),
         totalCollected,
+        collectedAmount: totalCollected,
+        targetAmount: targetGoal,
         targetGoal,
         progressPercent: targetGoal > 0 ? Math.min(100, Math.round((totalCollected / targetGoal) * 100)) : 0,
       };
@@ -108,7 +118,40 @@ class CollectionService {
       .populate("createdBy", "name")
       .lean();
     if (!collection) throw new AppError("Collection not found", 404);
-    return this.mapCollection(collection);
+
+    const totalUnits = await Unit.countDocuments({ societyId, isActive: true });
+
+    const payments = await CollectionPayment.find({
+      societyId,
+      collectionId: collection._id,
+      isActive: true,
+      gatewayStatus: { $in: ["paid", "cash"] },
+    }).lean();
+
+    let totalCollected = 0;
+    let paidCount = 0;
+    for (const p of payments) {
+      totalCollected += Number(p.totalAmount || p.amount || 0);
+      paidCount += 1;
+    }
+
+    const base = this.mapCollection(collection);
+    const targetAmount = Number(collection.targetAmount || ((collection.amount || 0) * totalUnits));
+    const collectedAmount = totalCollected || (paidCount * (collection.amount || 0));
+    const progressPercent = targetAmount > 0 ? Math.min(100, Math.round((collectedAmount / targetAmount) * 100)) : 0;
+
+    return {
+      ...base,
+      totalUnits,
+      paidCount,
+      pendingCount: Math.max(0, totalUnits - paidCount),
+      totalCollected: collectedAmount,
+      collectedAmount,
+      targetAmount,
+      targetGoal: targetAmount,
+      progressPercent,
+      progress: progressPercent,
+    };
   }
 
   async getRawById(societyId, collectionId) {
@@ -125,9 +168,13 @@ class CollectionService {
       description: c.description,
       category: c.category,
       amount: c.amount,
+      amountPerHouse: c.amount,
+      targetAmount: c.targetAmount || 0,
       dueDate: c.dueDate,
       status: c.status,
       isOverdue,
+      eventId: c.eventId || null,
+      eventTag: c.eventTag || "",
       createdBy: c.createdBy?._id || c.createdBy,
       createdByName: c.createdBy?.name || "Admin",
       createdAt: c.createdAt,
@@ -623,6 +670,9 @@ class CollectionService {
     if (data.description !== undefined) col.description = data.description ? data.description.trim() : "";
     if (data.category !== undefined) col.category = data.category;
     if (data.dueDate !== undefined) col.dueDate = new Date(data.dueDate);
+    if (data.targetAmount !== undefined && data.targetAmount !== null && Number(data.targetAmount) > 0) {
+      col.targetAmount = Number(data.targetAmount);
+    }
 
     await col.save();
     try {

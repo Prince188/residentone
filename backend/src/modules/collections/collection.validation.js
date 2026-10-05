@@ -6,8 +6,12 @@ const createCollectionSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(150),
   description: z.string().trim().max(1000).optional().default(""),
   category: z.enum(COLLECTION_CATEGORIES).optional().default("festival"),
-  amount: z.coerce.number().min(1, "Amount must be at least ₹1").max(1000000),
+  amount: z.coerce.number().min(1, "Amount must be at least ₹1").max(1000000).optional(),
+  amountPerHouse: z.coerce.number().optional(),
+  targetAmount: z.coerce.number().optional(),
   dueDate: z.coerce.date({ message: "Invalid due date" }),
+  eventId: z.string().optional().nullable(),
+  eventTag: z.string().optional(),
 });
 
 const payCollectionSchema = z.object({
