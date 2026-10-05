@@ -360,6 +360,49 @@ export default function CollectionDetailPage() {
     return base;
   }, [units]);
 
+  const stats = useMemo(() => {
+    let paidUnitsCount = 0;
+    let paidUnitsTotal = 0;
+    (units || []).forEach((u) => {
+      const isPaid = u.status === "paid" || u.status === "late_paid" || Boolean(u.paidOn);
+      if (isPaid) {
+        paidUnitsCount += 1;
+        paidUnitsTotal += Number(u.amount || u.totalAmount || collection?.amountPerHouse || collection?.amount || 0);
+      }
+    });
+
+    const totalUnitsCount = units && units.length > 0 ? units.length : Number(collection?.totalUnits || 0);
+    const amountPerHouse = Number(collection?.amountPerHouse || collection?.amount || 0);
+
+    const target = Number(
+      collection?.targetAmount ||
+      collection?.targetGoal ||
+      collection?.target ||
+      amountPerHouse * totalUnitsCount ||
+      0
+    );
+
+    const collected = Number(
+      collection?.collectedAmount !== undefined && collection?.collectedAmount !== null && Number(collection?.collectedAmount) > 0
+        ? collection.collectedAmount
+        : collection?.totalCollected !== undefined && collection?.totalCollected !== null && Number(collection?.totalCollected) > 0
+        ? collection.totalCollected
+        : paidUnitsTotal
+    );
+
+    const progressPct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : totalUnitsCount > 0 && paidUnitsCount === totalUnitsCount ? 100 : 0;
+
+    return {
+      target,
+      collected,
+      ratePerHouse: amountPerHouse,
+      progress: progressPct,
+      paidCount: paidUnitsCount || Number(collection?.paidCount || 0),
+      pendingCount: Math.max(0, totalUnitsCount - (paidUnitsCount || Number(collection?.paidCount || 0))),
+      totalUnits: totalUnitsCount,
+    };
+  }, [collection, units]);
+
   const hasPayments = (counts.paid + counts.late_paid) > 0;
 
   const updateMutation = useMutation({
@@ -509,6 +552,58 @@ export default function CollectionDetailPage() {
           </div>
         </div>
       </section>
+
+      {/* Collection Progress & Stats Hero */}
+      <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 px-3 py-1 text-label-sm font-bold text-emerald-800 dark:text-emerald-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+              {stats.progress}% Funded
+            </span>
+            <span className="text-body-sm text-on-surface-variant font-medium">
+              Due on {formatDate(collection.dueDate)}
+            </span>
+          </div>
+          <span className="text-body-sm text-outline font-semibold">
+            {stats.paidCount} of {stats.totalUnits} Houses Contributed
+          </span>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-label-md font-bold">
+            <span className="text-primary">Collected: {formatAmount(stats.collected)}</span>
+            <span className="text-on-surface-variant">Target Goal: {formatAmount(stats.target)}</span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-surface-container-high">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${stats.progress}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 pt-1">
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-3 text-center">
+            <p className="text-label-sm font-bold text-outline">RATE / HOUSE</p>
+            <p className="text-title-sm sm:text-title-md font-extrabold text-on-surface mt-0.5">{formatAmount(stats.ratePerHouse)}</p>
+          </div>
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-3 text-center">
+            <p className="text-label-sm font-bold text-outline">TARGET GOAL</p>
+            <p className="text-title-sm sm:text-title-md font-extrabold text-on-surface mt-0.5">{formatAmount(stats.target)}</p>
+          </div>
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-3 text-center">
+            <p className="text-label-sm font-bold text-outline">COLLECTED</p>
+            <p className="text-title-sm sm:text-title-md font-extrabold text-primary mt-0.5">{formatAmount(stats.collected)}</p>
+          </div>
+          <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-3 text-center">
+            <p className="text-label-sm font-bold text-outline">PENDING</p>
+            <p className="text-title-sm sm:text-title-md font-extrabold text-amber-700 dark:text-amber-400 mt-0.5">
+              {formatAmount(Math.max(0, stats.target - stats.collected))} ({stats.pendingCount} houses)
+            </p>
+          </div>
+        </div>
+      </div>
 
       {actionError && <p className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">{actionError}</p>}
       {exportMsg && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-body-sm text-emerald-800">{exportMsg}</div>}
