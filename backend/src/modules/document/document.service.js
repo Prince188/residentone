@@ -9,7 +9,7 @@ class DocumentService {
     if (!file) throw new AppError("File is required (pdf or image, max 10MB)", 400);
 
     const title = (data.title || file.originalname || "Untitled Document").toString().trim();
-    const category = data.category || "other";
+    const category = (data.category || "general").toString().trim();
     const description = (data.description || "").toString().trim();
 
     let fileUrl = "";

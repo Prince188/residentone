@@ -9,19 +9,18 @@ const documentSchema = new mongoose.Schema(
       type: String,
       required: [true, "Title is required"],
       trim: true,
-      minlength: [3, "Title must be at least 3 characters"],
-      maxlength: [100, "Title cannot exceed 100 characters"],
+      minlength: [1, "Title must be at least 1 character"],
+      maxlength: [150, "Title cannot exceed 150 characters"],
     },
     category: {
       type: String,
-      enum: DOCUMENT_CATEGORIES,
-      default: "other",
+      default: "general",
       index: true,
     },
     description: {
       type: String,
       trim: true,
-      maxlength: [500, "Description cannot exceed 500 characters"],
+      maxlength: [1000, "Description cannot exceed 1000 characters"],
       default: "",
     },
     fileUrl: {

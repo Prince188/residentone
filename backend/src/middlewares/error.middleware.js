@@ -9,6 +9,24 @@ function errorHandler(err, _req, res, _next) {
     });
   }
 
+  if (err.name === "ValidationError") {
+    const message =
+      Object.values(err.errors || {})
+        .map((val) => val.message)
+        .join(", ") || err.message;
+    return res.status(400).json({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message },
+    });
+  }
+
+  if (err.name === "CastError") {
+    return res.status(400).json({
+      success: false,
+      error: { code: "INVALID_ID", message: `Invalid ${err.path}: ${err.value}` },
+    });
+  }
+
   logger.error(err, "Unhandled error: " + err.message);
   console.error("DEBUG UNHANDLED ERROR:", err);
 
