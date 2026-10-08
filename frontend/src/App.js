@@ -22,6 +22,7 @@ import AdminAnalyticsPage from "./features/admin/AdminAnalyticsPage";
 import AdminUsersPage from "./features/admin/AdminUsersPage";
 import AdminReferralsPage from "./features/admin/AdminReferralsPage";
 import AdminCouponsPage from "./features/admin/AdminCouponsPage";
+import AdminAppIconPage from "./features/admin/AdminAppIconPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MaintenancePage from "./features/maintenance/MaintenancePage";
 import MaintenanceDetailPage from "./features/maintenance/MaintenanceDetailPage";
@@ -188,6 +189,10 @@ function App() {
               <Route
                 path="/admin/coupons"
                 element={<SuperAdminRoute><AdminCouponsPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/app-icon"
+                element={<SuperAdminRoute><AdminAppIconPage /></SuperAdminRoute>}
               />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

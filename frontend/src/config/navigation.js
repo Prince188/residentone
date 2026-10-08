@@ -48,6 +48,11 @@ export const ADMIN_NAV_SECTIONS = [
         to: "/admin/coupons",
         icon: "confirmation_number",
       },
+      {
+        label: "App Launcher Icon",
+        to: "/admin/app-icon",
+        icon: "palette",
+      },
     ],
   },
   {
