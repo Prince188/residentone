@@ -30,7 +30,7 @@ class MembershipService {
 
   async getDirectory(societyId, query = {}) {
     const members = await Membership.find({ societyId, isActive: true })
-      .populate("userId", "name phone occupation")
+      .populate("userId", "name phone occupation avatarUrl")
       .populate("units", "label unitNumber")
       .lean();
 
@@ -49,6 +49,7 @@ class MembershipService {
       const houseLabels = houses.map((u) => u.label).filter(Boolean);
       const maskedPhone = this.maskPhone(m.userId.phone);
       const occupation = (m.userId.occupation || "").trim();
+      const avatarUrl = m.userId.avatarUrl || null;
 
       if (seenUsers.has(uId)) {
         // Merge houses and roles if user has multiple membership records
@@ -60,6 +61,7 @@ class MembershipService {
           existing.role = m.role;
         }
         if (!existing.occupation && occupation) existing.occupation = occupation;
+        if (!existing.avatarUrl && avatarUrl) existing.avatarUrl = avatarUrl;
         continue;
       }
 
@@ -71,6 +73,7 @@ class MembershipService {
         roles: [m.role, ...(m.additionalRoles || [])].filter(Boolean),
         phoneMasked: maskedPhone,
         occupation,
+        avatarUrl,
         house: houseLabels.length > 0 ? houseLabels[0] : null,
         houses: houseLabels,
         unitNumber: houses[0]?.unitNumber ?? NO_ORDER,
@@ -217,6 +220,7 @@ class MembershipService {
           houses,
           phoneMasked,
           occupation,
+          avatarUrl,
           isFamily,
           relation,
           addedByName,
@@ -235,6 +239,7 @@ class MembershipService {
           houses: houses && houses.length > 0 ? houses : (house ? [house] : []),
           phoneMasked,
           occupation,
+          avatarUrl: avatarUrl || null,
           isFamily: Boolean(isFamily),
           relation: relation || null,
           addedByName: addedByName || null,
