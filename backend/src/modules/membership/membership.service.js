@@ -86,8 +86,22 @@ class MembershipService {
     // Include Family Members (Universal Household)
     try {
       const { FamilyMember } = require("../family-member/family-member.model");
+      const { Unit } = require("../unit/unit.model");
       const memberUserIds = members.map((m) => m.userId?._id).filter(Boolean);
+
       if (memberUserIds.length > 0 || societyId) {
+        // Fetch society units to identify tenant/renter occupancy
+        const unitsInSociety = await Unit.find({ societyId, isActive: true })
+          .select("label unitNumber ownerId tenantId")
+          .lean();
+
+        const rentedUnitMap = new Map(); // unitId -> tenantUserId
+        for (const u of unitsInSociety) {
+          if (u.tenantId) {
+            rentedUnitMap.set(String(u._id), String(u.tenantId));
+          }
+        }
+
         const queryOr = [];
         if (societyId) queryOr.push({ societyId });
         if (memberUserIds.length > 0) queryOr.push({ addedBy: { $in: memberUserIds } });
@@ -98,12 +112,14 @@ class MembershipService {
         })
           .populate("unitId", "label unitNumber")
           .populate("addedBy", "name")
+          .populate("userId", "avatarUrl phone occupation")
           .lean();
 
         const userHouseMap = {};
         for (const m of members) {
           if (m.userId && m.units && m.units.length > 0) {
             userHouseMap[String(m.userId._id)] = m.units.map((u) => ({
+              id: String(u._id || u.id || u),
               label: u.label,
               unitNumber: u.unitNumber ?? NO_ORDER,
             }));
@@ -111,8 +127,20 @@ class MembershipService {
         }
 
         for (const fm of familyMembers) {
+          const fmUnitIdStr = fm.unitId ? String(fm.unitId._id || fm.unitId) : null;
+          const fmAddedByStr = String(fm.addedBy?._id || fm.addedBy || "");
+
+          // If a unit is rented, only show the renter's family members for that unit
+          if (fmUnitIdStr && rentedUnitMap.has(fmUnitIdStr)) {
+            const renterId = rentedUnitMap.get(fmUnitIdStr);
+            if (renterId && fmAddedByStr !== renterId) {
+              // Owner's family member linked to a currently rented flat - skip
+              continue;
+            }
+          }
+
           const isSameSocietyUnit = fm.societyId && String(fm.societyId) === String(societyId) && fm.unitId;
-          const residentHouses = userHouseMap[String(fm.addedBy?._id || fm.addedBy)] || [];
+          const residentHouses = userHouseMap[fmAddedByStr] || [];
           const primaryHouse = isSameSocietyUnit
             ? fm.unitId?.label
             : (residentHouses[0]?.label || fm.unitId?.label || null);
@@ -123,16 +151,21 @@ class MembershipService {
             ? (fm.unitId?.unitNumber ?? NO_ORDER)
             : (residentHouses[0]?.unitNumber ?? fm.unitId?.unitNumber ?? NO_ORDER);
 
+          const fmAvatar = fm.userId?.avatarUrl || fm.avatarUrl || null;
+          const fmOccupation = (fm.occupation || fm.userId?.occupation || "").trim();
+          const fmPhone = fm.phone || fm.userId?.phone || "";
+
           entries.push({
             id: `fm-${fm._id}`,
-            userId: String(fm.addedBy?._id || fm.addedBy || ""),
+            userId: fmAddedByStr,
             name: fm.name,
             role: fm.relation ? `Family (${fm.relation})` : "Family Member",
             isFamily: true,
             relation: fm.relation || "other",
             addedByName: fm.addedBy?.name || null,
-            phoneMasked: this.maskPhone(fm.phone),
-            occupation: (fm.occupation || "").trim(),
+            phoneMasked: this.maskPhone(fmPhone),
+            occupation: fmOccupation,
+            avatarUrl: fmAvatar,
             house: primaryHouse,
             houses: allHouseLabels,
             unitNumber: primaryUnitNumber,
