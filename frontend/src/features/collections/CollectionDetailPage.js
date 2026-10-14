@@ -325,12 +325,17 @@ export default function CollectionDetailPage() {
     queryKey: ["collection", id],
     queryFn: async () => (await getCollection(id)).data.data,
     enabled: Boolean(id),
+    staleTime: 1000 * 60 * 3,
   });
 
   const unitsQuery = useQuery({
     queryKey: ["collection-units", id],
-    queryFn: async () => (await getCollectionUnits(id)).data.data,
+    queryFn: async () => {
+      const res = await getCollectionUnits(id);
+      return res.data?.data || res.data?.items || res.data || [];
+    },
     enabled: Boolean(id) && isAdmin,
+    staleTime: 1000 * 60 * 3,
   });
 
   const myUnits = membership?.units || [];

@@ -21,17 +21,18 @@ class CollectionController {
 
   async list(req, res, next) {
     try {
-      const collections = await collectionService.list(req.societyId);
       // If query ?my=1, return with myUnits status (for resident)
       if (req.query.my === "1" || req.query.my === "true") {
-        const my = await collectionService.getMyCollections(req.societyId, req.membership, collections.map(c => ({ _id: c.id, ...c })));
-        // But list already mapped, we need raw; instead fetch raw and map with my
-        // For now, if my requested, recompute using raw fetched inside service
         const rawList = await require("./collection.model").Collection.find({ societyId: req.societyId, isActive: true }).sort({ createdAt: -1 }).lean();
         const mappedMy = await collectionService.getMyCollections(req.societyId, req.membership, rawList);
         return res.json({ success: true, data: mappedMy });
       }
-      res.json({ success: true, data: collections });
+      const result = await collectionService.list(req.societyId, req.query);
+      res.json({
+        success: true,
+        data: result.items || result,
+        pagination: result.pagination,
+      });
     } catch (error) {
       next(error);
     }
@@ -49,8 +50,12 @@ class CollectionController {
   async getUnits(req, res, next) {
     try {
       const collection = await collectionService.getRawById(req.societyId, req.params.id);
-      const units = await collectionService.getCollectionUnits(req.societyId, collection);
-      res.json({ success: true, data: units });
+      const result = await collectionService.getCollectionUnits(req.societyId, collection, req.query);
+      res.json({
+        success: true,
+        data: result.items || result,
+        pagination: result.pagination,
+      });
     } catch (error) {
       next(error);
     }

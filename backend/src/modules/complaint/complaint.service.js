@@ -2,6 +2,7 @@ const { Complaint } = require("./complaint.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
 const { hasPermission } = require("../../shared/permissions");
+const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 
 async function hasComplaintPermission(societyId, role) {
   if (["super_admin", "society_admin"].includes(role)) return true;
@@ -106,7 +107,14 @@ class ComplaintService {
       baseFilter.$or = [{ raisedBy: userId }, { isPublic: true }];
     }
 
-    if (filters.status) baseFilter.status = filters.status;
+    // Status scoping
+    if (filters.status && filters.status !== "all") {
+      baseFilter.status = filters.status;
+    } else if (!filters.status) {
+      // Default: active unresolved complaints only
+      baseFilter.status = { $in: ["open", "in_progress", "on_hold", "reopened"] };
+    }
+
     if (filters.category) baseFilter.category = filters.category;
     if (filters.priority) baseFilter.priority = filters.priority;
     if (typeof filters.isPublic === "boolean") {
@@ -115,18 +123,11 @@ class ComplaintService {
         baseFilter.isPublic = filters.isPublic;
         delete baseFilter.$or;
       } else {
-        // Residents filtering public: keep or logic but add isPublic condition
-        // For residents, "public only" means isPublic true regardless of owner
-        // For "private only" means raisedBy = userId and isPublic false
         if (filters.isPublic === true) {
           baseFilter.$or = [{ isPublic: true }];
-          // Still restrict to society via baseFilter.societyId
         } else {
           baseFilter.$or = [{ raisedBy: userId, isPublic: false }];
         }
-        // If filtering by isPublic, we already handled; remove other filters conflict
-        // But also need to keep status etc.
-        // No extra step
       }
     }
 
@@ -137,15 +138,24 @@ class ComplaintService {
       baseFilter.$and.push({
         $or: [{ title: regex }, { description: regex }],
       });
-      // If we have both $or (visibility) and $and (search), Mongo handles both
     }
+
+    const { page, limit, skip, isAll } = parsePagination(filters, 20);
 
     let query = Complaint.find(baseFilter).sort({ createdAt: -1 });
     query = this._populateQuery(query);
-    const docs = await query.lean();
+
+    if (!isAll && limit) {
+      query = query.skip(skip).limit(limit);
+    }
+
+    const [docs, totalCount] = await Promise.all([
+      query.lean(),
+      Complaint.countDocuments(baseFilter),
+    ]);
 
     // Map to include derived names
-    return docs.map((doc) => ({
+    const items = docs.map((doc) => ({
       id: doc._id,
       title: doc.title,
       description: doc.description,
@@ -164,6 +174,11 @@ class ComplaintService {
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     }));
+
+    return {
+      items,
+      pagination: buildPaginationMeta(totalCount, page, isAll ? totalCount : limit),
+    };
   }
 
   async getById(societyId, complaintId, userId, role) {

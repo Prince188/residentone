@@ -56,8 +56,12 @@ export default function CollectionsPage() {
 
   const collectionsQuery = useQuery({
     queryKey: ["collections", activeSociety?.id],
-    queryFn: async () => (await getCollections()).data.data,
+    queryFn: async () => {
+      const res = await getCollections();
+      return res.data?.data || res.data?.items || res.data || [];
+    },
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 3, // 3 minutes cache
   });
 
   const collections = collectionsQuery.data || [];

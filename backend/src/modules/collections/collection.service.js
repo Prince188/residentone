@@ -3,6 +3,7 @@ const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
 const { hasPermission } = require("../../shared/permissions");
+const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 const ExcelJS = require("exceljs");
 
 async function hasCollectionPermission(societyId, role) {
@@ -69,21 +70,33 @@ class CollectionService {
     return collection;
   }
 
-  async list(societyId) {
-    const collections = await Collection.find({ societyId, isActive: true })
-      .populate("createdBy", "name")
-      .sort({ createdAt: -1 })
-      .lean();
+  async list(societyId, query = {}) {
+    const filter = { societyId, isActive: true };
+    if (query.status && query.status !== "all") {
+      filter.status = query.status;
+    }
 
-    const totalUnits = await Unit.countDocuments({ societyId, isActive: true });
+    const { page, limit, skip, isAll } = parsePagination(query, 20);
+
+    const [collections, totalCount, totalUnits] = await Promise.all([
+      (isAll || !limit
+        ? Collection.find(filter).populate("createdBy", "name").sort({ createdAt: -1 })
+        : Collection.find(filter).populate("createdBy", "name").sort({ createdAt: -1 }).skip(skip).limit(limit)
+      ).lean(),
+      Collection.countDocuments(filter),
+      Unit.countDocuments({ societyId, isActive: true }),
+    ]);
+
     const collectionIds = collections.map((c) => c._id);
 
-    const payments = await CollectionPayment.find({
-      societyId,
-      collectionId: { $in: collectionIds },
-      isActive: true,
-      gatewayStatus: { $in: ["paid", "cash"] },
-    }).lean();
+    const payments = collectionIds.length > 0
+      ? await CollectionPayment.find({
+          societyId,
+          collectionId: { $in: collectionIds },
+          isActive: true,
+          gatewayStatus: { $in: ["paid", "cash"] },
+        }).lean()
+      : [];
 
     const paymentStatsMap = new Map();
     for (const p of payments) {
@@ -94,7 +107,7 @@ class CollectionService {
       paymentStatsMap.set(colIdStr, existing);
     }
 
-    return collections.map((c) => {
+    const items = collections.map((c) => {
       const stats = paymentStatsMap.get(String(c._id)) || { totalCollected: 0, paidCount: 0 };
       const base = this.mapCollection(c);
       const targetGoal = Number(c.targetAmount || (c.amount || 0) * totalUnits);
@@ -111,6 +124,11 @@ class CollectionService {
         progressPercent: targetGoal > 0 ? Math.min(100, Math.round((totalCollected / targetGoal) * 100)) : 0,
       };
     });
+
+    return {
+      items,
+      pagination: buildPaginationMeta(totalCount, page, limit),
+    };
   }
 
   async getById(societyId, collectionId) {
@@ -189,7 +207,7 @@ class CollectionService {
     return !isAfterDueDay(payment.paidOn, collection.dueDate) ? "paid" : "late_paid";
   }
 
-  async getCollectionUnits(societyId, collection) {
+  async getCollectionUnits(societyId, collection, query = {}) {
     const units = await Unit.find({ societyId, isActive: true })
       .populate("ownerId", "name phone")
       .populate("tenantId", "name phone")
@@ -230,7 +248,7 @@ class CollectionService {
 
     const paymentByUnit = new Map(payments.map((p) => [String(p.unitId), p]));
 
-    return units.map((unit) => {
+    let result = units.map((unit) => {
       const payment = paymentByUnit.get(String(unit._id));
       const displayName = unit.tenantId?.name || unit.ownerId?.name || null;
       const displayPhone = unit.tenantId?.phone || unit.ownerId?.phone || null;
@@ -283,6 +301,30 @@ class CollectionService {
         recordedByHouse,
       };
     });
+
+    if (query.status && query.status !== "all") {
+      result = result.filter((u) => u.status === query.status);
+    }
+    if (query.q && String(query.q).trim()) {
+      const term = String(query.q).trim().toLowerCase();
+      result = result.filter(
+        (u) =>
+          (u.label && u.label.toLowerCase().includes(term)) ||
+          (u.ownerName && u.ownerName.toLowerCase().includes(term))
+      );
+    }
+
+    if (query.page || query.limit) {
+      const { page, limit, skip, isAll } = parsePagination(query, 20);
+      const totalCount = result.length;
+      const paginated = isAll ? result : result.slice(skip, skip + limit);
+      return {
+        items: paginated,
+        pagination: buildPaginationMeta(totalCount, page, limit),
+      };
+    }
+
+    return result;
   }
 
   async getMyCollections(societyId, membership, collections) {

@@ -5,6 +5,7 @@ const { User } = require("../user/user.model");
 const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
 const { hasPermission } = require("../../shared/permissions");
+const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 const { notificationService } = require("../notification/notification.service");
 const { emitToSociety, emitToUser } = require("../../socket");
 
@@ -784,13 +785,23 @@ class VisitorService {
 
     const filter = conditions.length === 1 ? conditions[0] : { $and: conditions };
 
-    const parcels = await Visitor.find(filter)
+    const { page, limit, skip, isAll } = parsePagination(params, 20);
+
+    let parcelQuery = Visitor.find(filter)
       .populate("unitId", "label doorNo block floor")
       .populate("hostUserId", "name phone")
       .populate("checkedInBy", "name")
       .populate("parcelDetails.collectedBy", "name")
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    if (!isAll && limit) {
+      parcelQuery = parcelQuery.skip(skip).limit(limit);
+    }
+
+    const [parcels, totalParcels] = await Promise.all([
+      parcelQuery.lean(),
+      Visitor.countDocuments(filter),
+    ]);
 
     const countWaitingFilter = {
       societyId,
@@ -806,6 +817,7 @@ class VisitorService {
     return {
       parcels,
       countWaiting,
+      pagination: buildPaginationMeta(totalParcels, page, isAll ? totalParcels : limit),
     };
   }
 

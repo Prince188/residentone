@@ -21,8 +21,12 @@ class DonationController {
 
   async list(req, res, next) {
     try {
-      const donations = await donationService.list(req.societyId);
-      res.json({ success: true, data: donations });
+      const result = await donationService.list(req.societyId, req.query);
+      res.json({
+        success: true,
+        data: result.items || result,
+        pagination: result.pagination,
+      });
     } catch (error) {
       next(error);
     }
@@ -30,8 +34,12 @@ class DonationController {
 
   async listMy(req, res, next) {
     try {
-      const donations = await donationService.listMy(req.societyId, req.membership);
-      res.json({ success: true, data: donations });
+      const result = await donationService.listMy(req.societyId, req.membership, req.query);
+      res.json({
+        success: true,
+        data: result.items || result,
+        pagination: result.pagination,
+      });
     } catch (error) {
       next(error);
     }

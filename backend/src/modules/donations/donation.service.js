@@ -3,6 +3,7 @@ const { Unit } = require("../unit/unit.model");
 const { Society } = require("../society/society.model");
 const { AppError } = require("../../shared/utils/errors");
 const { hasPermission } = require("../../shared/permissions");
+const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 const ExcelJS = require("exceljs");
 
 function getInitials(societyName) {
@@ -128,13 +129,32 @@ class DonationService {
     };
   }
 
-  async list(societyId) {
-    const donations = await Donation.find({ societyId, isActive: true })
-      .populate("collectedBy", "name phone")
-      .sort({ collectedAt: -1, createdAt: -1 })
-      .lean();
+  async list(societyId, query = {}) {
+    const filter = { societyId, isActive: true };
+    if (query.purpose && query.purpose !== "all") {
+      filter.purpose = query.purpose;
+    }
+    if (query.q && String(query.q).trim()) {
+      const regex = new RegExp(String(query.q).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [{ receiptNo: regex }, { purpose: regex }, { event: regex }];
+    }
 
-    if (!donations.length) return [];
+    const { page, limit, skip, isAll } = parsePagination(query, 20);
+
+    const [totalCount, donations] = await Promise.all([
+      Donation.countDocuments(filter),
+      (isAll || !limit
+        ? Donation.find(filter).populate("collectedBy", "name phone").sort({ collectedAt: -1, createdAt: -1 })
+        : Donation.find(filter).populate("collectedBy", "name phone").sort({ collectedAt: -1, createdAt: -1 }).skip(skip).limit(limit)
+      ).lean(),
+    ]);
+
+    if (!donations.length) {
+      return {
+        items: [],
+        pagination: buildPaginationMeta(totalCount, page, limit),
+      };
+    }
 
     const unitIds = [...new Set(donations.map((d) => String(d.unitId)))];
     const units = await Unit.find({ _id: { $in: unitIds }, societyId })
@@ -164,7 +184,7 @@ class DonationService {
       if (u.tenantId) collectorUnitMap.set(String(u.tenantId), u);
     });
 
-    return donations.map((d) => {
+    const items = donations.map((d) => {
       const unit = unitMap.get(String(d.unitId));
       const displayName = unit?.tenantId?.name || unit?.ownerId?.name || null;
 
@@ -220,23 +240,39 @@ class DonationService {
         createdAt: d.createdAt,
       };
     });
+
+    return {
+      items,
+      pagination: buildPaginationMeta(totalCount, page, limit),
+    };
   }
 
-  async listMy(societyId, membership) {
+  async listMy(societyId, membership, query = {}) {
     const myUnitIds = (membership?.units || []).map((id) => String(id));
-    if (!myUnitIds.length) return [];
-    const donations = await Donation.find({ societyId, isActive: true, unitId: { $in: myUnitIds } })
-      .populate("collectedBy", "name")
-      .sort({ collectedAt: -1 })
-      .lean();
+    if (!myUnitIds.length) {
+      return { items: [], pagination: buildPaginationMeta(0, 1, 20) };
+    }
+    const filter = { societyId, isActive: true, unitId: { $in: myUnitIds } };
 
-    if (!donations.length) return [];
+    const { page, limit, skip, isAll } = parsePagination(query, 20);
+
+    const [totalCount, donations] = await Promise.all([
+      Donation.countDocuments(filter),
+      (isAll || !limit
+        ? Donation.find(filter).populate("collectedBy", "name").sort({ collectedAt: -1 })
+        : Donation.find(filter).populate("collectedBy", "name").sort({ collectedAt: -1 }).skip(skip).limit(limit)
+      ).lean(),
+    ]);
+
+    if (!donations.length) {
+      return { items: [], pagination: buildPaginationMeta(totalCount, page, limit) };
+    }
 
     const unitIds = [...new Set(donations.map((d) => String(d.unitId)))];
     const units = await Unit.find({ _id: { $in: unitIds }, societyId }).lean();
     const unitMap = new Map(units.map((u) => [String(u._id), u]));
 
-    return donations.map((d) => {
+    const items = donations.map((d) => {
       const unit = unitMap.get(String(d.unitId));
       return {
         id: d._id,
@@ -254,6 +290,11 @@ class DonationService {
         createdAt: d.createdAt,
       };
     });
+
+    return {
+      items,
+      pagination: buildPaginationMeta(totalCount, page, limit),
+    };
   }
 
   async getReceipt(societyId, donationId, membership) {

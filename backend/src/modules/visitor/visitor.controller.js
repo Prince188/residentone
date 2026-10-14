@@ -198,6 +198,7 @@ class VisitorController {
         success: true,
         data: result.parcels,
         countWaiting: result.countWaiting,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);

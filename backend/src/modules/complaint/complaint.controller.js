@@ -18,6 +18,9 @@ class ComplaintController {
         priority: req.query.priority,
         q: req.query.q,
         isPublic: req.query.isPublic,
+        page: req.query.page,
+        limit: req.query.limit,
+        all: req.query.all,
       };
       // Normalize isPublic string to boolean if present
       if (filters.isPublic === "true") filters.isPublic = true;
@@ -26,8 +29,12 @@ class ComplaintController {
 
       if (filters.isPublic === "" || filters.isPublic === undefined) delete filters.isPublic;
 
-      const complaints = await complaintService.list(req.societyId, req.userId, req.role, filters);
-      res.json({ success: true, data: complaints });
+      const result = await complaintService.list(req.societyId, req.userId, req.role, filters);
+      res.json({
+        success: true,
+        data: result.items || result,
+        pagination: result.pagination,
+      });
     } catch (error) {
       next(error);
     }

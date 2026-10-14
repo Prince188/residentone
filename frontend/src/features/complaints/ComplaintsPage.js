@@ -46,28 +46,55 @@ export default function ComplaintsPage() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [publicFilter, setPublicFilter] = useState("all");
+  const [page, setPage] = useState(1);
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    setPage(1);
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(1);
+  };
+
+  const handlePublicFilterChange = (val) => {
+    setPublicFilter(val);
+    setPage(1);
+  };
 
   const query = useQuery({
-    queryKey: ["complaints", activeSociety?.id, filter, publicFilter, search],
+    queryKey: ["complaints", activeSociety?.id, filter, publicFilter, search, page],
     queryFn: async () => {
-      const params = {};
+      const params = { page, limit: 18 };
       if (filter !== "all") params.status = filter;
       if (publicFilter === "public") params.isPublic = "true";
       if (publicFilter === "private") params.isPublic = "false";
       if (search.trim()) params.q = search.trim();
       const res = await getComplaints(params);
-      return res.data.data;
+      return res.data;
     },
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 3, // 3 minutes cache
+    placeholderData: (prev) => prev,
   });
 
   const statsQuery = useQuery({
     queryKey: ["complaints", "stats", activeSociety?.id],
     queryFn: async () => (await getComplaintStats()).data.data,
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 3,
   });
 
-  const complaints = query.data || [];
+  const rawData = query.data;
+  const complaints = Array.isArray(rawData?.data)
+    ? rawData.data
+    : Array.isArray(rawData?.items)
+    ? rawData.items
+    : Array.isArray(rawData)
+    ? rawData
+    : [];
+  const pagination = rawData?.pagination || { page: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false };
   const stats = statsQuery.data;
 
   return (
@@ -96,7 +123,7 @@ export default function ComplaintsPage() {
           <button
             key={f.key}
             type="button"
-            onClick={() => setFilter(f.key)}
+            onClick={() => handleFilterChange(f.key)}
             className={`rounded-full border px-3 py-1.5 text-label-sm font-medium ${filter === f.key ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline"}`}
           >
             {f.label}
@@ -109,7 +136,7 @@ export default function ComplaintsPage() {
           <span className="text-label-sm text-on-surface-variant">Show:</span>
           <select
             value={publicFilter}
-            onChange={(e) => setPublicFilter(e.target.value)}
+            onChange={(e) => handlePublicFilterChange(e.target.value)}
             className="rounded-full border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-sm text-on-surface focus:border-primary focus:outline-none"
           >
             <option value="all">All (my private + all public)</option>
@@ -122,14 +149,12 @@ export default function ComplaintsPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search title or description..."
             className="w-full rounded-full border border-outline-variant bg-surface-container-lowest py-1.5 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none"
           />
         </div>
       </section>
-
-
 
       {query.isLoading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -154,10 +179,38 @@ export default function ComplaintsPage() {
       )}
 
       {query.isSuccess && complaints.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {complaints.map((c) => (
-            <ComplaintCard key={c.id} c={c} />
-          ))}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {complaints.map((c) => (
+              <ComplaintCard key={c.id} c={c} />
+            ))}
+          </div>
+
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-outline-variant pt-4 text-label-sm text-on-surface-variant">
+              <span>
+                Showing page <b>{pagination.page}</b> of <b>{pagination.totalPages}</b> ({pagination.totalCount} total)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!pagination.hasPrevPage}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-sm font-medium hover:bg-surface-container-high disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={!pagination.hasNextPage}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-sm font-medium hover:bg-surface-container-high disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

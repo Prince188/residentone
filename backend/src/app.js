@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const compression = require("compression");
 const { config } = require("./config");
 const { errorHandler } = require("./middlewares/error.middleware");
 
@@ -64,6 +65,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(compression({ threshold: 1024 }));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
 app.use(express.json({ limit: "10mb" }));
 
