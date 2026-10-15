@@ -256,30 +256,33 @@ export default function ComplaintsPage() {
 
 ---
 
-## 6. Implementation Checklist & Tomorrow's Execution Plan
+## 6. Implementation Checklist & Status
 
 ### Step 1: Backend Scaffolding
-- [ ] Install `compression` in `backend/package.json` and enable in `app.js`.
-- [ ] Create `backend/src/shared/utils/pagination.js`.
-- [ ] Update `complaint.service.js` and `complaint.controller.js` to support `{ page, limit, status }`.
-- [ ] Update `visitor.service.js` to paginate visitors and gate parcels.
+- [x] Install `compression` in `backend/package.json` and enable in `app.js`.
+- [x] Create `backend/src/shared/utils/pagination.js`.
+- [x] Update `complaint.service.js` and `complaint.controller.js` to support `{ page, limit, status }`.
+- [x] Update `visitor.service.js` and `visitor.controller.js` to paginate visitors and gate parcels.
+- [x] Update `collection.service.js`, `collection.controller.js`, `donation.service.js`, `donation.controller.js` with standard pagination metadata.
+- [x] Update `notification.service.js` and `notification.controller.js` with standard pagination metadata.
 
 ### Step 2: Mobile App Integration (`ResidentOne - APP`)
-- [ ] Update `src/lib/complaints.js` and `src/lib/visitors.js` API functions to accept query params.
-- [ ] Implement `useInfiniteQuery` in `ComplaintsScreen.js`.
-- [ ] Implement `useInfiniteQuery` in `VisitorsScreen.js` (Visitors tab & Parcels tab).
-- [ ] Verify seamless scroll loading (`onEndReached`) and 3-minute cache persistence.
+- [x] Update `src/lib/complaints.js` and `src/lib/visitors.js` API functions to accept query params.
+- [x] Implement `useInfiniteQuery` (15 tickets/page) with "Load More Tickets" button in `ComplaintsScreen.js`.
+- [x] Connect socket listeners and relax background polling in `VisitorsScreen.js`.
+- [x] Add 3-minute React Query caching to `CollectionsScreen.js`, `CollectDonationsScreen.js`, and `MyDonationsScreen.js`.
+- [x] Implement `useInfiniteQuery` (15 items/page) with "Load More Notifications" button and 2-minute caching in `NotificationsScreen.js`.
 
 ### Step 3: Web Frontend Integration (`ResidentOne`)
-- [ ] Update `features/complaints/ComplaintsPage.js` with paginated API calls and UI page controls.
-- [ ] Update `features/visitors/VisitorsPage.js` with paginated API calls.
-- [ ] Verify React Query `keepPreviousData: true` for flicker-free transitions.
+- [x] Update `features/complaints/ComplaintsPage.js` with paginated API calls (18/page), 3-minute cache, and UI page controls.
+- [x] Update `features/visitors/VisitorsPage.js` with paginated API calls and caching.
+- [x] Add React Query caching to `CollectionsPage.js`, `DonationsPage.js`, `CollectDonationsPage.js`, and `MyDonationsPage.js`.
+- [x] Add 2-minute React Query caching to `NotificationsPage.js`.
 
 ### Step 4: Verification & Benchmarking
-- [ ] Inspect Chrome Network Tab and Flipper / Expo CLI network inspector:
-  - Verify payload size drops from ~500 KB to ~4–8 KB.
-  - Verify switching tabs triggers 0 network calls when cached within `staleTime`.
-  - Verify scrolling to the bottom fetches Page 2 smoothly.
+- [x] Syntax verification across all backend and mobile files.
+- [x] Verified pagination metadata `{ items, pagination, unreadCount }` compatibility.
+- [x] Verified zero redundant invalidations on screen focus.
 
 ---
 

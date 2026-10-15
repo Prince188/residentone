@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { Notification } = require("./notification.model");
 const { Membership } = require("../membership/membership.model");
 const { AppError } = require("../../shared/utils/errors");
+const { buildPaginationMeta } = require("../../shared/utils/pagination");
 const socketHelper = require("../../socket");
 const logger = require("../../config/logger");
 
@@ -194,6 +195,8 @@ class NotificationService {
       Notification.countDocuments({ societyId, userId, isRead: false }),
     ]);
 
+    const pagination = buildPaginationMeta(total, pageNum, limitNum);
+
     return {
       notifications: docs.map((d) => this.mapNotification(d)),
       unreadCount,
@@ -201,8 +204,11 @@ class NotificationService {
         page: pageNum,
         limit: limitNum,
         total,
-        totalPages: Math.ceil(total / limitNum) || 1,
+        totalPages: pagination.totalPages,
+        hasNextPage: pagination.hasNextPage,
+        hasPrevPage: pagination.hasPrevPage,
       },
+      pagination,
     };
   }
 

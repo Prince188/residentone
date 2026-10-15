@@ -19,6 +19,7 @@ class NotificationController {
         data: result.notifications,
         unreadCount: result.unreadCount,
         meta: result.meta,
+        pagination: result.pagination || result.meta,
       });
     } catch (error) {
       next(error);
