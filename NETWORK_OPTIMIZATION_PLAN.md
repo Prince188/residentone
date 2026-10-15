@@ -272,6 +272,8 @@ export default function ComplaintsPage() {
 - [x] Connect socket listeners and relax background polling in `VisitorsScreen.js`.
 - [x] Add 3-minute React Query caching to `CollectionsScreen.js`, `CollectDonationsScreen.js`, and `MyDonationsScreen.js`.
 - [x] Implement `useInfiniteQuery` (15 items/page) with "Load More Notifications" button and 2-minute caching in `NotificationsScreen.js`.
+- [x] Implement server-side pagination (15 units/page) with "Load More Houses" in `ManageHousesScreen.js`.
+- [x] Configure strict client caching (`refetchOnMount: false`, `refetchOnWindowFocus: false`, `refetchOnReconnect: false`) in `queryClient.js`, `ManageHousesScreen.js`, `ComplaintsScreen.js`, and `NotificationsScreen.js` for true 0-byte screen re-entry.
 
 ### Step 3: Web Frontend Integration (`ResidentOne`)
 - [x] Update `features/complaints/ComplaintsPage.js` with paginated API calls (18/page), 3-minute cache, and UI page controls.
@@ -282,7 +284,7 @@ export default function ComplaintsPage() {
 ### Step 4: Verification & Benchmarking
 - [x] Syntax verification across all backend and mobile files.
 - [x] Verified pagination metadata `{ items, pagination, unreadCount }` compatibility.
-- [x] Verified zero redundant invalidations on screen focus.
+- [x] Verified zero redundant invalidations on screen focus and screen re-entry (0 KB wire transfer on remount).
 
 ---
 
