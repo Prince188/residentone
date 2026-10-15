@@ -1,6 +1,6 @@
 import api from "./api";
 
-export const getHouseCards = () => api.get("/units");
+export const getHouseCards = (config = {}) => api.get("/units", config);
 export const getHouse = (unitId) => api.get(`/units/${unitId}`);
 export const searchUsersByQuery = (q) =>
   api.get("/units/search-users", { params: { q } });

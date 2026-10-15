@@ -512,7 +512,9 @@ export default function SocietyDuesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [toast, setToast] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -529,6 +531,15 @@ export default function SocietyDuesPage() {
   const paramWing = searchParams.get("wing") || (isPureWing && assignedWings.length ? assignedWings[0] : "");
   const [selectedWingFilter, setSelectedWingFilter] = useState(paramWing);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Synchronize wing filter when navigating between Society Admin (/dues) and Wing Admin (/dues?wing=...)
   useEffect(() => {
     const qWing = searchParams.get("wing");
@@ -540,12 +551,14 @@ export default function SocietyDuesPage() {
       // From Society Admin section: ALWAYS show All Wings!
       setSelectedWingFilter("");
     }
+    setPage(1);
   }, [searchParams, isPureWing, assignedWings]);
 
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 5,
   });
   const canManageMaintenance = hasPermission(activeMembership?.role, "manage_maintenance", permissionsQuery.data);
 
@@ -554,6 +567,7 @@ export default function SocietyDuesPage() {
     queryKey: ["house-cards", activeSociety?.id],
     queryFn: async () => (await getHouseCards()).data.data,
     enabled: Boolean(activeSociety && canManageMaintenance && activeSociety.societyType !== "row_house"),
+    staleTime: 1000 * 60 * 3,
   });
   const houses = useMemo(() => housesQuery.data || [], [housesQuery.data]);
 
@@ -575,6 +589,7 @@ export default function SocietyDuesPage() {
       return (await getCycles({ params })).data.data;
     },
     enabled: Boolean(activeSociety && canManageMaintenance),
+    staleTime: 1000 * 60 * 3,
   });
 
   const cycles = useMemo(() => {
@@ -591,45 +606,42 @@ export default function SocietyDuesPage() {
     cycles.find((c) => c.id === selectedCycleId) || cycles[0] || null;
 
   const unitsQuery = useQuery({
-    queryKey: ["maintenance", "cycle-units", cycle?.id, !selectedWingFilter ? "allWings" : selectedWingFilter],
-    queryFn: async () =>
-      (await getCycleUnits(cycle.id, { params: { allWings: !selectedWingFilter } })).data.data,
+    queryKey: [
+      "maintenance",
+      "cycle-units",
+      cycle?.id,
+      selectedWingFilter,
+      filter,
+      debouncedSearch,
+      page,
+    ],
+    queryFn: async () => {
+      const params = {
+        page,
+        limit: 20,
+        status: filter !== "all" ? filter : undefined,
+        search: debouncedSearch.trim() || undefined,
+        wing: selectedWingFilter || undefined,
+        allWings: !selectedWingFilter,
+      };
+      const res = await getCycleUnits(cycle.id, { params });
+      return {
+        items: res.data?.data || [],
+        counts: res.data?.counts || { all: 0, paid: 0, pending: 0, overdue: 0, late_paid: 0 },
+        stats: res.data?.stats || {},
+        pagination: res.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false },
+      };
+    },
     enabled: Boolean(cycle),
+    staleTime: 1000 * 60 * 3,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
-  const units = useMemo(() => unitsQuery.data || [], [unitsQuery.data]);
-
-  // When selectedWingFilter is set (e.g. from Wing Admin section), filter units to that wing.
-  // When empty (from Society Admin section), show all units.
-  const displayedUnits = useMemo(() => {
-    if (!selectedWingFilter) return units;
-    return units.filter(
-      (u) => String(u.block || "").toUpperCase().trim() === selectedWingFilter.toUpperCase().trim()
-    );
-  }, [units, selectedWingFilter]);
-
-  const counts = useMemo(() => {
-    const base = { paid: 0, pending: 0, overdue: 0, late_paid: 0 };
-    displayedUnits.forEach((u) => {
-      if (base[u.status] !== undefined) base[u.status] += 1;
-    });
-    return base;
-  }, [displayedUnits]);
-
-  const filtered = useMemo(() => {
-    let list = displayedUnits;
-    if (filter !== "all") list = list.filter((u) => u.status === filter);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(
-        (u) =>
-          String(u.label).toLowerCase().includes(q) ||
-          (u.ownerName || "").toLowerCase().includes(q) ||
-          (u.ownerPhone || "").includes(q)
-      );
-    }
-    return list;
-  }, [displayedUnits, search, filter]);
+  const units = useMemo(() => unitsQuery.data?.items || [], [unitsQuery.data?.items]);
+  const counts = unitsQuery.data?.counts || { all: 0, paid: 0, pending: 0, overdue: 0, late_paid: 0 };
+  const stats = unitsQuery.data?.stats || {};
+  const pagination = unitsQuery.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false };
 
   const createMutation = useMutation({
     mutationFn: (payload) => createCycle(payload).then((r) => r.data.data),
@@ -665,11 +677,11 @@ export default function SocietyDuesPage() {
   }
 
   const filterOptions = [
-    { key: "all", label: "All", count: displayedUnits.length },
+    { key: "all", label: "All", count: counts.all ?? 0 },
     ...Object.keys(STATUS_UI).map((key) => ({
       key,
       label: STATUS_UI[key].label,
-      count: counts[key],
+      count: counts[key] ?? 0,
     })),
   ];
 
@@ -740,7 +752,10 @@ export default function SocietyDuesPage() {
               {!isPureWing && (
                 <button
                   type="button"
-                  onClick={() => setSelectedWingFilter("")}
+                  onClick={() => {
+                    setSelectedWingFilter("");
+                    setPage(1);
+                  }}
                   className={`rounded-full px-3.5 py-1 text-label-sm font-semibold transition-all border ${
                     !selectedWingFilter
                       ? "bg-primary text-on-primary border-primary shadow-sm"
@@ -754,7 +769,10 @@ export default function SocietyDuesPage() {
                 <button
                   key={w}
                   type="button"
-                  onClick={() => setSelectedWingFilter(w)}
+                  onClick={() => {
+                    setSelectedWingFilter(w);
+                    setPage(1);
+                  }}
                   className={`rounded-full px-3.5 py-1 text-label-sm font-semibold transition-all border ${
                     selectedWingFilter.toUpperCase() === w.toUpperCase()
                       ? "bg-primary text-on-primary border-primary shadow-sm"
@@ -788,7 +806,7 @@ export default function SocietyDuesPage() {
               )}
               <span>· Owner {formatAmount(cycle.ownerAmount || cycle.amount)} / Renter {formatAmount(cycle.renterAmount || cycle.amount)}</span>
               <span>· Due {formatDate(cycle.dueDate)}</span>
-              <span>· {units.filter((u) => u.isOccupied).length} occupied · {counts.paid + counts.late_paid} paid</span>
+              <span>· {stats.totalUnits ?? counts.all ?? 0} houses · {Number(counts.paid || 0) + Number(counts.late_paid || 0)} paid</span>
             </div>
           )}
 
@@ -811,7 +829,7 @@ export default function SocietyDuesPage() {
             </div>
           )}
 
-          {cycle && units.length > 0 && (
+          {cycle && (units.length > 0 || unitsQuery.isLoading) && (
             <>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
@@ -827,8 +845,11 @@ export default function SocietyDuesPage() {
                         <button
                           key={opt.key}
                           type="button"
-                          onClick={() => setFilter(opt.key)}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors ${
+                          onClick={() => {
+                            setFilter(opt.key);
+                            setPage(1);
+                          }}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-label-md transition-colors cursor-pointer ${
                             filter === opt.key ? activeClass : inactiveClass
                           }`}
                         >
@@ -845,7 +866,10 @@ export default function SocietyDuesPage() {
                   </div>
                   <select
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
+                    onChange={(e) => {
+                      setFilter(e.target.value);
+                      setPage(1);
+                    }}
                     aria-label="Filter houses by status"
                     className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:hidden min-w-[110px]"
                   >
@@ -871,23 +895,55 @@ export default function SocietyDuesPage() {
               </div>
 
               <section>
-
                 {unitsQuery.isLoading ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {Array.from({ length: 8 }).map((_, i) => (
                       <div key={i} className="h-36 animate-pulse rounded-xl bg-surface-container-high" />
                     ))}
                   </div>
-                ) : filtered.length === 0 ? (
+                ) : units.length === 0 ? (
                   <div className="rounded-xl border border-outline-variant bg-surface-container-low p-10 text-center text-body-md text-on-surface-variant">
                     No houses match your search or filter.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {filtered.map((unit) => (
-                      <DuesCard key={unit.unitId} unit={unit} cycle={cycle} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {units.map((unit) => (
+                        <DuesCard key={unit.unitId} unit={unit} cycle={cycle} />
+                      ))}
+                    </div>
+
+                    {pagination.totalPages > 1 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/40 pt-4 mt-6">
+                        <p className="text-body-sm text-on-surface-variant">
+                          Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalCount)} to{" "}
+                          {Math.min(pagination.page * pagination.limit, pagination.totalCount)} of{" "}
+                          <span className="font-semibold text-on-surface">{pagination.totalCount}</span> houses
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!pagination.hasPrevPage}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer transition-colors"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-label-md font-medium text-on-surface">
+                            Page {pagination.page} of {pagination.totalPages}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={!pagination.hasNextPage}
+                            onClick={() => setPage((p) => p + 1)}
+                            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer transition-colors"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </section>
             </>

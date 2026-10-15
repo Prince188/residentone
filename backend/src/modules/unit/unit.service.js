@@ -182,6 +182,10 @@ class UnitService {
       filter.tenantId = null;
     }
 
+    if (query.wing || query.block) {
+      filter.block = new RegExp(`^${escapeRegExp(String(query.wing || query.block).trim())}$`, "i");
+    }
+
     // Search query
     const rawSearch = String(query.search || query.q || "").trim();
     if (rawSearch) {

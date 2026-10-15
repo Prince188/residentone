@@ -26,13 +26,23 @@ export default function ManageHousesPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const activeMembership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [selectedHouse, setSelectedHouse] = useState(null);
   const [editingHouse, setEditingHouse] = useState(null);
   const [deletingHouse, setDeletingHouse] = useState(null);
   const [editError, setEditError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [exportModalVisible, setExportModalVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const updateMutation = useMutation({
     mutationFn: (data) => updateUnit(editingHouse?.id, data).then((r) => r.data.data),
@@ -60,21 +70,54 @@ export default function ManageHousesPage() {
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 5,
   });
   const canManageHouses = hasPermissionForMembership(activeMembership, "manage_houses", permissionsQuery.data);
 
+  const isWingAdmin = isPureWingAdmin(activeMembership);
+  const assignedWings = activeMembership?.assignedWings || [];
+  const wingParam = isWingAdmin && assignedWings.length > 0 ? assignedWings[0] : undefined;
+
   const housesQuery = useQuery({
-    queryKey: ["house-cards", activeSociety?.id],
-    queryFn: async () => (await getHouseCards()).data.data,
+    queryKey: [
+      "house-cards",
+      activeSociety?.id,
+      wingParam,
+      statusFilter,
+      debouncedSearch,
+      page,
+    ],
+    queryFn: async () => {
+      const res = await getHouseCards({
+        params: {
+          page,
+          limit: 20,
+          wing: wingParam,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          search: debouncedSearch.trim() || undefined,
+        },
+      });
+      return {
+        items: res.data?.data || [],
+        counts: res.data?.counts || { all: 0, owner: 0, renter: 0, vacant: 0 },
+        pagination: res.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false },
+      };
+    },
     enabled: Boolean(activeSociety && canManageHouses),
+    staleTime: 1000 * 60 * 3,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
-  const houses = useMemo(() => housesQuery.data || [], [housesQuery.data]);
+  const houses = useMemo(() => housesQuery.data?.items || [], [housesQuery.data?.items]);
+  const counts = housesQuery.data?.counts || { all: 0, owner: 0, renter: 0, vacant: 0 };
+  const pagination = housesQuery.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false };
 
   const familyQuery = useQuery({
     queryKey: ["family-members", activeSociety?.id],
     queryFn: async () => (await getFamilyMembers()).data.data,
     enabled: Boolean(activeSociety && canManageHouses),
+    staleTime: 1000 * 60 * 3,
   });
   const familyByHouse = useMemo(() => {
     const map = {};
@@ -94,38 +137,7 @@ export default function ManageHousesPage() {
     return map;
   }, [houses, familyQuery.data]);
 
-  const filtered = useMemo(() => {
-    let result = houses;
-    // Pure wing admin sees only assigned wings; dual society_admin+wing_admin sees all
-    if (isPureWingAdmin(activeMembership)) {
-      const allowed = new Set((activeMembership.assignedWings || []).map((w) => String(w).toUpperCase()));
-      if (allowed.size > 0) result = result.filter((h) => allowed.has(String(h.block || "").toUpperCase()));
-    }
-    if (statusFilter === "owner") result = result.filter((h) => h.isAssigned && !h.isRented);
-    else if (statusFilter === "renter") result = result.filter((h) => h.isRented);
-    else if (statusFilter === "vacant") result = result.filter((h) => !h.isAssigned && !h.isRented);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter(
-        (h) => {
-          const fam = familyByHouse[String(h.id)] || [];
-          return (
-            String(h.label).toLowerCase().includes(q) ||
-            (h.block || "").toLowerCase().includes(q) ||
-            (h.floor || "").toLowerCase().includes(q) ||
-            (h.owner?.name || "").toLowerCase().includes(q) ||
-            (h.tenant?.name || "").toLowerCase().includes(q) ||
-            (h.owner?.phone || "").includes(q) ||
-            (h.tenant?.phone || "").includes(q) ||
-            (h.owner?.vehicles || []).some((v) => String(v).toLowerCase().includes(q)) ||
-            (h.tenant?.vehicles || []).some((v) => String(v).toLowerCase().includes(q)) ||
-            fam.some((m) => m.name.toLowerCase().includes(q) || m.relation.toLowerCase().includes(q))
-          );
-        }
-      );
-    }
-    return result;
-  }, [houses, search, statusFilter, familyByHouse, activeMembership]);
+  const filtered = houses;
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -217,10 +229,11 @@ export default function ManageHousesPage() {
     );
   }
 
-  const totalOwned = houses.filter((h) => h.isAssigned && !h.isRented).length;
-  const totalRented = houses.filter((h) => h.isRented).length;
-  const totalVacant = houses.filter((h) => !h.isAssigned && !h.isRented).length;
-  const occupancyPercent = houses.length > 0 ? Math.round(((totalOwned + totalRented) / houses.length) * 100) : 0;
+  const totalOwned = counts.owner ?? 0;
+  const totalRented = counts.renter ?? 0;
+  const totalVacant = counts.vacant ?? 0;
+  const totalUnits = counts.all ?? 0;
+  const occupancyPercent = totalUnits > 0 ? Math.round(((totalOwned + totalRented) / totalUnits) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -237,7 +250,7 @@ export default function ManageHousesPage() {
           <div className="flex items-center gap-3">
             <h1 className="page-title">Manage Houses & Units</h1>
             <span className="rounded-full bg-primary/10 px-3 py-0.5 text-label-sm font-bold text-primary">
-              {houses.length} Total Units
+              {totalUnits} Total Units
             </span>
           </div>
           <p className="page-subtitle mt-0.5">
@@ -265,14 +278,14 @@ export default function ManageHousesPage() {
       </section>
 
       {/* Occupancy Overview Stats */}
-      {houses.length > 0 && (
+      {totalUnits > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
           <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
             <div className="flex items-center justify-between text-outline">
               <span className="text-[11px] font-bold uppercase tracking-wider">Total Units</span>
               <span className="material-symbols-outlined text-[20px] text-primary">domain</span>
             </div>
-            <p className="mt-2 text-headline-sm font-black text-on-surface">{houses.length}</p>
+            <p className="mt-2 text-headline-sm font-black text-on-surface">{totalUnits}</p>
             <div className="mt-1 flex items-center justify-between text-[11px] text-on-surface-variant">
               <span>{occupancyPercent}% Occupied</span>
               <span className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-container-high">
@@ -318,7 +331,7 @@ export default function ManageHousesPage() {
             const isActive = statusFilter === filter.id;
             const count =
               filter.id === "all"
-                ? houses.length
+                ? totalUnits
                 : filter.id === "owner"
                 ? totalOwned
                 : filter.id === "renter"
@@ -329,7 +342,10 @@ export default function ManageHousesPage() {
               <button
                 key={filter.id}
                 type="button"
-                onClick={() => setStatusFilter(filter.id)}
+                onClick={() => {
+                  setStatusFilter(filter.id);
+                  setPage(1);
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-label-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? "bg-primary text-on-primary shadow-xs"
@@ -364,7 +380,10 @@ export default function ManageHousesPage() {
           {search && (
             <button
               type="button"
-              onClick={() => setSearch("")}
+              onClick={() => {
+                setSearch("");
+                setPage(1);
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
@@ -449,6 +468,37 @@ export default function ManageHousesPage() {
                   onClick={() => setSelectedHouse(house)}
                 />
               ))}
+            </div>
+          )}
+
+          {pagination.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/40 pt-4 mt-6">
+              <p className="text-body-sm text-on-surface-variant">
+                Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalCount)} to{" "}
+                {Math.min(pagination.page * pagination.limit, pagination.totalCount)} of{" "}
+                <span className="font-semibold text-on-surface">{pagination.totalCount}</span> houses
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!pagination.hasPrevPage}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-label-md font-medium text-on-surface">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={!pagination.hasNextPage}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer transition-colors"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </>
