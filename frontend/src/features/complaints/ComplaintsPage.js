@@ -6,7 +6,6 @@ import { getComplaints, getComplaintStats, STATUS_UI, timeAgo, extractApiError }
 import useBadgeSeen from "../../hooks/useBadgeSeen";
 
 const FILTERS = [
-  { key: "all", label: "All" },
   { key: "open", label: "Open" },
   { key: "in_progress", label: "In Progress" },
   { key: "resolved", label: "Resolved" },
@@ -43,7 +42,7 @@ function ComplaintCard({ c }) {
 export default function ComplaintsPage() {
   useBadgeSeen("complaints");
   const activeSociety = useSocietyStore(selectActiveSociety);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("open");
   const [search, setSearch] = useState("");
   const [publicFilter, setPublicFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -67,7 +66,7 @@ export default function ComplaintsPage() {
     queryKey: ["complaints", activeSociety?.id, filter, publicFilter, search, page],
     queryFn: async () => {
       const params = { page, limit: 18 };
-      if (filter !== "all") params.status = filter;
+      if (filter && filter !== "all") params.status = filter;
       if (publicFilter === "public") params.isPublic = "true";
       if (publicFilter === "private") params.isPublic = "false";
       if (search.trim()) params.q = search.trim();
