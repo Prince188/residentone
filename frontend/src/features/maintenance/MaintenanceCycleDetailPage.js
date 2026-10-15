@@ -189,7 +189,9 @@ export default function MaintenanceCycleDetailPage() {
   const activeSociety = useSocietyStore(selectActiveSociety);
   const membership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
   const [exportErr, setExportErr] = useState("");
@@ -197,10 +199,19 @@ export default function MaintenanceCycleDetailPage() {
   const [deletingCycle, setDeletingCycle] = useState(false);
   const [actionError, setActionError] = useState("");
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const permissionsQuery = useQuery({
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 5,
   });
   const canManage = hasPermission(membership?.role, "manage_maintenance", permissionsQuery.data);
 
@@ -208,6 +219,7 @@ export default function MaintenanceCycleDetailPage() {
     queryKey: ["maintenance", "cycles", activeSociety?.id],
     queryFn: async () => (await getCycles()).data.data,
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 3,
   });
 
   const cycle = useMemo(() => {
@@ -216,18 +228,34 @@ export default function MaintenanceCycleDetailPage() {
   }, [cyclesQuery.data, cycleId]);
 
   const unitsQuery = useQuery({
-    queryKey: ["maintenance", "cycle-units", cycle?.id],
-    queryFn: async () => (await getCycleUnits(cycle.id)).data.data,
+    queryKey: ["maintenance", "cycle-units", cycle?.id, filter, debouncedSearch, page],
+    queryFn: async () => {
+      const params = {
+        page,
+        limit: 20,
+        status: filter !== "all" ? filter : undefined,
+        search: debouncedSearch.trim() || undefined,
+        allWings: true,
+      };
+      const res = await getCycleUnits(cycle.id, { params });
+      return {
+        items: res.data?.data || [],
+        counts: res.data?.counts || { all: 0, paid: 0, pending: 0, overdue: 0, late_paid: 0 },
+        stats: res.data?.stats || {},
+        pagination: res.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false },
+      };
+    },
     enabled: Boolean(cycle?.id && canManage),
+    staleTime: 1000 * 60 * 3,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
-  const units = useMemo(() => unitsQuery.data || [], [unitsQuery.data]);
-
-  const counts = useMemo(() => {
-    const base = { paid: 0, pending: 0, overdue: 0, late_paid: 0 };
-    units.forEach((u) => { if (base[u.status] !== undefined) base[u.status] += 1; });
-    return base;
-  }, [units]);
+  const units = useMemo(() => unitsQuery.data?.items || [], [unitsQuery.data?.items]);
+  const counts = unitsQuery.data?.counts || { all: 0, paid: 0, pending: 0, overdue: 0, late_paid: 0 };
+  const stats = unitsQuery.data?.stats || {};
+  const pagination = unitsQuery.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false };
+  const filtered = units;
 
   const hasPayments = (counts.paid + counts.late_paid) > 0;
 
@@ -327,7 +355,7 @@ export default function MaintenanceCycleDetailPage() {
   const isOverdue = isAfterDueDay(new Date(), cycle.dueDate);
 
   const filterOptions = [
-    { key: "all", label: "All", count: units.length },
+    { key: "all", label: "All", count: counts.all ?? 0 },
     ...Object.keys(STATUS_UI).map((key) => ({ key, label: STATUS_UI[key].label, count: counts[key] || 0 })),
   ];
 
@@ -363,7 +391,7 @@ export default function MaintenanceCycleDetailPage() {
               ))}
             </div>
           )}
-          <p className="mt-1 text-label-sm text-outline">{units.length} houses · {counts.paid + counts.late_paid} paid · {cycle.durationMonths > 1 ? `${cycle.durationMonths} months` : "1 month"}</p>
+          <p className="mt-1 text-label-sm text-outline">{stats.totalUnits ?? counts.all ?? 0} houses · {Number(counts.paid || 0) + Number(counts.late_paid || 0)} paid · {cycle.durationMonths > 1 ? `${cycle.durationMonths} months` : "1 month"}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -416,7 +444,10 @@ export default function MaintenanceCycleDetailPage() {
                 <button
                   key={opt.key}
                   type="button"
-                  onClick={() => setFilter(opt.key)}
+                  onClick={() => {
+                    setFilter(opt.key);
+                    setPage(1);
+                  }}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-md font-semibold transition-colors cursor-pointer ${
                     isActive
                       ? "bg-primary text-on-primary"
@@ -438,7 +469,10 @@ export default function MaintenanceCycleDetailPage() {
           <div className="sm:hidden w-full">
             <select
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => {
+                setFilter(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm"
             >
               {filterOptions.map((opt) => (
@@ -485,11 +519,44 @@ export default function MaintenanceCycleDetailPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {filtered.map((u) => (
-            <HouseCard key={u.unitId} unit={u} cycle={cycle} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {filtered.map((u) => (
+              <HouseCard key={u.unitId} unit={u} cycle={cycle} />
+            ))}
+          </div>
+
+          {pagination.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/40 pt-4 mt-6">
+              <p className="text-body-sm text-on-surface-variant">
+                Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalCount)} to{" "}
+                {Math.min(pagination.page * pagination.limit, pagination.totalCount)} of{" "}
+                <span className="font-semibold text-on-surface">{pagination.totalCount}</span> houses
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!pagination.hasPrevPage}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-label-md font-medium text-on-surface">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={!pagination.hasNextPage}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <EditCycleModal
