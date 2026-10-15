@@ -4,6 +4,7 @@ const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
 const { Membership } = require("../membership/membership.model");
 const { hasPermission, hasPermissionForMembership, getMembershipRoles } = require("../../shared/permissions");
+const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 const ExcelJS = require("exceljs");
 
 async function hasMaintenancePermission(societyId, membershipOrRole) {
@@ -473,7 +474,7 @@ class MaintenanceService {
       }
     });
 
-    return units.map((unit) => {
+    const allUnits = units.map((unit) => {
       const uBlock = unit.block ? String(unit.block).toUpperCase().trim() : null;
       // Best matching cycle: specific wing cycle > society-wide cycle > base cycle
       const effectiveCycle = (uBlock && cycleByWing.get(uBlock)) || societyWideCycle || cycle;
@@ -563,6 +564,90 @@ class MaintenanceService {
         cycleRenterAmount: effectiveCycle.renterAmount,
       };
     });
+
+    const totalUnitsCount = allUnits.length;
+    let paidCount = 0;
+    let pendingCount = 0;
+    let overdueCount = 0;
+    let latePaidCount = 0;
+    let totalCollected = 0;
+    let totalDue = 0;
+
+    allUnits.forEach((u) => {
+      if (u.status === "paid") {
+        paidCount++;
+        totalCollected += Number(u.totalAmount || u.amount || 0);
+      } else if (u.status === "late_paid") {
+        latePaidCount++;
+        totalCollected += Number(u.totalAmount || u.amount || 0);
+      } else if (u.status === "overdue") {
+        overdueCount++;
+        totalDue += Number(u.totalAmount || u.amount || 0);
+      } else {
+        pendingCount++;
+        totalDue += Number(u.totalAmount || u.amount || 0);
+      }
+    });
+
+    const counts = {
+      all: totalUnitsCount,
+      paid: paidCount + latePaidCount,
+      paidStrict: paidCount,
+      pending: pendingCount,
+      overdue: overdueCount,
+      late_paid: latePaidCount,
+    };
+
+    const stats = {
+      totalUnits: totalUnitsCount,
+      paidUnits: paidCount + latePaidCount,
+      pendingUnits: pendingCount + overdueCount,
+      totalCollected,
+      totalDue,
+    };
+
+    let filtered = allUnits;
+    if (options.status && options.status !== "all") {
+      if (options.status === "paid") {
+        filtered = filtered.filter((u) => ["paid", "late_paid"].includes(u.status));
+      } else if (options.status === "pending") {
+        filtered = filtered.filter((u) => u.status === "pending");
+      } else if (options.status === "overdue") {
+        filtered = filtered.filter((u) => u.status === "overdue");
+      } else if (options.status === "late_paid") {
+        filtered = filtered.filter((u) => u.status === "late_paid");
+      } else {
+        filtered = filtered.filter((u) => u.status === options.status);
+      }
+    }
+
+    if (options.wing && options.wing !== "all") {
+      const targetWing = String(options.wing).trim().toUpperCase();
+      filtered = filtered.filter((u) => u.block && String(u.block).trim().toUpperCase() === targetWing);
+    }
+
+    const searchTerm = options.search || options.q;
+    if (searchTerm && String(searchTerm).trim()) {
+      const term = String(searchTerm).trim().toLowerCase();
+      filtered = filtered.filter(
+        (u) =>
+          (u.label && String(u.label).toLowerCase().includes(term)) ||
+          (u.block && String(u.block).toLowerCase().includes(term)) ||
+          (u.ownerName && String(u.ownerName).toLowerCase().includes(term)) ||
+          (u.ownerPhone && String(u.ownerPhone).toLowerCase().includes(term))
+      );
+    }
+
+    const { page, limit, skip, isAll } = parsePagination(options, 15);
+    const filteredTotal = filtered.length;
+    const paginated = isAll ? filtered : filtered.slice(skip, skip + limit);
+
+    return {
+      items: paginated,
+      counts,
+      stats,
+      pagination: buildPaginationMeta(filteredTotal, page, isAll ? filteredTotal : limit),
+    };
   }
 
   mapUnitRecord(record, cycle, membershipRole) {
@@ -1133,7 +1218,8 @@ class MaintenanceService {
 
   // Excel export for a cycle - same shape as collections with separate Maintenance & Penalty
   async generateExcelBuffer(societyId, cycle) {
-    const units = await this.getCycleUnits(societyId, cycle);
+    const unitsResult = await this.getCycleUnits(societyId, cycle, { all: true });
+    const units = Array.isArray(unitsResult) ? unitsResult : (unitsResult?.items || []);
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "ResidentOne";

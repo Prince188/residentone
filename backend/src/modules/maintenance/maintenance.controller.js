@@ -102,11 +102,12 @@ class MaintenanceController {
       if (!cycle) {
         return res.json({ success: true, data: null });
       }
-      const allUnits = await maintenanceService.getCycleUnits(
+      const allUnitsResult = await maintenanceService.getCycleUnits(
         req.societyId,
         cycle,
-        { allWings: true }
+        { allWings: true, all: true }
       );
+      const allUnits = Array.isArray(allUnitsResult) ? allUnitsResult : (allUnitsResult?.items || []);
       const myUnitIds = (req.membership.units || []).map((id) => String(id));
       const userIdStr = String(req.userId);
       const mineRaw = myUnitIds.length
@@ -146,12 +147,18 @@ class MaintenanceController {
         req.query.allWings === "true" ||
         req.query.scope === "society" ||
         req.query.scope === "all";
-      const units = await maintenanceService.getCycleUnits(
+      const result = await maintenanceService.getCycleUnits(
         req.societyId,
         cycle,
-        { allWings }
+        { allWings, ...req.query }
       );
-      res.json({ success: true, data: units });
+      res.json({
+        success: true,
+        data: result.items || result,
+        counts: result.counts,
+        stats: result.stats,
+        pagination: result.pagination,
+      });
     } catch (error) {
       next(error);
     }
