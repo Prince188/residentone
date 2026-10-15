@@ -306,6 +306,7 @@ export default function CollectionDetailPage() {
   const membership = useSocietyStore(selectActiveMembership);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
@@ -317,6 +318,7 @@ export default function CollectionDetailPage() {
     queryKey: ["society-permissions", activeSociety?.id],
     queryFn: async () => (await api.get("/societies/permissions")).data.data,
     enabled: Boolean(activeSociety),
+    staleTime: 1000 * 60 * 5,
   });
   const isAdmin = hasPermission(membership?.role, "manage_collections", permissionsQuery.data);
   const canExport = hasPermission(membership?.role, "manage_collections", permissionsQuery.data);
@@ -329,10 +331,20 @@ export default function CollectionDetailPage() {
   });
 
   const unitsQuery = useQuery({
-    queryKey: ["collection-units", id],
+    queryKey: ["collection-units", id, filter, search, page],
     queryFn: async () => {
-      const res = await getCollectionUnits(id);
-      return res.data?.data || res.data?.items || res.data || [];
+      const res = await getCollectionUnits(id, {
+        page,
+        limit: 20,
+        status: filter !== "all" ? filter : undefined,
+        q: search.trim() || undefined,
+      });
+      return {
+        items: res.data?.data || res.data?.items || [],
+        counts: res.data?.counts || { all: 0, paid: 0, pending: 0 },
+        stats: res.data?.stats || {},
+        pagination: res.data?.pagination || { page: 1, totalPages: 1, totalCount: 0 },
+      };
     },
     enabled: Boolean(id) && isAdmin,
     staleTime: 1000 * 60 * 3,
@@ -354,36 +366,27 @@ export default function CollectionDetailPage() {
       return results;
     },
     enabled: Boolean(id) && !isAdmin && myUnits.length > 0,
+    staleTime: 1000 * 60 * 3,
   });
 
   const collection = collectionQuery.data;
-  const units = useMemo(() => (isAdmin ? (unitsQuery.data || []) : (myQuery.data || [])), [isAdmin, unitsQuery.data, myQuery.data]);
-
-  const counts = useMemo(() => {
-    const base = { paid: 0, pending: 0, overdue: 0, late_paid: 0 };
-    (units || []).forEach((u) => { if (base[u.status] !== undefined) base[u.status] += 1; });
-    return base;
-  }, [units]);
+  const units = useMemo(() => (isAdmin ? (unitsQuery.data?.items || []) : (myQuery.data || [])), [isAdmin, unitsQuery.data, myQuery.data]);
+  const counts = unitsQuery.data?.counts || { all: 0, paid: 0, pending: 0 };
+  const latestStats = unitsQuery.data?.stats || {};
+  const pagination = unitsQuery.data?.pagination || { page: 1, totalPages: 1, totalCount: 0 };
 
   const stats = useMemo(() => {
-    let paidUnitsCount = 0;
-    let paidUnitsTotal = 0;
-    (units || []).forEach((u) => {
-      const isPaid = u.status === "paid" || u.status === "late_paid" || Boolean(u.paidOn);
-      if (isPaid) {
-        paidUnitsCount += 1;
-        paidUnitsTotal += Number(u.amount || u.totalAmount || collection?.amountPerHouse || collection?.amount || 0);
-      }
-    });
-
-    const totalUnitsCount = units && units.length > 0 ? units.length : Number(collection?.totalUnits || 0);
+    const totalUnitsCount = Number(latestStats.totalUnits ?? collection?.totalUnits ?? counts.all ?? 0);
     const amountPerHouse = Number(collection?.amountPerHouse || collection?.amount || 0);
+    const paidUnitsCount = Number(latestStats.paidUnits ?? counts.paid ?? collection?.paidCount ?? 0);
+    const pendingUnitsCount = Math.max(0, totalUnitsCount - paidUnitsCount);
 
     const target = Number(
       collection?.targetAmount ||
       collection?.targetGoal ||
       collection?.target ||
-      amountPerHouse * totalUnitsCount ||
+      latestStats.targetAmount ||
+      (amountPerHouse * totalUnitsCount) ||
       0
     );
 
@@ -392,23 +395,24 @@ export default function CollectionDetailPage() {
         ? collection.collectedAmount
         : collection?.totalCollected !== undefined && collection?.totalCollected !== null && Number(collection?.totalCollected) > 0
         ? collection.totalCollected
-        : paidUnitsTotal
+        : latestStats.collectedAmount || 0
     );
 
-    const progressPct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : totalUnitsCount > 0 && paidUnitsCount === totalUnitsCount ? 100 : 0;
+    const progressPct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : (totalUnitsCount > 0 && paidUnitsCount === totalUnitsCount ? 100 : 0);
 
     return {
       target,
       collected,
       ratePerHouse: amountPerHouse,
       progress: progressPct,
-      paidCount: paidUnitsCount || Number(collection?.paidCount || 0),
-      pendingCount: Math.max(0, totalUnitsCount - (paidUnitsCount || Number(collection?.paidCount || 0))),
+      paidCount: paidUnitsCount,
+      pendingCount: pendingUnitsCount,
       totalUnits: totalUnitsCount,
+      totalCount: totalUnitsCount,
     };
-  }, [collection, units]);
+  }, [collection, latestStats, counts]);
 
-  const hasPayments = (counts.paid + counts.late_paid) > 0;
+  const hasPayments = ((counts.paid || 0) + (counts.late_paid || 0)) > 0;
 
   const updateMutation = useMutation({
     mutationFn: (payload) => updateCollection(id, payload).then((r) => r.data.data),
@@ -434,15 +438,7 @@ export default function CollectionDetailPage() {
     onError: (err) => setActionError(extractApiError(err, "Failed to close collection fund")),
   });
 
-  const filtered = useMemo(() => {
-    let list = units;
-    if (filter !== "all") list = list.filter((u) => u.status === filter);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter((u) => String(u.label).toLowerCase().includes(q) || (u.ownerName || "").toLowerCase().includes(q));
-    }
-    return list;
-  }, [units, search, filter]);
+  const filtered = units;
 
   const handleExport = async (params = {}) => {
     try {
@@ -618,14 +614,29 @@ export default function CollectionDetailPage() {
         <>
           <div className="flex flex-wrap items-center gap-2">
             {["all", "pending", "overdue", "paid", "late_paid"].map((k) => (
-              <button key={k} type="button" onClick={() => setFilter(k)} className={`rounded-full border px-3 py-1.5 text-label-sm cursor-pointer ${filter === k ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest"}`}>
-                {k === "all" ? "All" : STATUS_UI[k]?.label || k} {k !== "all" && `(${counts[k] || 0})`}
-                {k === "all" && ` (${units.length})`}
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  setFilter(k);
+                  setPage(1);
+                }}
+                className={`rounded-full border px-3 py-1.5 text-label-sm cursor-pointer ${filter === k ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest"}`}
+              >
+                {k === "all" ? `All (${counts.all || 0})` : `${STATUS_UI[k]?.label || k} (${counts[k] || 0})`}
               </button>
             ))}
             <div className="relative ml-auto max-w-xs flex-1">
               <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">search</span>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search house..." className="w-full rounded-full border border-outline-variant py-1.5 pl-9 pr-4 text-body-sm" />
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search house..."
+                className="w-full rounded-full border border-outline-variant py-1.5 pl-9 pr-4 text-body-sm"
+              />
             </div>
           </div>
 
@@ -635,6 +646,36 @@ export default function CollectionDetailPage() {
             ))}
           </div>
           {filtered.length === 0 && <div className="rounded-xl border border-dashed border-outline-variant p-8 text-center text-body-sm text-on-surface-variant">No houses found</div>}
+
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/60 pt-4">
+              <span className="text-body-sm text-on-surface-variant">
+                Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.totalCount, pagination.page * pagination.limit)} of {pagination.totalCount} houses
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!pagination.hasPrevPage}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer"
+                >
+                  Previous
+                </button>
+                <span className="text-label-md font-medium text-on-surface">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={!pagination.hasNextPage}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md font-semibold text-on-surface disabled:opacity-40 hover:bg-surface-container-low cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="space-y-3">

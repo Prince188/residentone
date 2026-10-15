@@ -16,7 +16,7 @@ export const createCollection = (payload) => api.post("/collections", payload);
 export const updateCollection = (id, payload) => api.patch(`/collections/${id}`, payload);
 export const closeCollection = (id) => api.post(`/collections/${id}/close`);
 export const deleteCollection = (id) => api.delete(`/collections/${id}`);
-export const getCollectionUnits = (id) => api.get(`/collections/${id}/units`);
+export const getCollectionUnits = (id, params = {}) => api.get(`/collections/${id}/units`, { params });
 export const getCollectionUnitDetail = (collectionId, unitId) => api.get(`/collections/${collectionId}/units/${unitId}`);
 export const recordCollectionPayment = (collectionId, unitId, payload) => api.post(`/collections/${collectionId}/units/${unitId}/pay`, payload);
 export const removeCollectionPayment = (collectionId, unitId) => api.post(`/collections/${collectionId}/units/${unitId}/unpay`);

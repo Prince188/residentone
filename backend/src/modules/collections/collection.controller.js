@@ -54,6 +54,8 @@ class CollectionController {
       res.json({
         success: true,
         data: result.items || result,
+        counts: result.counts || { all: 0, paid: 0, pending: 0 },
+        stats: result.stats || {},
         pagination: result.pagination,
       });
     } catch (error) {

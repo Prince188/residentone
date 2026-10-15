@@ -302,29 +302,81 @@ class CollectionService {
       };
     });
 
+    const totalUnitsCount = result.length;
+    let paidUnitsCount = 0;
+    let pendingUnitsCount = 0;
+    let paidAmountTotal = 0;
+
+    result.forEach((u) => {
+      if (["paid", "late_paid"].includes(u.status)) {
+        paidUnitsCount += 1;
+        paidAmountTotal += Number(u.totalAmount || u.amount || collection.amount || 0);
+      } else {
+        pendingUnitsCount += 1;
+      }
+    });
+
+    const counts = {
+      all: totalUnitsCount,
+      paid: paidUnitsCount,
+      pending: pendingUnitsCount,
+    };
+
+    const targetAmount = Number(
+      collection.targetAmount ||
+      collection.targetGoal ||
+      collection.target ||
+      (Number(collection.amount || 0) * totalUnitsCount) ||
+      0
+    );
+
+    const collectedAmount = Number(
+      collection.collectedAmount !== undefined && collection.collectedAmount !== null && Number(collection.collectedAmount) > 0
+        ? collection.collectedAmount
+        : collection.totalCollected !== undefined && collection.totalCollected !== null && Number(collection.totalCollected) > 0
+        ? collection.totalCollected
+        : paidAmountTotal
+    );
+
+    const stats = {
+      totalUnits: totalUnitsCount,
+      paidUnits: paidUnitsCount,
+      pendingUnits: pendingUnitsCount,
+      targetAmount,
+      collectedAmount,
+    };
+
+    let filtered = result;
     if (query.status && query.status !== "all") {
-      result = result.filter((u) => u.status === query.status);
+      if (query.status === "paid") {
+        filtered = filtered.filter((u) => ["paid", "late_paid"].includes(u.status));
+      } else if (query.status === "pending") {
+        filtered = filtered.filter((u) => !["paid", "late_paid"].includes(u.status));
+      } else {
+        filtered = filtered.filter((u) => u.status === query.status);
+      }
     }
-    if (query.q && String(query.q).trim()) {
-      const term = String(query.q).trim().toLowerCase();
-      result = result.filter(
+    const searchTerm = query.q || query.search;
+    if (searchTerm && String(searchTerm).trim()) {
+      const term = String(searchTerm).trim().toLowerCase();
+      filtered = filtered.filter(
         (u) =>
           (u.label && u.label.toLowerCase().includes(term)) ||
-          (u.ownerName && u.ownerName.toLowerCase().includes(term))
+          (u.ownerName && u.ownerName.toLowerCase().includes(term)) ||
+          (u.ownerPhone && u.ownerPhone.toLowerCase().includes(term))
       );
     }
 
-    if (query.page || query.limit) {
-      const { page, limit, skip, isAll } = parsePagination(query, 20);
-      const totalCount = result.length;
-      const paginated = isAll ? result : result.slice(skip, skip + limit);
-      return {
-        items: paginated,
-        pagination: buildPaginationMeta(totalCount, page, limit),
-      };
-    }
+    const { page, limit, skip, isAll } = parsePagination(query, 15);
+    const filteredTotal = filtered.length;
+    const paginated = isAll ? filtered : filtered.slice(skip, skip + limit);
 
-    return result;
+    return {
+      items: paginated,
+      counts,
+      stats,
+      pagination: buildPaginationMeta(filteredTotal, page, isAll ? filteredTotal : limit),
+    };
   }
 
   async getMyCollections(societyId, membership, collections) {
@@ -744,7 +796,8 @@ class CollectionService {
 
   async generateExcelBuffer(societyId, collection, options = {}) {
     const { from, to } = options || {};
-    const units = await this.getCollectionUnits(societyId, collection);
+    const unitsResult = await this.getCollectionUnits(societyId, collection, { all: true });
+    const units = Array.isArray(unitsResult) ? unitsResult : (unitsResult?.items || []);
 
     let exportUnits = units;
     let filterPeriodLabel = "";
