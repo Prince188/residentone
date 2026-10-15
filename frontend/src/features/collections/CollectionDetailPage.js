@@ -328,6 +328,8 @@ export default function CollectionDetailPage() {
     queryFn: async () => (await getCollection(id)).data.data,
     enabled: Boolean(id),
     staleTime: 1000 * 60 * 3,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const unitsQuery = useQuery({
@@ -348,6 +350,8 @@ export default function CollectionDetailPage() {
     },
     enabled: Boolean(id) && isAdmin,
     staleTime: 1000 * 60 * 3,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const myUnits = membership?.units || [];
@@ -367,6 +371,8 @@ export default function CollectionDetailPage() {
     },
     enabled: Boolean(id) && !isAdmin && myUnits.length > 0,
     staleTime: 1000 * 60 * 3,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const collection = collectionQuery.data;
