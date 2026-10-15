@@ -194,14 +194,27 @@ class UnitService {
       const matchedUsers = await User.find({ $or: userConditions }).select("_id").lean();
       const matchedUserIds = matchedUsers.map((u) => u._id);
 
+      const { FamilyMember } = require("../family-member/family-member.model");
+      const matchedFam = await FamilyMember.find({
+        societyId,
+        isActive: true,
+        $or: [{ name: rx }, { relation: rx }, { phone: rx }],
+      }).select("unitId addedBy").lean();
+      const famUnitIds = matchedFam.map((f) => f.unitId).filter(Boolean);
+      const famUserIds = matchedFam.map((f) => f.addedBy).filter(Boolean);
+
       const orConditions = [
         { label: rx },
         { doorNo: rx },
         { block: rx },
       ];
-      if (matchedUserIds.length > 0) {
-        orConditions.push({ ownerId: { $in: matchedUserIds } });
-        orConditions.push({ tenantId: { $in: matchedUserIds } });
+      if (famUnitIds.length > 0) {
+        orConditions.push({ _id: { $in: famUnitIds } });
+      }
+      const combinedUserIds = Array.from(new Set([...matchedUserIds, ...famUserIds]));
+      if (combinedUserIds.length > 0) {
+        orConditions.push({ ownerId: { $in: combinedUserIds } });
+        orConditions.push({ tenantId: { $in: combinedUserIds } });
       }
       filter.$or = orConditions;
     }
