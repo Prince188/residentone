@@ -48,12 +48,22 @@ class UnitController {
   async list(req, res, next) {
     try {
       console.log('[units/list] societyId', req.societyId, 'user', req.userId, 'role', req.membership?.role);
-      const units = await unitService.ensureUnitsForSociety(req.societyId);
-      console.log('[units/list] found', units.length, 'for', req.societyId);
-      res.json({
+      const result = await unitService.ensureUnitsForSociety(req.societyId, req.query);
+      const units = Array.isArray(result) ? result : result?.units || [];
+      const counts = result?.counts || null;
+      const pagination = result?.pagination || null;
+
+      const response = {
         success: true,
         data: units.map((u) => unitService.mapUnitCard(u)),
-      });
+      };
+      if (counts) response.counts = counts;
+      if (pagination) {
+        response.pagination = pagination;
+        response.meta = pagination;
+      }
+
+      res.json(response);
     } catch (error) {
       console.error('[units/list] error', error.message);
       next(error);

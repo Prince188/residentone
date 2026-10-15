@@ -27,12 +27,12 @@ async function findUserByPhone(phone) {
 }
 
 class UnitService {
-  async ensureUnitsForSociety(societyId) {
+  async ensureUnitsForSociety(societyId, query = {}) {
     const society = await Society.findById(societyId).lean();
     if (!society) throw new AppError("Society not found", 404);
 
     const totalUnits = society.totalUnits || 0;
-    if (totalUnits <= 0) return [];
+    if (totalUnits <= 0) return { units: [], counts: { all: 0, owner: 0, renter: 0, vacant: 0 } };
 
     const existing = await Unit.find({ societyId: society._id })
       .select("label doorNo block")
@@ -49,15 +49,15 @@ class UnitService {
             // also block empty string
             await Unit.deleteMany({ societyId: society._id, block: "" });
             const cleaned = await Unit.find({ societyId: society._id }).lean();
-            if (cleaned.length >= totalUnits) return this.listUnits(societyId);
+            if (cleaned.length >= totalUnits) return this.listUnits(societyId, query);
           } catch (_) {}
         }
       }
       // If count already matches totalUnits, skip
-      if (existing.length >= totalUnits) return this.listUnits(societyId);
+      if (existing.length >= totalUnits) return this.listUnits(societyId, query);
       // If winged but count less than totalUnits, still skip sequential creation - wing structure is authoritative
       // Only create sequential for row_house without wings
-      if (society.societyType !== "row_house") return this.listUnits(societyId);
+      if (society.societyType !== "row_house") return this.listUnits(societyId, query);
     }
     const existingLabels = new Set(existing.map((u) => String(u.label)));
 
@@ -83,7 +83,7 @@ class UnitService {
       }
     }
 
-    return this.listUnits(societyId);
+    return this.listUnits(societyId, query);
   }
 
   async bulkGenerateFromStructure(societyId, structure) {
@@ -168,12 +168,92 @@ class UnitService {
     return this.listUnits(societyId);
   }
 
-  async listUnits(societyId) {
-    return Unit.find({ societyId })
+  async listUnits(societyId, query = {}) {
+    const filter = { societyId };
+
+    // Occupancy status filter
+    if (query.status === "owner") {
+      filter.ownerId = { $ne: null };
+      filter.tenantId = null;
+    } else if (query.status === "renter") {
+      filter.tenantId = { $ne: null };
+    } else if (query.status === "vacant") {
+      filter.ownerId = null;
+      filter.tenantId = null;
+    }
+
+    // Search query
+    const rawSearch = String(query.search || query.q || "").trim();
+    if (rawSearch) {
+      const rx = new RegExp(escapeRegExp(rawSearch), "i");
+      const digits = normalizePhone(rawSearch);
+      const userConditions = [{ name: rx }, { email: rx }, { vehicles: rx }];
+      if (digits.length >= 3) {
+        userConditions.push({ phone: new RegExp(`${digits}$`) });
+      }
+      const matchedUsers = await User.find({ $or: userConditions }).select("_id").lean();
+      const matchedUserIds = matchedUsers.map((u) => u._id);
+
+      const orConditions = [
+        { label: rx },
+        { doorNo: rx },
+        { block: rx },
+      ];
+      if (matchedUserIds.length > 0) {
+        orConditions.push({ ownerId: { $in: matchedUserIds } });
+        orConditions.push({ tenantId: { $in: matchedUserIds } });
+      }
+      filter.$or = orConditions;
+    }
+
+    // Society-wide occupancy counts for UI tabs
+    const [totalAll, totalOwner, totalRenter, totalVacant] = await Promise.all([
+      Unit.countDocuments({ societyId }),
+      Unit.countDocuments({ societyId, ownerId: { $ne: null }, tenantId: null }),
+      Unit.countDocuments({ societyId, tenantId: { $ne: null } }),
+      Unit.countDocuments({ societyId, ownerId: null, tenantId: null }),
+    ]);
+    const counts = {
+      all: totalAll,
+      owner: totalOwner,
+      renter: totalRenter,
+      vacant: totalVacant,
+    };
+
+    // If pagination requested (?page=1)
+    if (query.page) {
+      const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
+      const { page, limit, skip } = parsePagination(query, 15);
+
+      const [units, totalFiltered] = await Promise.all([
+        Unit.find(filter)
+          .sort({ unitNumber: 1, label: 1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("ownerId", "name email phone vehicles occupation familyMembers isActive createdAt")
+          .populate("tenantId", "name email phone vehicles occupation familyMembers isActive createdAt")
+          .lean(),
+        Unit.countDocuments(filter),
+      ]);
+
+      return {
+        units,
+        pagination: buildPaginationMeta(totalFiltered, page, limit),
+        counts,
+      };
+    }
+
+    // Unpaginated fallback (for existing callers)
+    const units = await Unit.find(filter)
       .sort({ unitNumber: 1, label: 1 })
       .populate("ownerId", "name email phone vehicles occupation familyMembers isActive createdAt")
       .populate("tenantId", "name email phone vehicles occupation familyMembers isActive createdAt")
       .lean();
+
+    return {
+      units,
+      counts,
+    };
   }
 
   mapUnitCard(unit) {
