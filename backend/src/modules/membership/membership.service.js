@@ -236,7 +236,7 @@ class MembershipService {
       );
     }
 
-    return entries
+    const sorted = entries
       .sort(
         (a, b) =>
           a.unitNumber - b.unitNumber ||
@@ -283,6 +283,19 @@ class MembershipService {
           gate: gate || null,
         })
       );
+
+    const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
+    const isPaginated = Boolean(query?.page || query?.limit);
+    if (!isPaginated || query?.all === "true" || query?.all === true) {
+      return sorted;
+    }
+
+    const { page, limit, skip } = parsePagination(query, 15);
+    const paginated = sorted.slice(skip, skip + limit);
+    return {
+      items: paginated,
+      pagination: buildPaginationMeta(sorted.length, page, limit),
+    };
   }
 
   async findByUser(userId) {

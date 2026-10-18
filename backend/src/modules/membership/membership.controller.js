@@ -13,8 +13,15 @@ class MembershipController {
 
   async directory(req, res, next) {
     try {
-      const members = await membershipService.getDirectory(req.societyId, req.query);
-      res.json({ success: true, data: members });
+      const result = await membershipService.getDirectory(req.societyId, req.query);
+      if (result && result.pagination) {
+        return res.json({
+          success: true,
+          data: result.items,
+          pagination: result.pagination,
+        });
+      }
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }
