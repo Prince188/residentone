@@ -2,9 +2,15 @@ const Expense = require("./expense.model");
 
 class ExpenseService {
   async create(societyId, userId, data) {
+    const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
+    const creator = await resolveCollectorSnapshot(societyId, userId);
+
     const expense = await Expense.create({
       societyId,
       createdById: userId,
+      createdByName: creator.name,
+      createdByPhone: creator.phone,
+      createdByRole: creator.role,
       title: data.title,
       category: data.category || "others",
       amount: Number(data.amount),

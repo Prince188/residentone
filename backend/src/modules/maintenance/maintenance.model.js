@@ -146,6 +146,21 @@ const paymentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    recordedByName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    recordedByPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    recordedByRole: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     advanceMonths: {
       type: Number,
       default: 1,

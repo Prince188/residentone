@@ -3,6 +3,7 @@ const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
 const { Membership } = require("../membership/membership.model");
+const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
 const { hasPermission, hasPermissionForMembership, getMembershipRoles } = require("../../shared/permissions");
 const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 const ExcelJS = require("exceljs");
@@ -558,6 +559,9 @@ class MaintenanceService {
         receiptNo: payment?.receiptNo || null,
         receivedBy: receivedBy || "—",
         recordedByHouse: recordedByHouse || null,
+        recordedByName: payment?.recordedByName || payment?.recordedBy?.name || null,
+        recordedByPhone: payment?.recordedByPhone || payment?.recordedBy?.phone || null,
+        recordedByRole: payment?.recordedByRole || null,
         cycleId: effectiveCycle._id,
         cycleWing: effectiveCycle.wing || null,
         cycleOwnerAmount: effectiveCycle.ownerAmount,
@@ -756,6 +760,10 @@ class MaintenanceService {
       fee: payment?.fee || 0,
       totalAmount: calcTotalAmount,
       gatewayStatus: payment?.gatewayStatus || "cash",
+      recordedByName: payment?.recordedByName || null,
+      recordedByPhone: payment?.recordedByPhone || null,
+      recordedByRole: payment?.recordedByRole || null,
+      recordedByHouse: payment?.recordedByHouse || null,
     };
 
     return this.mapUnitRecord(record, cycle, membership.role);
@@ -829,24 +837,11 @@ class MaintenanceService {
     const appliedLateCharge = (isLate && !waivePenalty) ? (cycle.lateCharge || 0) : 0;
     const finalAmount = baseAmount + appliedLateCharge;
 
-    let recordedByHouse = data.recordedByHouse || null;
-    if (!recordedByHouse && userId) {
-      const { Membership } = require("../membership/membership.model");
-      const [recMem, userUnit] = await Promise.all([
-        Membership.findOne({ societyId, userId, isActive: true }).populate("units", "label doorNo block").lean(),
-        Unit.findOne({ societyId, $or: [{ ownerId: userId }, { tenantId: userId }], isActive: true }).sort({ unitNumber: 1, label: 1 }).lean(),
-      ]);
-      const firstUnit = (recMem?.units || []).filter(Boolean)[0] || userUnit;
-      if (firstUnit) {
-        recordedByHouse = firstUnit.label
-          ? (/^(house|flat)\b/i.test(firstUnit.label) ? firstUnit.label : `House ${firstUnit.label}`)
-          : firstUnit.doorNo
-          ? `House ${firstUnit.doorNo}`
-          : "Society Office";
-      } else {
-        recordedByHouse = "Society Office";
-      }
-    }
+    const collector = await resolveCollectorSnapshot(societyId, userId);
+    const recordedByHouse = data.recordedByHouse || collector.house;
+    const recordedByName = collector.name;
+    const recordedByPhone = collector.phone;
+    const recordedByRole = collector.role;
 
     const paymentRecord = await MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
@@ -865,6 +860,9 @@ class MaintenanceService {
         razorpayPaymentId: null,
         receiptNo,
         recordedBy: userId,
+        recordedByName,
+        recordedByPhone,
+        recordedByRole,
         recordedByHouse,
         isActive: true,
       },
@@ -988,6 +986,8 @@ class MaintenanceService {
     const advanceMonths = Math.max(1, Math.min(12, Number(months) || Number(pending.advanceMonths) || 1));
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
 
+    const collector = await resolveCollectorSnapshot(societyId, userId);
+
     const updated = await MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId },
       {
@@ -1001,6 +1001,10 @@ class MaintenanceService {
         gatewayStatus: "paid",
         receiptNo,
         recordedBy: userId,
+        recordedByName: collector.name,
+        recordedByPhone: collector.phone,
+        recordedByRole: collector.role,
+        recordedByHouse: collector.house,
         isActive: true,
         advanceMonths: advanceMonths,
         isAdvance: advanceMonths > 1,
@@ -1040,6 +1044,10 @@ class MaintenanceService {
               gatewayStatus: "paid",
               receiptNo: nextReceipt,
               recordedBy: userId,
+              recordedByName: collector.name,
+              recordedByPhone: collector.phone,
+              recordedByRole: collector.role,
+              recordedByHouse: collector.house,
               isActive: true,
               advanceMonths: 1,
               isAdvance: true,

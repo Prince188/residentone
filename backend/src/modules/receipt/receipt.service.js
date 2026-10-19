@@ -186,6 +186,16 @@ async function verifyReceipt(token, requester) {
       receiptNo: payment.receiptNo,
       razorpayPaymentId: payment.razorpayPaymentId || null,
       razorpayOrderId: payment.razorpayOrderId || null,
+      collectedBy: payment.recordedByName || payment.collectedByName || null,
+      collectedByPhone: payment.recordedByPhone || payment.collectedByPhone || null,
+      collectedByRole: payment.recordedByRole || payment.collectedByRole || null,
+      collectedByHouse: payment.recordedByHouse || payment.collectedByHouse || null,
+      acceptedBy: (payment.recordedByHouse || payment.collectedByHouse || payment.recordedByName || payment.collectedByName)
+        ? {
+            houseNumber: payment.recordedByHouse || payment.collectedByHouse || "Society Office",
+            name: payment.recordedByName || payment.collectedByName || "Admin",
+          }
+        : null,
     },
     societyId: String(payment.societyId),
     type: paymentType,

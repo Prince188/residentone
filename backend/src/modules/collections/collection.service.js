@@ -2,6 +2,7 @@ const { Collection, CollectionPayment } = require("./collection.model");
 const { Unit } = require("../unit/unit.model");
 const { AppError } = require("../../shared/utils/errors");
 const { Society } = require("../society/society.model");
+const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
 const { hasPermission } = require("../../shared/permissions");
 const { parsePagination, buildPaginationMeta } = require("../../shared/utils/pagination");
 const ExcelJS = require("exceljs");
@@ -262,10 +263,14 @@ class CollectionService {
       if (isPaid && payment) {
         if (payment.gatewayStatus === "paid" || (payment.method && payment.method.toLowerCase().includes("razorpay"))) {
           receivedBy = "Online (Razorpay)";
+        } else if (payment.recordedByHouse) {
+          recordedByHouse = payment.recordedByHouse;
+          recordedByName = payment.recordedByName || payment.recordedBy?.name || "Admin";
+          receivedBy = recordedByHouse;
         } else if (payment.recordedBy) {
           const recUser = payment.recordedBy;
           const recUserId = String(recUser._id || recUser);
-          recordedByName = recUser.name || "Admin";
+          recordedByName = payment.recordedByName || recUser.name || "Admin";
           const recMembership = membershipMap.get(recUserId);
           const adminUnits = (recMembership?.units || []).filter(Boolean);
           const firstUnit = adminUnits[0] || collectorUnitMap.get(recUserId);
@@ -299,6 +304,8 @@ class CollectionService {
         receivedBy: receivedBy || "—",
         recordedByName,
         recordedByHouse,
+        recordedByPhone: payment?.recordedByPhone || null,
+        recordedByRole: payment?.recordedByRole || null,
       };
     });
 
@@ -466,7 +473,10 @@ class CollectionService {
     if (!unit) throw new AppError("House not found", 404);
     const paidOn = data.paidOn ? new Date(data.paidOn) : new Date();
     const receiptNo = `CC-${String(collection._id).slice(-4).toUpperCase()}-${String(unitId).slice(-4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
-    return CollectionPayment.findOneAndUpdate(
+
+    const collector = await resolveCollectorSnapshot(societyId, userId);
+
+    const payment = await CollectionPayment.findOneAndUpdate(
       { societyId, collectionId: collection._id, unitId },
       {
         societyId,
@@ -482,10 +492,15 @@ class CollectionService {
         razorpayPaymentId: null,
         receiptNo,
         recordedBy: userId,
+        recordedByName: collector.name,
+        recordedByPhone: collector.phone,
+        recordedByRole: collector.role,
+        recordedByHouse: collector.house,
         isActive: true,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
+
     await this.checkAndAutoCloseCollection(societyId, collection._id);
     return payment;
   }
@@ -570,6 +585,8 @@ class CollectionService {
 
     const receiptNo = `CC-${String(collection._id).slice(-4).toUpperCase()}-${String(unitId).slice(-4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
 
+    const collector = await resolveCollectorSnapshot(societyId, userId);
+
     const updated = await CollectionPayment.findOneAndUpdate(
       { societyId, collectionId: collection._id, unitId },
       {
@@ -583,6 +600,10 @@ class CollectionService {
         gatewayStatus: "paid",
         receiptNo,
         recordedBy: userId,
+        recordedByName: collector.name,
+        recordedByPhone: collector.phone,
+        recordedByRole: collector.role,
+        recordedByHouse: collector.house,
         isActive: true,
       },
       { new: true }

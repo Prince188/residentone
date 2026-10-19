@@ -137,6 +137,26 @@ const collectionPaymentSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    recordedByName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    recordedByPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    recordedByRole: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    recordedByHouse: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     isActive: {
       type: Boolean,
       default: true,

@@ -66,6 +66,9 @@ class DonationService {
 
     const receiptNo = await generateReceiptNo(societyId, society.name, collectedAt);
 
+    const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
+    const collector = await resolveCollectorSnapshot(societyId, userId);
+
     const donation = await Donation.create({
       societyId,
       unitId,
@@ -75,6 +78,10 @@ class DonationService {
       collectedAt,
       receiptNo,
       collectedBy: userId,
+      collectedByName: collector.name,
+      collectedByPhone: collector.phone,
+      collectedByRole: collector.role,
+      collectedByHouse: collector.house,
       method: "Cash",
     });
 
@@ -111,6 +118,10 @@ class DonationService {
       collectedAt: obj.collectedAt,
       method: obj.method || "Cash",
       collectedBy: obj.collectedBy,
+      collectedByName: obj.collectedByName || null,
+      collectedByPhone: obj.collectedByPhone || null,
+      collectedByRole: obj.collectedByRole || null,
+      collectedByHouse: obj.collectedByHouse || null,
       societyId: obj.societyId,
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,

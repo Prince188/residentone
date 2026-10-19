@@ -52,6 +52,26 @@ const transferFeeSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    collectedByName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    collectedByPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    collectedByRole: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    collectedByHouse: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     method: {
       type: String,
       default: "Cash",

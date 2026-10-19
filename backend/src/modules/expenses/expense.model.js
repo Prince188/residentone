@@ -13,6 +13,21 @@ const expenseSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    createdByName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    createdByPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    createdByRole: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     title: {
       type: String,
       required: true,
