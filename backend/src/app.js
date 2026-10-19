@@ -36,13 +36,23 @@ const referralRoutes = require("./modules/referral/referral.routes");
 const couponRoutes = require("./modules/coupon/coupon.routes");
 const appConfigRoutes = require("./modules/app-config/app-config.routes");
 
+const { AppError } = require("./shared/utils/errors");
+const {
+  globalApiLimiter,
+  sanitizeMongoInput,
+  preventParameterPollution,
+} = require("./middlewares/security.middleware");
+
 const app = express();
+
+// Trust reverse proxy (Render, AWS, Cloudflare) for accurate client IP in rate limiting
+app.set("trust proxy", 1);
 
 app.use(helmet());
 
-// Robust CORS for Vercel (main + previews) + localhost
+// Strict CORS: allow official production domain, Vercel branch previews, and dev localhost
 const allowedOrigins = [
-  config.cors.origin,
+  config.cors?.origin,
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5174",
@@ -51,12 +61,21 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
+    // Native mobile apps (iOS / Android) and server-to-server calls send no origin header
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      origin.endsWith(".vercel.app") ||
+      (!config.isProduction &&
+        (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")));
+
+    if (isAllowed) {
       return callback(null, true);
     }
-    // Allow all for now to unblock prod; tighten later if needed
-    return callback(null, true);
+    return callback(
+      new AppError(`CORS policy violation: Access from origin '${origin}' is not allowed.`, 403)
+    );
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -68,7 +87,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(compression({ threshold: 1024 }));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
+
+// Security filters against NoSQL injection and Parameter Pollution
+app.use(sanitizeMongoInput);
+app.use(preventParameterPollution());
+
+// Global rate limiter on all API endpoints (blocks scraping & DDoS)
+app.use("/api/v1", globalApiLimiter);
 
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
