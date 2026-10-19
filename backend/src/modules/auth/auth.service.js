@@ -20,10 +20,14 @@ class AuthService {
     });
   }
 
-  generateTokens(payload) {
+  generateTokens(payload, tokenVersion = 0) {
+    const tokenPayload = {
+      ...payload,
+      tokenVersion: typeof tokenVersion === "number" ? tokenVersion : 0,
+    };
     return {
-      accessToken: this.generateAccessToken(payload),
-      refreshToken: this.generateRefreshToken(payload),
+      accessToken: this.generateAccessToken(tokenPayload),
+      refreshToken: this.generateRefreshToken(tokenPayload),
     };
   }
 
@@ -45,7 +49,7 @@ class AuthService {
       userId: user._id.toString(),
       societyId: null,
       role: user.role,
-    });
+    }, user.tokenVersion || 0);
 
     const userObj = user.toObject();
     const { passwordHash, ...userWithoutPassword } = userObj;
@@ -69,7 +73,7 @@ class AuthService {
       userId: user._id.toString(),
       societyId: null,
       role: user.role,
-    });
+    }, user.tokenVersion || 0);
 
     const userObj = user.toObject();
     const { passwordHash, ...userWithoutPassword } = userObj;
@@ -83,11 +87,17 @@ class AuthService {
       const user = await userService.findById(decoded.userId);
       if (!user || !user.isActive) throw new AppError("Invalid refresh token", 401);
 
+      // Verify tokenVersion on refresh token
+      const userTokenVersion = typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
+      if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== userTokenVersion) {
+        throw new AppError("Session has expired or was revoked. Please log in again.", 401);
+      }
+
       const tokens = this.generateTokens({
         userId: decoded.userId,
         societyId: decoded.societyId,
         role: user.role,
-      });
+      }, userTokenVersion);
 
       return tokens;
     } catch (error) {
@@ -295,7 +305,11 @@ class AuthService {
     if (!user.isActive) throw new AppError("Account is inactive or disabled", 403);
 
     user.passwordHash = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(user._id);
 
     // Clean up all OTP records for this identifier
     if (targetIdentifier) {
@@ -328,7 +342,11 @@ class AuthService {
     if (!user.isActive) throw new AppError("This account is inactive or disabled", 403);
 
     user.passwordHash = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(user._id);
 
     return { message: "Password reset successfully. Please log in with your new password." };
   }

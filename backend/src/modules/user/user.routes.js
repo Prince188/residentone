@@ -47,6 +47,11 @@ router.post(
   (req, res, next) => userController.changePassword(req, res, next)
 );
 router.post(
+  "/revoke-sessions",
+  authenticate,
+  (req, res, next) => userController.revokeAllSessions(req, res, next)
+);
+router.post(
   "/push-token",
   authenticate,
   (req, res, next) => userController.updatePushToken(req, res, next)

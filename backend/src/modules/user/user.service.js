@@ -67,8 +67,28 @@ class UserService {
       throw new AppError("Current password does not match", 400);
     }
     user.passwordHash = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
-    return { message: "Password updated successfully" };
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(user._id);
+
+    return { message: "Password updated successfully. Other active sessions have been signed out." };
+  }
+
+  async revokeAllSessions(userId) {
+    const { AppError } = require("../../shared/utils/errors");
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(user._id);
+
+    return { message: "All active sessions have been signed out successfully." };
   }
 
   async validateUniqueVehiclesInSociety(userId, societyId, newVehicles) {
@@ -248,7 +268,14 @@ class UserService {
     if (!user) throw new AppError("User not found", 404);
 
     user.isActive = !user.isActive;
+    if (!user.isActive) {
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
+    }
     await user.save();
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(user._id);
+
     return { id: user._id, isActive: user.isActive, name: user.name };
   }
 
@@ -262,6 +289,9 @@ class UserService {
       const { Membership } = require("../membership/membership.model");
       await Membership.deleteMany({ userId: targetUserId });
     } catch (_) {}
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(targetUserId);
 
     return { id: targetUserId, message: "User deleted successfully" };
   }

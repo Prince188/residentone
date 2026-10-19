@@ -26,13 +26,26 @@ function initSocket(server) {
     },
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
     const clientSocietyId = socket.handshake.auth.societyId;
     if (!token) return next(new Error("Authentication required"));
 
     try {
       const decoded = jwt.verify(token, config.jwt.accessSecret);
+
+      if (decoded.tokenVersion !== undefined) {
+        const { User } = require("../modules/user/user.model");
+        const user = await User.findById(decoded.userId).select("isActive tokenVersion").lean();
+        if (!user || !user.isActive) {
+          return next(new Error("User account is inactive or disabled"));
+        }
+        const userTokenVersion = typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
+        if (decoded.tokenVersion !== userTokenVersion) {
+          return next(new Error("Session expired or revoked"));
+        }
+      }
+
       socket.userId = decoded.userId;
       socket.societyId = clientSocietyId || decoded.societyId;
       socket.role = decoded.role;

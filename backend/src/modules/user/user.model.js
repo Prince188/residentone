@@ -72,6 +72,10 @@ const userSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

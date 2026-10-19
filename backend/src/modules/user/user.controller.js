@@ -95,6 +95,15 @@ class UserController {
     }
   }
 
+  async revokeAllSessions(req, res, next) {
+    try {
+      const result = await userService.revokeAllSessions(req.userId);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async updatePushToken(req, res, next) {
     try {
       const { pushToken } = req.body;
