@@ -65,7 +65,12 @@ class UserController {
         const result = await uploadBase64(formatted, { folder });
         avatarUrl = result.secure_url || result.url;
       } else if (file && file.buffer) {
-        const result = await uploadBuffer(file.buffer, { folder });
+        const result = await uploadBuffer(file.buffer, {
+          folder,
+          originalName: file.originalname,
+          allowedCategories: ["image"],
+          maxSizeBytes: 5 * 1024 * 1024,
+        });
         avatarUrl = result.secure_url || result.url;
       } else {
         const { AppError } = require("../../shared/utils/errors");

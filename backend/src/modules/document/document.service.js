@@ -21,6 +21,8 @@ class DocumentService {
         const uploadResult = await uploadBuffer(file.buffer, {
           folder: "residentone/documents",
           resource_type: isPdf ? "raw" : "auto",
+          originalName: file.originalname,
+          allowedCategories: ["image", "document"],
         });
         fileUrl = uploadResult.secure_url || uploadResult.url;
         publicId = uploadResult.public_id;

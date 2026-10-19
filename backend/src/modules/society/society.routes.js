@@ -59,7 +59,12 @@ router.post(
       }
 
       if (file && file.buffer) {
-        const result = await uploadBuffer(file.buffer, { folder });
+        const result = await uploadBuffer(file.buffer, {
+          folder,
+          originalName: file.originalname,
+          allowedCategories: ["image"],
+          maxSizeBytes: 5 * 1024 * 1024,
+        });
         return res.json({
           success: true,
           data: {
