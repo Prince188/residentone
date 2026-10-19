@@ -48,7 +48,51 @@ const app = express();
 // Trust reverse proxy (Render, AWS, Cloudflare) for accurate client IP in rate limiting
 app.set("trust proxy", 1);
 
-app.use(helmet());
+// Disable Express signature in response headers
+app.disable("x-powered-by");
+
+// Production-grade HTTP security headers
+app.use(
+  helmet({
+    // 1. Clickjacking defense: Block unauthorized iframing of the app
+    frameguard: { action: "deny" },
+    // 2. MIME sniffing defense: Prevent browser content-type guessing
+    noSniff: true,
+    // 3. Information disclosure defense: Suppress server technology identification
+    hidePoweredBy: true,
+    // 4. Strict Transport Security (HSTS): Enforce HTTPS in production for 1 year
+    hsts: config.isProduction
+      ? {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        }
+      : false,
+    // 5. Referrer Policy: Prevent leakage of sensitive query parameters and URL paths
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    // 6. Cross-Origin Resource Policy: Allow Cloudinary images and PDFs to render in web browsers without CORP blocks
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    // 7. Cross-Origin Opener Policy: Protect browsing context from rogue tabs
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    // 8. DNS prefetch control: Prevent browser speculative DNS resolution
+    dnsPrefetchControl: { allow: false },
+    // 9. Download security: Prevent direct execution of HTML/file downloads
+    ieNoOpen: true,
+    // 10. Restrict legacy cross-domain policies
+    permittedCrossDomainPolicies: { permittedPolicies: "none" },
+    // 11. Content Security Policy: Block framing while allowing legitimate cloud image rendering
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https:", "blob:"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  })
+);
 
 // Strict CORS: allow official production domain, Vercel branch previews, and dev localhost
 const allowedOrigins = [
