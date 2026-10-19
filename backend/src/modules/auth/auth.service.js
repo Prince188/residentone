@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const { config } = require("../../config");
 const userService = require("../user/user.service");
 const { Otp } = require("./otp.model");
@@ -64,10 +65,56 @@ class AuthService {
       ? await userService.findByEmailWithPassword(value.toLowerCase())
       : await userService.findByPhoneWithPassword(value);
 
-    if (!user) throw new AppError("Invalid credentials", 401);
+    // If account does not exist, execute dummy password comparison to maintain consistent response timing and prevent user enumeration
+    if (!user) {
+      await bcrypt.compare(password || "", "$2a$12$e8h.7c7E4d9h9c5g6e1F3u.bJdKkLoPpQqRrSsTtUuVvWwXxYyZz");
+      throw new AppError("Invalid credentials", 401);
+    }
+
+    if (!user.isActive) {
+      throw new AppError("This account has been deactivated or disabled. Please contact admin.", 403);
+    }
+
+    // Check if account is currently locked out
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const remainingSeconds = Math.ceil((user.lockUntil.getTime() - Date.now()) / 1000);
+      const remainingMinutes = Math.ceil(remainingSeconds / 60);
+      logger.warn(`🛑 Blocked login attempt on locked account ${user._id} (${remainingMinutes}m remaining)`);
+      throw new AppError(
+        `Account temporarily locked due to multiple failed login attempts. Please try again in ${remainingMinutes} minute${remainingMinutes > 1 ? "s" : ""} or reset your password.`,
+        429
+      );
+    }
 
     const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) throw new AppError("Invalid credentials", 401);
+    if (!isPasswordValid) {
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+
+      // Lockout threshold: 5 consecutive failed attempts
+      if (user.failedLoginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15-minute lock
+        await user.save();
+        logger.warn(`🔒 Account ${user._id} locked for 15 minutes after 5 failed login attempts`);
+        throw new AppError(
+          "Account temporarily locked for 15 minutes due to multiple failed login attempts. You may reset your password using OTP to unlock immediately.",
+          429
+        );
+      }
+
+      await user.save();
+      const attemptsRemaining = 5 - user.failedLoginAttempts;
+      throw new AppError(
+        `Invalid credentials. ${attemptsRemaining} attempt${attemptsRemaining > 1 ? "s" : ""} remaining before temporary account lockout.`,
+        401
+      );
+    }
+
+    // Reset lockout counters upon successful login
+    if (user.failedLoginAttempts > 0 || user.lockUntil) {
+      user.failedLoginAttempts = 0;
+      user.lockUntil = null;
+      await user.save();
+    }
 
     const tokens = this.generateTokens({
       userId: user._id.toString(),
@@ -306,6 +353,8 @@ class AuthService {
 
     user.passwordHash = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
     await user.save();
 
     const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
@@ -343,6 +392,8 @@ class AuthService {
 
     user.passwordHash = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
     await user.save();
 
     const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");

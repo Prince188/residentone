@@ -68,6 +68,8 @@ class UserService {
     }
     user.passwordHash = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
     await user.save();
 
     const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");

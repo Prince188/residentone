@@ -76,6 +76,14 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -92,6 +100,10 @@ userSchema.pre("save", async function () {
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.passwordHash);
+};
+
+userSchema.methods.isLocked = function () {
+  return Boolean(this.lockUntil && this.lockUntil > new Date());
 };
 
 const User = mongoose.model("User", userSchema);
