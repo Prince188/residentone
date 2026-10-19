@@ -25,6 +25,15 @@ const useAuthStore = create((set) => ({
     set({ user, isAuthenticated: true });
   },
 
+  setInitialPassword: async (newPassword) => {
+    const response = await api.post("/auth/set-initial-password", { newPassword });
+    const { user, accessToken, refreshToken } = response.data.data;
+    setAccessToken(accessToken);
+    localStorage.setItem("refreshToken", refreshToken);
+    set({ user });
+    return user;
+  },
+
   logout: () => {
     setAccessToken(null);
     localStorage.removeItem("refreshToken");

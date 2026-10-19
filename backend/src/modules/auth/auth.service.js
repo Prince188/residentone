@@ -116,6 +116,18 @@ class AuthService {
       await user.save();
     }
 
+    // Check if user is using their default credentials (phone number or default staff password)
+    const cleanPhone = (user.phone || "").replace(/[^0-9]/g, "");
+    const cleanPassword = String(password || "").replace(/[^0-9]/g, "");
+    const isPhonePassword = cleanPhone.length >= 10 && cleanPhone.endsWith(cleanPassword.slice(-10));
+    const isDefaultGuardPassword = String(password || "").trim() === "Guard@123";
+    const requiresPasswordChange = Boolean(user.requiresPasswordChange || isPhonePassword || isDefaultGuardPassword);
+
+    if (requiresPasswordChange && !user.requiresPasswordChange) {
+      user.requiresPasswordChange = true;
+      await user.save();
+    }
+
     const tokens = this.generateTokens({
       userId: user._id.toString(),
       societyId: null,
@@ -124,8 +136,9 @@ class AuthService {
 
     const userObj = user.toObject();
     const { passwordHash, ...userWithoutPassword } = userObj;
+    userWithoutPassword.requiresPasswordChange = requiresPasswordChange;
 
-    return { user: userWithoutPassword, ...tokens };
+    return { user: userWithoutPassword, requiresPasswordChange, ...tokens };
   }
 
   async refreshTokens(refreshToken) {
@@ -353,6 +366,7 @@ class AuthService {
 
     user.passwordHash = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.requiresPasswordChange = false;
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
     await user.save();
@@ -392,6 +406,7 @@ class AuthService {
 
     user.passwordHash = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.requiresPasswordChange = false;
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
     await user.save();
@@ -400,6 +415,56 @@ class AuthService {
     invalidateUserSecurityCache(user._id);
 
     return { message: "Password reset successfully. Please log in with your new password." };
+  }
+
+  /**
+   * 5. Set initial personal password (for residents onboarded with default credentials)
+   */
+  async setInitialPassword(userId, newPassword) {
+    if (!newPassword || String(newPassword).trim().length < 6) {
+      throw new AppError("New password must be at least 6 characters long", 400);
+    }
+
+    const user = await userService.findById(userId);
+    if (!user) throw new AppError("User account not found", 404);
+    if (!user.isActive) throw new AppError("Account is inactive or disabled", 403);
+
+    const cleanPhone = (user.phone || "").replace(/[^0-9]/g, "");
+    const cleanNewPass = String(newPassword).replace(/[^0-9]/g, "");
+    if (cleanPhone.length >= 10 && cleanPhone.endsWith(cleanNewPass.slice(-10))) {
+      throw new AppError("New password cannot be your phone number. Please choose a different, secure password.", 400);
+    }
+    if (String(newPassword).trim() === "Guard@123") {
+      throw new AppError("New password cannot be the default staff password.", 400);
+    }
+
+    user.passwordHash = newPassword;
+    user.requiresPasswordChange = false;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    await user.save();
+
+    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
+    invalidateUserSecurityCache(user._id);
+
+    // Issue updated tokens with the new tokenVersion
+    const tokens = this.generateTokens({
+      userId: user._id.toString(),
+      societyId: null,
+      role: user.role,
+    }, user.tokenVersion);
+
+    const userObj = user.toObject();
+    const { passwordHash, ...userWithoutPassword } = userObj;
+    userWithoutPassword.requiresPasswordChange = false;
+
+    return {
+      message: "Password updated successfully. Your account is now secure.",
+      user: userWithoutPassword,
+      requiresPasswordChange: false,
+      ...tokens,
+    };
   }
 }
 

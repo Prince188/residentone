@@ -16,6 +16,7 @@ class UserController {
         const familyCount = await FamilyMember.countDocuments({ addedBy: user._id, isActive: true });
         userObj.familyMembers = familyCount;
       } catch (_) {}
+      userObj.requiresPasswordChange = Boolean(user.requiresPasswordChange);
 
       res.json({ success: true, data: userObj });
     } catch (error) {

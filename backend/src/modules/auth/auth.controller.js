@@ -74,6 +74,16 @@ class AuthController {
       next(error);
     }
   }
+
+  async setInitialPassword(req, res, next) {
+    try {
+      const { newPassword } = req.body;
+      const result = await authService.setInitialPassword(req.userId, newPassword);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

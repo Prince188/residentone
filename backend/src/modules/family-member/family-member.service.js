@@ -194,6 +194,7 @@ class FamilyMemberService {
       occupation: occupation || "",
       role: ["resident"],
       passwordHash: digits, // Default password is phone number
+      requiresPasswordChange: true,
     });
 
     return user;

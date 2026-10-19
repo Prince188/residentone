@@ -75,6 +75,7 @@ import ManageWingPage from "./features/wing/ManageWingPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
 import NotificationToastContainer from "./components/notifications/NotificationToastContainer";
+import ForceChangePasswordModal from "./components/ForceChangePasswordModal";
 
 function App() {
   return (
@@ -199,6 +200,7 @@ function App() {
           </Routes>
           <CreateSocietyModal />
           <NotificationToastContainer />
+          <ForceChangePasswordModal />
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

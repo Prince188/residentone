@@ -68,6 +68,7 @@ class UserService {
     }
     user.passwordHash = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.requiresPasswordChange = false;
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
     await user.save();

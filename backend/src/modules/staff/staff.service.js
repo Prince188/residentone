@@ -78,6 +78,7 @@ class StaffService {
         passwordHash: "Guard@123",
         role: ["resident"],
         isActive: true,
+        requiresPasswordChange: true,
       });
     } else {
       // Update name if changed

@@ -391,6 +391,7 @@ class UnitService {
       phone: payload.phone.trim(),
       role: [DEFAULT_ACCOUNT_ROLE],
       passwordHash: normalizePhone(payload.phone),
+      requiresPasswordChange: true,
     });
     return { user: created, credentialsCreated: true };
   }
