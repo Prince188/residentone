@@ -127,8 +127,11 @@ class AuthService {
       throw new AppError("Please wait 45 seconds before requesting another OTP.", 429);
     }
 
-    // Generate 6-digit OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit OTP (CSPRNG)
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+
+    // Hash OTP with SHA-256 before saving to database (never store plaintext OTPs)
+    const hashedOtp = crypto.createHash("sha256").update(otpCode).digest("hex");
 
     // Delete any old OTPs for this identifier
     await Otp.deleteMany({ identifier: normalized, purpose: "FORGOT_PASSWORD" });
@@ -136,7 +139,7 @@ class AuthService {
     // Save new OTP valid for 10 minutes
     await Otp.create({
       identifier: normalized,
-      otp: otpCode,
+      otp: hashedOtp,
       purpose: "FORGOT_PASSWORD",
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
@@ -189,7 +192,22 @@ class AuthService {
       throw new AppError("Too many incorrect attempts. Please request a new OTP.", 429);
     }
 
-    if (otpDoc.otp !== cleanOtp) {
+    // Hash the incoming OTP to compare against stored SHA-256 hash
+    const inputHash = crypto.createHash("sha256").update(cleanOtp).digest("hex");
+
+    // Timing-safe comparison to prevent timing attacks
+    let isMatch = false;
+    if (typeof otpDoc.otp === "string" && otpDoc.otp.length === 64) {
+      isMatch = crypto.timingSafeEqual(
+        Buffer.from(otpDoc.otp, "hex"),
+        Buffer.from(inputHash, "hex")
+      );
+    } else {
+      // Backward compatibility fallback for any unexpired legacy plaintext OTP
+      isMatch = otpDoc.otp === cleanOtp;
+    }
+
+    if (!isMatch) {
       otpDoc.attempts += 1;
       await otpDoc.save();
       throw new AppError("Invalid OTP code. Please enter the correct 6-digit code.", 400);
