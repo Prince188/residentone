@@ -62,6 +62,7 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-society-id"],
   exposedHeaders: ["Content-Disposition"],
+  maxAge: 86400, // Cache preflight OPTIONS responses for 24 hours (eliminates preflight delay)
 };
 
 app.use(cors(corsOptions));

@@ -145,6 +145,8 @@ const directMessageSchema = new mongoose.Schema(
 );
 
 directMessageSchema.index({ societyId: 1, senderId: 1, receiverId: 1, createdAt: -1 });
+directMessageSchema.index({ societyId: 1, senderId: 1, createdAt: -1 });
+directMessageSchema.index({ societyId: 1, receiverId: 1, createdAt: -1 });
 directMessageSchema.index({ societyId: 1, receiverId: 1, isRead: 1 });
 tenantPlugin(directMessageSchema);
 
