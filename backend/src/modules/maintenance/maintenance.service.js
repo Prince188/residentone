@@ -1230,6 +1230,13 @@ class MaintenanceService {
         razorpayOrderId: payment.razorpayOrderId || null,
         acceptedBy: acceptedByInfo,
         receivedBy: acceptedByInfo,
+        recordedByName: payment.recordedByName || null,
+        recordedByPhone: payment.recordedByPhone || null,
+        recordedByRole: payment.recordedByRole || null,
+        isReversed: Boolean(payment.isReversed),
+        reversedAt: payment.reversedAt || null,
+        reversedByName: payment.reversedByName || null,
+        reversalReason: payment.reversalReason || null,
       },
       status,
     };
