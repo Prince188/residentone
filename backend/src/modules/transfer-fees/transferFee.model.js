@@ -91,6 +91,39 @@ const transferFeeSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isReversed: {
+      type: Boolean,
+      default: false,
+    },
+    reversedAt: {
+      type: Date,
+      default: null,
+    },
+    reversedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    reversedByName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    reversedByPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    reversedByRole: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    reversalReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

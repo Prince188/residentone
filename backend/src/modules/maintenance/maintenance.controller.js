@@ -370,11 +370,30 @@ class MaintenanceController {
         req.societyId,
         req.params.cycleId
       );
-      await maintenanceService.removePayment(
+      const reason = req.body?.reason || req.query?.reason || "Payment cancelled by admin";
+      const payment = await maintenanceService.removePayment(
         req.societyId,
         cycle,
-        req.params.unitId
+        req.params.unitId,
+        req.userId,
+        reason
       );
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "MAINTENANCE_PAYMENT_REVERSED",
+        entityType: "MaintenancePayment",
+        entityId: payment?._id,
+        details: {
+          receiptNo: payment?.receiptNo,
+          amount: payment?.totalAmount || payment?.amount,
+          unitId: req.params.unitId,
+          reason,
+        },
+      });
+
       const record = await maintenanceService.getCycleUnitDetail(
         req.societyId,
         cycle,

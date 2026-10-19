@@ -47,29 +47,29 @@ async function verifyReceipt(token, requester) {
   let paymentType = type || "maintenance";
 
   if (type === "transfer_fee" || rid.startsWith("TF-")) {
-    payment = await TransferFee.findOne({ receiptNo: rid, isActive: true }).lean();
+    payment = await TransferFee.findOne({ receiptNo: rid }).lean();
     paymentType = "transfer_fee";
   } else if (type === "donation" || rid.startsWith("DN-")) {
-    payment = await Donation.findOne({ receiptNo: rid, isActive: true }).lean();
+    payment = await Donation.findOne({ receiptNo: rid }).lean();
     paymentType = "donation";
   } else if (type === "collection") {
-    payment = await CollectionPayment.findOne({ receiptNo: rid, isActive: true }).lean();
+    payment = await CollectionPayment.findOne({ receiptNo: rid }).lean();
     paymentType = "collection";
   } else {
     // Search across models in fallback order
-    payment = await MaintenancePayment.findOne({ receiptNo: rid, isActive: true }).lean();
+    payment = await MaintenancePayment.findOne({ receiptNo: rid }).lean();
     if (payment) {
       paymentType = "maintenance";
     } else {
-      payment = await CollectionPayment.findOne({ receiptNo: rid, isActive: true }).lean();
+      payment = await CollectionPayment.findOne({ receiptNo: rid }).lean();
       if (payment) {
         paymentType = "collection";
       } else {
-        payment = await TransferFee.findOne({ receiptNo: rid, isActive: true }).lean();
+        payment = await TransferFee.findOne({ receiptNo: rid }).lean();
         if (payment) {
           paymentType = "transfer_fee";
         } else {
-          payment = await Donation.findOne({ receiptNo: rid, isActive: true }).lean();
+          payment = await Donation.findOne({ receiptNo: rid }).lean();
           if (payment) {
             paymentType = "donation";
           }
@@ -159,9 +159,24 @@ async function verifyReceipt(token, requester) {
     }
   }
 
+  const isReversed = Boolean(payment.isReversed || payment.isActive === false);
+  if (isReversed) {
+    status = "voided";
+  }
+
   return {
-    valid: true,
+    valid: !isReversed,
     status,
+    isVoided: isReversed,
+    reversal: isReversed
+      ? {
+          reversedAt: payment.reversedAt || payment.updatedAt,
+          reversedByName: payment.reversedByName || "Society Admin",
+          reversedByPhone: payment.reversedByPhone || "",
+          reversedByRole: payment.reversedByRole || "",
+          reason: payment.reversalReason || "Payment was cancelled or reversed by society administration",
+        }
+      : null,
     receiptNo: payment.receiptNo,
     house,
     resident,

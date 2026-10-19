@@ -118,7 +118,8 @@ class CollectionController {
   async removePayment(req, res, next) {
     try {
       const collection = await collectionService.getRawById(req.societyId, req.params.collectionId);
-      const result = await collectionService.removePayment(req.societyId, collection, req.params.unitId);
+      const reason = req.body?.reason || req.query?.reason || "Payment cancelled by admin";
+      const result = await collectionService.removePayment(req.societyId, collection, req.params.unitId, req.userId, reason);
 
       auditLogService.recordActivity({
         societyId: req.societyId,
@@ -130,6 +131,9 @@ class CollectionController {
         details: {
           unitId: req.params.unitId,
           collectionTitle: collection?.title,
+          receiptNo: result?.receiptNo,
+          amount: result?.totalAmount || result?.amount,
+          reason,
         },
       });
 

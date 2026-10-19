@@ -1077,10 +1077,21 @@ class MaintenanceService {
     return updated;
   }
 
-  async removePayment(societyId, cycle, unitId) {
+  async removePayment(societyId, cycle, unitId, userId, reason = "Payment cancelled or reversed by admin") {
+    const reverser = await resolveCollectorSnapshot(societyId, userId);
+
     const result = await MaintenancePayment.findOneAndUpdate(
       { societyId, cycleId: cycle._id, unitId, isActive: true },
-      { isActive: false },
+      {
+        isActive: false,
+        isReversed: true,
+        reversedAt: new Date(),
+        reversedBy: userId,
+        reversedByName: reverser.name,
+        reversedByPhone: reverser.phone,
+        reversedByRole: reverser.role,
+        reversalReason: reason || "Payment cancelled or reversed by admin",
+      },
       { new: true }
     ).lean();
     if (!result) throw new AppError("No recorded payment found", 404);
