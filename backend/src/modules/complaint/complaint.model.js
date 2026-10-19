@@ -86,6 +86,10 @@ const complaintSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+complaintSchema.index({ societyId: 1, status: 1, createdAt: -1 });
+complaintSchema.index({ societyId: 1, category: 1, createdAt: -1 });
+complaintSchema.index({ societyId: 1, unitId: 1, createdAt: -1 });
+complaintSchema.index({ societyId: 1, isActive: 1, createdAt: -1 });
 complaintSchema.index({ societyId: 1, status: 1 });
 complaintSchema.index({ societyId: 1, category: 1 });
 complaintSchema.index({ societyId: 1, createdAt: -1 });

@@ -148,6 +148,8 @@ const collectionPaymentSchema = new mongoose.Schema(
 collectionPaymentSchema.index({ societyId: 1, collectionId: 1, unitId: 1 }, { unique: true });
 collectionPaymentSchema.index({ societyId: 1, unitId: 1 });
 collectionPaymentSchema.index({ collectionId: 1, isActive: 1 });
+collectionPaymentSchema.index({ societyId: 1, collectionId: 1, isActive: 1 });
+collectionPaymentSchema.index({ societyId: 1, paidOn: -1 });
 
 tenantPlugin(collectionPaymentSchema);
 

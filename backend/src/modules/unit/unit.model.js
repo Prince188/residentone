@@ -70,6 +70,10 @@ const unitSchema = new mongoose.Schema(
 
 unitSchema.index({ label: 1 });
 unitSchema.index({ societyId: 1, label: 1 }, { unique: true });
+unitSchema.index({ ownerId: 1 });
+unitSchema.index({ tenantId: 1 });
+unitSchema.index({ societyId: 1, isActive: 1 });
+unitSchema.index({ societyId: 1, block: 1, unitNumber: 1 });
 unitSchema.index(
   { inviteToken: 1 },
   {

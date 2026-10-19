@@ -165,6 +165,9 @@ const paymentSchema = new mongoose.Schema(
 
 paymentSchema.index({ cycleId: 1, unitId: 1 }, { unique: true });
 paymentSchema.index({ unitId: 1 });
+paymentSchema.index({ societyId: 1, cycleId: 1, isActive: 1 });
+paymentSchema.index({ societyId: 1, unitId: 1, paidOn: -1 });
+paymentSchema.index({ societyId: 1, paidOn: -1 });
 
 tenantPlugin(paymentSchema);
 

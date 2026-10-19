@@ -63,6 +63,8 @@ const membershipSchema = new mongoose.Schema(
 
 membershipSchema.index({ userId: 1, societyId: 1 }, { unique: true });
 membershipSchema.index({ userId: 1 });
+membershipSchema.index({ societyId: 1, isActive: 1, role: 1 });
+membershipSchema.index({ societyId: 1, createdAt: -1 });
 
 tenantPlugin(membershipSchema);
 

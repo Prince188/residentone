@@ -124,6 +124,8 @@ const visitorSchema = new mongoose.Schema(
 );
 
 visitorSchema.index({ societyId: 1, status: 1, createdAt: -1 });
+visitorSchema.index({ societyId: 1, status: 1, validUntil: 1 });
+visitorSchema.index({ societyId: 1, "parcelDetails.isParcel": 1, "parcelDetails.collectedAt": 1, createdAt: -1 });
 visitorSchema.index({ societyId: 1, passcode: 1 });
 visitorSchema.index({ unitId: 1, createdAt: -1 });
 visitorSchema.index({ hostUserId: 1, createdAt: -1 });
