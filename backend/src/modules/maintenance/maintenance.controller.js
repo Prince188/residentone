@@ -1,4 +1,5 @@
 const maintenanceService = require("./maintenance.service");
+const auditLogService = require("../audit-log/audit-log.service");
 
 class MaintenanceController {
   async createCycle(req, res, next) {
@@ -19,6 +20,22 @@ class MaintenanceController {
           data: { screen: "PayMaintenance", cycleId: cycleIdStr },
         });
       } catch (_) {}
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "MAINTENANCE_CYCLE_CREATED",
+        entityType: "MaintenanceCycle",
+        entityId: cycle._id || cycle.id,
+        details: {
+          title: cycle.title,
+          amount: cycle.amount,
+          dueDate: cycle.dueDate,
+          billingPeriod: cycle.billingPeriod,
+        },
+      });
+
       res.status(201).json({
         success: true,
         data: maintenanceService.mapCycle(cycle.toObject()),
@@ -50,6 +67,16 @@ class MaintenanceController {
         req.societyId,
         req.params.cycleId
       );
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "MAINTENANCE_CYCLE_DELETED",
+        entityType: "MaintenanceCycle",
+        entityId: req.params.cycleId,
+      });
+
       res.json({
         success: true,
         data: result,
@@ -224,6 +251,22 @@ class MaintenanceController {
           title: "🧾 Maintenance Payment Recorded",
           body: `Payment cleared for House ${unitDoc?.label || 'Unit'}. Official receipt generated.`,
           data: { screen: "MaintenanceDetail", cycleId: String(req.params.cycleId), unitId: String(req.params.unitId) },
+        });
+
+        auditLogService.recordActivity({
+          societyId: req.societyId,
+          userId: req.userId,
+          req,
+          action: "MAINTENANCE_PAYMENT_RECORDED",
+          entityType: "MaintenanceCycle",
+          entityId: req.params.cycleId,
+          details: {
+            unitId: req.params.unitId,
+            unitLabel: unitDoc?.label,
+            amount: req.body?.amount,
+            paymentMethod: req.body?.paymentMethod || "offline",
+            referenceId: req.body?.referenceId,
+          },
         });
       } catch (_) {}
       res.json({ success: true, data: record });

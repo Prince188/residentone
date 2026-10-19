@@ -1,4 +1,5 @@
 const unitService = require("./unit.service");
+const auditLogService = require("../audit-log/audit-log.service");
 const { config } = require("../../config");
 const { Unit } = require("./unit.model");
 const { Society } = require("../society/society.model");
@@ -140,6 +141,23 @@ class UnitController {
         req.params.unitId,
         req.body
       );
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: isRenter ? "TENANT_ASSIGNED" : "OWNER_ASSIGNED",
+        entityType: "Unit",
+        entityId: req.params.unitId,
+        details: {
+          unitLabel: result.unit?.label || req.params.unitId,
+          residentName: req.body?.name,
+          residentPhone: req.body?.phone,
+          residentType: isRenter ? "renter" : "owner",
+          credentialsCreated: result.credentialsCreated,
+        },
+      });
+
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -167,6 +185,20 @@ class UnitController {
         req.params.unitId,
         residentType
       );
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: residentType === "renter" ? "TENANT_REMOVED" : "OWNER_REMOVED",
+        entityType: "Unit",
+        entityId: req.params.unitId,
+        details: {
+          unitLabel: result?.label || req.params.unitId,
+          residentType: residentType || "all",
+        },
+      });
+
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

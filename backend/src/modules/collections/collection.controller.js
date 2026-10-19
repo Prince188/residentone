@@ -1,4 +1,5 @@
 const collectionService = require("./collection.service");
+const auditLogService = require("../audit-log/audit-log.service");
 
 class CollectionController {
   async create(req, res, next) {
@@ -13,6 +14,21 @@ class CollectionController {
           data: { screen: "CollectionUnitPay", collectionId: String(collection._id || collection.id) },
         });
       } catch (_) {}
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "COLLECTION_FUND_CREATED",
+        entityType: "Collection",
+        entityId: collection._id || collection.id,
+        details: {
+          title: req.body?.title,
+          amount: req.body?.amount,
+          category: req.body?.category,
+        },
+      });
+
       res.status(201).json({ success: true, data: collectionService.mapCollection({ ...collection.toObject(), createdBy: { name: "You" } }) });
     } catch (error) {
       next(error);
@@ -77,6 +93,22 @@ class CollectionController {
     try {
       const collection = await collectionService.getRawById(req.societyId, req.params.collectionId);
       const payment = await collectionService.recordPayment(req.societyId, collection, req.params.unitId, req.userId, req.body);
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "COLLECTION_PAYMENT_RECORDED",
+        entityType: "Collection",
+        entityId: req.params.collectionId,
+        details: {
+          unitId: req.params.unitId,
+          amount: req.body?.amount,
+          paymentMethod: req.body?.paymentMethod || "offline",
+          collectionTitle: collection?.title,
+        },
+      });
+
       res.json({ success: true, data: payment });
     } catch (error) {
       next(error);
@@ -87,6 +119,20 @@ class CollectionController {
     try {
       const collection = await collectionService.getRawById(req.societyId, req.params.collectionId);
       const result = await collectionService.removePayment(req.societyId, collection, req.params.unitId);
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "COLLECTION_PAYMENT_REMOVED",
+        entityType: "Collection",
+        entityId: req.params.collectionId,
+        details: {
+          unitId: req.params.unitId,
+          collectionTitle: collection?.title,
+        },
+      });
+
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

@@ -35,6 +35,7 @@ const transferFeeRoutes = require("./modules/transfer-fees/transferFee.routes");
 const referralRoutes = require("./modules/referral/referral.routes");
 const couponRoutes = require("./modules/coupon/coupon.routes");
 const appConfigRoutes = require("./modules/app-config/app-config.routes");
+const auditLogRoutes = require("./modules/audit-log/audit-log.routes");
 
 const { AppError } = require("./shared/utils/errors");
 const {
@@ -169,6 +170,7 @@ app.use("/api/v1/transfer-fees", transferFeeRoutes);
 app.use("/api/v1/referrals", referralRoutes);
 app.use("/api/v1/coupons", couponRoutes);
 app.use("/api/v1/app-config", appConfigRoutes);
+app.use("/api/v1/audit-logs", auditLogRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

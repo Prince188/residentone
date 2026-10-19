@@ -1,4 +1,5 @@
 const noticeService = require("./notice.service");
+const auditLogService = require("../audit-log/audit-log.service");
 
 class NoticeController {
   async list(req, res, next) {
@@ -31,6 +32,20 @@ class NoticeController {
           data: { screen: "NoticeDetail", noticeId: String(mapped.id || notice._id) },
         });
       } catch (_) {}
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "NOTICE_PUBLISHED",
+        entityType: "Notice",
+        entityId: mapped.id || notice._id,
+        details: {
+          title: req.body?.title,
+          priority: req.body?.priority,
+        },
+      });
+
       res.status(201).json({ success: true, data: mapped });
     } catch (error) {
       next(error);
@@ -56,6 +71,16 @@ class NoticeController {
         req.societyId,
         req.params.id
       );
+
+      auditLogService.recordActivity({
+        societyId: req.societyId,
+        userId: req.userId,
+        req,
+        action: "NOTICE_DELETED",
+        entityType: "Notice",
+        entityId: req.params.id,
+      });
+
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
