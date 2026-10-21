@@ -438,6 +438,18 @@ class CollectionService {
       isActive: true,
     }).lean();
 
+    let reversedPayment = null;
+    if (!payment) {
+      reversedPayment = await CollectionPayment.findOne({
+        societyId,
+        collectionId: collection._id,
+        unitId,
+        isReversed: true,
+      })
+        .sort({ reversedAt: -1, updatedAt: -1 })
+        .lean();
+    }
+
     const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
     const tenantIdStr = unit.tenantId ? String(unit.tenantId._id || unit.tenantId) : null;
     const userIdStr = String(membership.userId);
@@ -464,6 +476,24 @@ class CollectionService {
       fee: payment?.fee || 0,
       totalAmount: payment?.totalAmount || collection.amount,
       gatewayStatus: payment?.gatewayStatus || "cash",
+      recordedByName: payment?.recordedByName || null,
+      recordedByPhone: payment?.recordedByPhone || null,
+      recordedByRole: payment?.recordedByRole || null,
+      recordedByHouse: payment?.recordedByHouse || null,
+      reversal: reversedPayment
+        ? {
+            isReversed: true,
+            reversedAt: reversedPayment.reversedAt,
+            reversedByName: reversedPayment.reversedByName,
+            reversedByPhone: reversedPayment.reversedByPhone,
+            reversedByRole: reversedPayment.reversedByRole,
+            reason: reversedPayment.reversalReason || "Payment cancelled or reversed by admin",
+            previousReceiptNo: reversedPayment.receiptNo,
+            previousAmount: reversedPayment.totalAmount || reversedPayment.amount,
+            previousPaidOn: reversedPayment.paidOn,
+            previousMethod: reversedPayment.method,
+          }
+        : null,
       collection: this.mapCollection(collection),
     };
   }
@@ -497,6 +527,13 @@ class CollectionService {
         recordedByRole: collector.role,
         recordedByHouse: collector.house,
         isActive: true,
+        isReversed: false,
+        reversedAt: null,
+        reversedBy: null,
+        reversedByName: null,
+        reversedByPhone: null,
+        reversedByRole: null,
+        reversalReason: null,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
@@ -605,6 +642,13 @@ class CollectionService {
         recordedByRole: collector.role,
         recordedByHouse: collector.house,
         isActive: true,
+        isReversed: false,
+        reversedAt: null,
+        reversedBy: null,
+        reversedByName: null,
+        reversedByPhone: null,
+        reversedByRole: null,
+        reversalReason: null,
       },
       { new: true }
     ).lean();

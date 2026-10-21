@@ -104,8 +104,57 @@ class DonationService {
     return this.mapDonation(donation, unit, society);
   }
 
+  async cancel(societyId, donationId, userId, reason = "Donation cancelled by admin") {
+    const donation = await Donation.findOne({ _id: donationId, societyId });
+    if (!donation) throw new AppError("Donation record not found", 404);
+    if (donation.isReversed) throw new AppError("Donation is already cancelled", 400);
+
+    const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
+    const adminSnapshot = userId ? await resolveCollectorSnapshot(societyId, userId) : {};
+
+    donation.isActive = false;
+    donation.isReversed = true;
+    donation.reversedAt = new Date();
+    donation.reversedBy = userId || null;
+    donation.reversedByName = adminSnapshot.name || "Society Admin";
+    donation.reversedByPhone = adminSnapshot.phone || "";
+    donation.reversedByRole = adminSnapshot.role || "";
+    donation.reversalReason = reason || "Donation cancelled by admin";
+
+    await donation.save();
+
+    try {
+      const socketHelper = require("../../socket");
+      socketHelper.emitToSociety(String(societyId), "donation:change", {
+        id: donation._id,
+        action: "cancel",
+        receiptNo: donation.receiptNo,
+      });
+    } catch (_) {}
+
+    try {
+      const auditLogService = require("../audit-log/audit-log.service");
+      auditLogService.recordActivity({
+        societyId,
+        performedBy: userId,
+        action: "DONATION_CANCELLED",
+        entityType: "DONATION",
+        entityId: donationId,
+        details: {
+          receiptNo: donation.receiptNo,
+          amount: donation.amount,
+          purpose: donation.purpose,
+          reason,
+        },
+      });
+    } catch (_) {}
+
+    return donation;
+  }
+
   mapDonation(d, unit, society) {
     const obj = typeof d.toObject === "function" ? d.toObject() : d;
+    const isCancelled = Boolean(obj.isReversed || obj.isActive === false);
     return {
       id: obj._id,
       _id: obj._id,
@@ -122,6 +171,23 @@ class DonationService {
       collectedByPhone: obj.collectedByPhone || null,
       collectedByRole: obj.collectedByRole || null,
       collectedByHouse: obj.collectedByHouse || null,
+      isCancelled,
+      isReversed: isCancelled,
+      status: isCancelled ? "cancelled" : "collected",
+      cancelledAt: obj.reversedAt || null,
+      cancelledByName: obj.reversedByName || null,
+      cancelledByPhone: obj.reversedByPhone || null,
+      cancelledByRole: obj.reversedByRole || null,
+      cancellationReason: obj.reversalReason || null,
+      reversal: isCancelled
+        ? {
+            reversedAt: obj.reversedAt,
+            reversedByName: obj.reversedByName,
+            reversedByPhone: obj.reversedByPhone,
+            reversedByRole: obj.reversedByRole,
+            reason: obj.reversalReason,
+          }
+        : null,
       societyId: obj.societyId,
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
@@ -141,7 +207,13 @@ class DonationService {
   }
 
   async list(societyId, query = {}) {
-    const filter = { societyId, isActive: true };
+    const filter = { societyId };
+    if (query.status === "active") {
+      filter.isActive = { $ne: false };
+      filter.isReversed = { $ne: true };
+    } else if (query.status === "cancelled") {
+      filter.$or = [{ isActive: false }, { isReversed: true }];
+    }
     if (query.purpose && query.purpose !== "all") {
       filter.purpose = query.purpose;
     }
@@ -223,6 +295,8 @@ class DonationService {
         receivedByStr = collectorHouse;
       }
 
+      const isCancelled = Boolean(d.isReversed || d.isActive === false);
+
       return {
         id: d._id,
         _id: d._id,
@@ -243,17 +317,41 @@ class DonationService {
         collectedBy: d.collectedBy
           ? {
               id: d.collectedBy._id,
-              name: d.collectedBy.name,
-              houseNumber: collectorHouse || "Society Office",
+              name: d.collectedByName || d.collectedBy.name,
+              houseNumber: d.collectedByHouse || collectorHouse || "Society Office",
+              phone: d.collectedByPhone || "",
+              role: d.collectedByRole || "",
             }
           : null,
-        receivedBy: receivedByStr,
+        receivedBy: d.collectedByHouse || receivedByStr,
+        isCancelled,
+        isReversed: isCancelled,
+        status: isCancelled ? "cancelled" : "collected",
+        cancelledAt: d.reversedAt || null,
+        cancelledByName: d.reversedByName || null,
+        cancelledByPhone: d.reversedByPhone || null,
+        cancelledByRole: d.reversedByRole || null,
+        cancellationReason: d.reversalReason || null,
+        reversal: isCancelled
+          ? {
+              reversedAt: d.reversedAt,
+              reversedByName: d.reversedByName,
+              reversedByPhone: d.reversedByPhone,
+              reversedByRole: d.reversedByRole,
+              reason: d.reversalReason,
+            }
+          : null,
         createdAt: d.createdAt,
       };
     });
 
+    const totalCollected = items
+      .filter((i) => !i.isCancelled)
+      .reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+
     return {
       items,
+      totalCollected,
       pagination: buildPaginationMeta(totalCount, page, limit),
     };
   }
@@ -263,7 +361,7 @@ class DonationService {
     if (!myUnitIds.length) {
       return { items: [], pagination: buildPaginationMeta(0, 1, 20) };
     }
-    const filter = { societyId, isActive: true, unitId: { $in: myUnitIds } };
+    const filter = { societyId, unitId: { $in: myUnitIds } };
 
     const { page, limit, skip, isAll } = parsePagination(query, 20);
 

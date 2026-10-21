@@ -101,6 +101,9 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5174",
+  "http://localhost:8081",
+  "http://localhost:19006",
+  "http://localhost:8082",
   "https://residentone.vercel.app",
 ].filter(Boolean);
 
@@ -112,19 +115,19 @@ const corsOptions = {
     const isAllowed =
       allowedOrigins.includes(origin) ||
       origin.endsWith(".vercel.app") ||
-      (!config.isProduction &&
-        (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")));
+      origin.startsWith("http://localhost:") ||
+      origin.startsWith("http://127.0.0.1:") ||
+      origin === "http://localhost" ||
+      origin === "http://127.0.0.1";
 
     if (isAllowed) {
       return callback(null, true);
     }
-    return callback(
-      new AppError(`CORS policy violation: Access from origin '${origin}' is not allowed.`, 403)
-    );
+    return callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-society-id"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-society-id", "Accept"],
   exposedHeaders: ["Content-Disposition"],
   maxAge: 86400, // Cache preflight OPTIONS responses for 24 hours (eliminates preflight delay)
 };

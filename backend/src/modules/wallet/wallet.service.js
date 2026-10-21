@@ -19,6 +19,7 @@ class WalletService {
     const donations = await Donation.find({
       societyId,
       isActive: { $ne: false },
+      isReversed: { $ne: true },
     })
       .populate("unitId", "label unitNumber block")
       .populate("eventId", "name");
@@ -28,6 +29,7 @@ class WalletService {
     const collectionPayments = await CollectionPayment.find({
       societyId,
       isActive: { $ne: false },
+      isReversed: { $ne: true },
       gatewayStatus: { $in: ["paid", "cash"] },
     })
       .populate("unitId", "label unitNumber block")
@@ -50,6 +52,7 @@ class WalletService {
     const expenses = await Expense.find({
       societyId,
       isActive: { $ne: false },
+      isCancelled: { $ne: true },
     })
       .populate("createdById", "name")
       .populate("eventId", "name");

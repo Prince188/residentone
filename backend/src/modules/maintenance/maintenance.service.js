@@ -676,6 +676,11 @@ class MaintenanceService {
       fee: record.fee || 0,
       totalAmount: record.totalAmount || record.amount || cycle.amount,
       gatewayStatus: record.gatewayStatus || "cash",
+      recordedByName: record.recordedByName || null,
+      recordedByRole: record.recordedByRole || null,
+      recordedByPhone: record.recordedByPhone || null,
+      recordedByHouse: record.recordedByHouse || null,
+      reversal: record.reversal || null,
     };
   }
 
@@ -707,6 +712,18 @@ class MaintenanceService {
       isActive: true,
       gatewayStatus: { $in: ["paid", "cash"] },
     }).lean();
+
+    let reversedPayment = null;
+    if (!payment) {
+      reversedPayment = await MaintenancePayment.findOne({
+        societyId,
+        cycleId: cycle._id,
+        unitId,
+        isReversed: true,
+      })
+        .sort({ reversedAt: -1, updatedAt: -1 })
+        .lean();
+    }
 
     // FIX: handle populated ownerId object vs raw ObjectId, and also check tenant
     const ownerIdStr = unit.ownerId ? String(unit.ownerId._id || unit.ownerId) : null;
@@ -764,6 +781,20 @@ class MaintenanceService {
       recordedByPhone: payment?.recordedByPhone || null,
       recordedByRole: payment?.recordedByRole || null,
       recordedByHouse: payment?.recordedByHouse || null,
+      reversal: reversedPayment
+        ? {
+            isReversed: true,
+            reversedAt: reversedPayment.reversedAt,
+            reversedByName: reversedPayment.reversedByName,
+            reversedByPhone: reversedPayment.reversedByPhone,
+            reversedByRole: reversedPayment.reversedByRole,
+            reason: reversedPayment.reversalReason || "Payment cancelled or reversed by admin",
+            previousReceiptNo: reversedPayment.receiptNo,
+            previousAmount: reversedPayment.totalAmount || reversedPayment.amount,
+            previousPaidOn: reversedPayment.paidOn,
+            previousMethod: reversedPayment.method,
+          }
+        : null,
     };
 
     return this.mapUnitRecord(record, cycle, membership.role);
@@ -865,6 +896,13 @@ class MaintenanceService {
         recordedByRole,
         recordedByHouse,
         isActive: true,
+        isReversed: false,
+        reversedAt: null,
+        reversedBy: null,
+        reversedByName: null,
+        reversedByPhone: null,
+        reversedByRole: null,
+        reversalReason: null,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
@@ -1006,6 +1044,13 @@ class MaintenanceService {
         recordedByRole: collector.role,
         recordedByHouse: collector.house,
         isActive: true,
+        isReversed: false,
+        reversedAt: null,
+        reversedBy: null,
+        reversedByName: null,
+        reversedByPhone: null,
+        reversedByRole: null,
+        reversalReason: null,
         advanceMonths: advanceMonths,
         isAdvance: advanceMonths > 1,
       },

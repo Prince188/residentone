@@ -48,17 +48,8 @@ class ExpenseController {
 
   async delete(req, res, next) {
     try {
-      const result = await expenseService.delete(req.societyId, req.params.id);
-
-      auditLogService.recordActivity({
-        societyId: req.societyId,
-        userId: req.userId,
-        req,
-        action: "EXPENSE_DELETED",
-        entityType: "Expense",
-        entityId: req.params.id,
-      });
-
+      const reason = req.body?.reason || req.query?.reason || "Expense cancelled by admin";
+      const result = await expenseService.delete(req.societyId, req.params.id, req.userId, reason);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

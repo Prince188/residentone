@@ -82,6 +82,43 @@ const expenseSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    isCancelled: {
+      type: Boolean,
+      default: false,
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    cancelledByName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    cancelledByPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    cancelledByRole: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    cancellationReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,

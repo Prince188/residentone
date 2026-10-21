@@ -22,4 +22,8 @@ router.get("/", requirePermission("collect_transfer_fees"), (req, res, next) => 
 // Create transfer fee record
 router.post("/", requirePermission("collect_transfer_fees"), (req, res, next) => transferFeeController.create(req, res, next));
 
+// Cancel transfer fee record
+router.post("/:id/cancel", requirePermission("collect_transfer_fees"), (req, res, next) => transferFeeController.cancel(req, res, next));
+router.delete("/:id", requirePermission("collect_transfer_fees"), (req, res, next) => transferFeeController.cancel(req, res, next));
+
 module.exports = router;

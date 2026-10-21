@@ -59,7 +59,7 @@ class ExpenseService {
       .populate("eventId", "name category status")
       .sort({ expenseDate: -1, createdAt: -1 });
 
-    const totalExpense = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const totalExpense = expenses.reduce((sum, e) => sum + (e.isCancelled || e.isActive === false ? 0 : (e.amount || 0)), 0);
 
     return {
       expenses,
@@ -93,12 +93,44 @@ class ExpenseService {
     return expense;
   }
 
-  async delete(societyId, expenseId) {
-    const expense = await Expense.findOneAndDelete({ _id: expenseId, societyId });
+  async delete(societyId, expenseId, userId, reason = "Expense cancelled by admin") {
+    const expense = await Expense.findOne({ _id: expenseId, societyId });
     if (!expense) {
       throw new Error("Expense record not found");
     }
-    return { success: true, message: "Expense deleted successfully" };
+
+    const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
+    const adminSnapshot = userId ? await resolveCollectorSnapshot(societyId, userId) : {};
+
+    expense.isActive = false;
+    expense.isCancelled = true;
+    expense.cancelledAt = new Date();
+    expense.cancelledBy = userId || null;
+    expense.cancelledByName = adminSnapshot.name || "Society Admin";
+    expense.cancelledByPhone = adminSnapshot.phone || "";
+    expense.cancelledByRole = adminSnapshot.role || "";
+    expense.cancellationReason = reason || "Expense cancelled by admin";
+
+    await expense.save();
+
+    try {
+      const auditLogService = require("../audit-log/audit-log.service");
+      auditLogService.recordActivity({
+        societyId,
+        performedBy: userId,
+        action: "EXPENSE_CANCELLED",
+        entityType: "EXPENSE",
+        entityId: expenseId,
+        details: {
+          title: expense.title,
+          amount: expense.amount,
+          vendorName: expense.vendorName,
+          reason,
+        },
+      });
+    } catch (_) {}
+
+    return { success: true, message: "Expense cancelled successfully", expense };
   }
 }
 

@@ -17,15 +17,15 @@ class ExcelReportService {
     // 1. Fetch raw data across collections
     const [events, maintenancePayments, donations, collections, collectionPayments, bookings, expenses] = await Promise.all([
       SocietyEvent.find({ societyId, isActive: true }).lean(),
-      MaintenancePayment.find({ societyId, isActive: { $ne: false }, gatewayStatus: { $in: ["paid", "cash"] } })
+      MaintenancePayment.find({ societyId, isActive: { $ne: false }, isReversed: { $ne: true }, gatewayStatus: { $in: ["paid", "cash"] } })
         .populate("unitId", "label unitNumber block")
         .lean(),
-      Donation.find({ societyId, isActive: { $ne: false } })
+      Donation.find({ societyId, isActive: { $ne: false }, isReversed: { $ne: true } })
         .populate("unitId", "label unitNumber block")
         .populate("eventId", "name")
         .lean(),
       Collection.find({ societyId, isActive: true }).populate("eventId", "name").lean(),
-      CollectionPayment.find({ societyId, isActive: { $ne: false }, gatewayStatus: { $in: ["paid", "cash"] } })
+      CollectionPayment.find({ societyId, isActive: { $ne: false }, isReversed: { $ne: true }, gatewayStatus: { $in: ["paid", "cash"] } })
         .populate("unitId", "label unitNumber block")
         .populate({ path: "collectionId", populate: { path: "eventId", select: "name" } })
         .lean(),
@@ -34,7 +34,7 @@ class ExcelReportService {
         .populate("userId", "name phone")
         .populate("unitId", "label unitNumber block")
         .lean(),
-      Expense.find({ societyId, isActive: { $ne: false } })
+      Expense.find({ societyId, isActive: { $ne: false }, isCancelled: { $ne: true } })
         .populate("createdById", "name")
         .populate("eventId", "name")
         .lean(),

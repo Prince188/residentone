@@ -69,6 +69,16 @@ class DonationController {
       next(error);
     }
   }
+
+  async cancel(req, res, next) {
+    try {
+      const reason = req.body?.reason || req.query?.reason || "Donation cancelled by admin";
+      const donation = await donationService.cancel(req.societyId, req.params.id, req.userId, reason);
+      res.json({ success: true, message: "Donation cancelled successfully", data: donation });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new DonationController();

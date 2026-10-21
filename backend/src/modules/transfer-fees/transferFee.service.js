@@ -124,6 +124,7 @@ class TransferFeeService {
 
   mapTransferFee(tf, unit, society) {
     const obj = typeof tf.toObject === "function" ? tf.toObject() : tf;
+    const isCancelled = Boolean(obj.isReversed || obj.isActive === false);
     return {
       id: obj._id,
       _id: obj._id,
@@ -143,6 +144,23 @@ class TransferFeeService {
       collectedByRole: obj.collectedByRole || null,
       collectedByHouse: obj.collectedByHouse || null,
       notes: obj.notes || "",
+      isCancelled,
+      isReversed: isCancelled,
+      status: isCancelled ? "cancelled" : "collected",
+      cancelledAt: obj.reversedAt || null,
+      cancelledByName: obj.reversedByName || null,
+      cancelledByPhone: obj.reversedByPhone || null,
+      cancelledByRole: obj.reversedByRole || null,
+      cancellationReason: obj.reversalReason || null,
+      reversal: isCancelled
+        ? {
+            reversedAt: obj.reversedAt,
+            reversedByName: obj.reversedByName,
+            reversedByPhone: obj.reversedByPhone,
+            reversedByRole: obj.reversedByRole,
+            reason: obj.reversalReason,
+          }
+        : null,
       societyId: obj.societyId,
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
@@ -161,8 +179,56 @@ class TransferFeeService {
     };
   }
 
+  async cancel(societyId, feeId, userId, reason = "Transfer fee cancelled by admin") {
+    const fee = await TransferFee.findOne({ _id: feeId, societyId });
+    if (!fee) throw new AppError("Transfer fee record not found", 404);
+    if (fee.isReversed) throw new AppError("Transfer fee is already cancelled", 400);
+
+    const { resolveCollectorSnapshot } = require("../../shared/utils/collector-snapshot");
+    const adminSnapshot = userId ? await resolveCollectorSnapshot(societyId, userId) : {};
+
+    fee.isActive = false;
+    fee.isReversed = true;
+    fee.reversedAt = new Date();
+    fee.reversedBy = userId || null;
+    fee.reversedByName = adminSnapshot.name || "Society Admin";
+    fee.reversedByPhone = adminSnapshot.phone || "";
+    fee.reversedByRole = adminSnapshot.role || "";
+    fee.reversalReason = reason || "Transfer fee cancelled by admin";
+
+    await fee.save();
+
+    try {
+      const socketHelper = require("../../socket");
+      socketHelper.emitToSociety(String(societyId), "transfer_fee:change", {
+        id: fee._id,
+        action: "cancel",
+        receiptNo: fee.receiptNo,
+      });
+    } catch (_) {}
+
+    try {
+      const auditLogService = require("../audit-log/audit-log.service");
+      auditLogService.recordActivity({
+        societyId,
+        performedBy: userId,
+        action: "TRANSFER_FEE_CANCELLED",
+        entityType: "TRANSFER_FEE",
+        entityId: feeId,
+        details: {
+          receiptNo: fee.receiptNo,
+          amount: fee.amount,
+          payerName: fee.payerName,
+          reason,
+        },
+      });
+    } catch (_) {}
+
+    return fee;
+  }
+
   async list(societyId) {
-    const records = await TransferFee.find({ societyId, isActive: true })
+    const records = await TransferFee.find({ societyId })
       .populate("collectedBy", "name phone")
       .sort({ collectedAt: -1, createdAt: -1 })
       .lean();
@@ -178,6 +244,7 @@ class TransferFeeService {
 
     return records.map((r) => {
       const unit = unitMap.get(String(r.unitId));
+      const isCancelled = Boolean(r.isReversed || r.isActive === false);
       return {
         id: r._id,
         _id: r._id,
@@ -199,7 +266,31 @@ class TransferFeeService {
         collectedBy: r.collectedBy
           ? {
               id: r.collectedBy._id,
-              name: r.collectedBy.name,
+              name: r.collectedByName || r.collectedBy.name,
+              houseNumber: r.collectedByHouse || "Society Office",
+              phone: r.collectedByPhone || "",
+              role: r.collectedByRole || "",
+            }
+          : null,
+        collectedByName: r.collectedByName || r.collectedBy?.name || null,
+        collectedByPhone: r.collectedByPhone || null,
+        collectedByRole: r.collectedByRole || null,
+        collectedByHouse: r.collectedByHouse || null,
+        isCancelled,
+        isReversed: isCancelled,
+        status: isCancelled ? "cancelled" : "collected",
+        cancelledAt: r.reversedAt || null,
+        cancelledByName: r.reversedByName || null,
+        cancelledByPhone: r.reversedByPhone || null,
+        cancelledByRole: r.reversedByRole || null,
+        cancellationReason: r.reversalReason || null,
+        reversal: isCancelled
+          ? {
+              reversedAt: r.reversedAt,
+              reversedByName: r.reversedByName,
+              reversedByPhone: r.reversedByPhone,
+              reversedByRole: r.reversedByRole,
+              reason: r.reversalReason,
             }
           : null,
         createdAt: r.createdAt,

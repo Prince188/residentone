@@ -79,6 +79,23 @@ class TransferFeeController {
       next(e);
     }
   }
+
+  async cancel(req, res, next) {
+    try {
+      const societyId = req.societyId;
+      const { id } = req.params;
+      const userId = req.userId || req.user?.id || req.user?._id;
+      const reason = req.body?.reason || req.query?.reason || "Transfer fee cancelled by admin";
+      const record = await transferFeeService.cancel(societyId, id, userId, reason);
+      return res.json({
+        success: true,
+        message: "Transfer fee cancelled successfully",
+        data: record,
+      });
+    } catch (e) {
+      next(e);
+    }
+  }
 }
 
 module.exports = new TransferFeeController();

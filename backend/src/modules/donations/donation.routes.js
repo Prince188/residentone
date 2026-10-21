@@ -25,4 +25,8 @@ router.get("/:id/receipt", (req, res, next) => donationController.getReceipt(req
 // Create — requires collect_donations
 router.post("/", requirePermission("collect_donations"), validate(createDonationSchema), (req, res, next) => donationController.create(req, res, next));
 
+// Cancel donation — requires collect_donations
+router.post("/:id/cancel", requirePermission("collect_donations"), (req, res, next) => donationController.cancel(req, res, next));
+router.delete("/:id", requirePermission("collect_donations"), (req, res, next) => donationController.cancel(req, res, next));
+
 module.exports = router;
