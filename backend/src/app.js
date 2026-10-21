@@ -127,12 +127,12 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-society-id", "Accept"],
   exposedHeaders: ["Content-Disposition"],
   maxAge: 86400, // Cache preflight OPTIONS responses for 24 hours (eliminates preflight delay)
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(compression({ threshold: 1024 }));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
 app.use(express.json({ limit: "1mb" }));
