@@ -5,6 +5,8 @@ const NOTIFICATION_TYPES = [
   "notice",
   "maintenance",
   "collection",
+  "donation",
+  "transfer_fee",
   "complaint",
   "amenity",
   "poll",

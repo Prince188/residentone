@@ -87,6 +87,58 @@ class TransferFeeController {
       const userId = req.userId || req.user?.id || req.user?._id;
       const reason = req.body?.reason || req.query?.reason || "Transfer fee cancelled by admin";
       const record = await transferFeeService.cancel(societyId, id, userId, reason);
+
+      // Dispatch resident push & in-app notification
+      try {
+        const { Unit } = require("../unit/unit.model");
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const notificationService = require("../notification/notification.service");
+
+        let recipientUserIds = [];
+        let unitDoc = null;
+        if (record.unitId) {
+          unitDoc = await Unit.findById(record.unitId).select("ownerId tenantId label block").lean();
+          recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId].filter(Boolean).map(String);
+        }
+        if (record.createdBy) {
+          recipientUserIds.push(String(record.createdBy));
+        }
+        recipientUserIds = [...new Set(recipientUserIds)];
+
+        if (recipientUserIds.length > 0) {
+          const adminName = req.user?.name || req.membership?.user?.name || "Society Admin";
+          const amt = Number(record.amount || 0).toLocaleString("en-IN");
+          const receiptNoStr = record.receiptNo ? ` (Receipt #${record.receiptNo})` : "";
+          const houseLabel = unitDoc?.label ? ` for House ${unitDoc.label}` : "";
+          const title = "⚠️ Transfer Fee Cancelled";
+          const body = `Transfer fee of ₹${amt}${houseLabel}${receiptNoStr} was cancelled by ${adminName}. Reason: ${reason}`;
+
+          for (const uid of recipientUserIds) {
+            await notificationService.createNotification({
+              societyId,
+              userId: uid,
+              title,
+              body,
+              type: "transfer_fee",
+              link: "/transfer-fees",
+              metadata: {
+                feeId: String(record._id),
+                receiptNo: record.receiptNo,
+                reason,
+                cancelledBy: adminName,
+              },
+            });
+          }
+
+          pushNotificationService.sendPushToUsers({
+            userIds: recipientUserIds,
+            title,
+            body,
+            data: { screen: "TransferFees" },
+          });
+        }
+      } catch (_) {}
+
       return res.json({
         success: true,
         message: "Transfer fee cancelled successfully",

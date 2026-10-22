@@ -394,6 +394,52 @@ class MaintenanceController {
         },
       });
 
+      // Dispatch resident push & in-app notification
+      try {
+        const { Unit } = require("../unit/unit.model");
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const notificationService = require("../notification/notification.service");
+        const unitDoc = await Unit.findById(req.params.unitId).select("ownerId tenantId label block").lean();
+        const recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId].filter(Boolean).map(String);
+
+        if (recipientUserIds.length > 0) {
+          const adminName = req.user?.name || req.membership?.user?.name || "Society Admin";
+          const amt = Number(payment?.totalAmount || payment?.amount || 0).toLocaleString("en-IN");
+          const houseLabel = `House ${unitDoc?.label || "Unit"}${unitDoc?.block ? ` · Block ${unitDoc.block}` : ""}`;
+          const title = "⚠️ Maintenance Payment Marked Pending";
+          const body = `Payment of ₹${amt} for ${houseLabel} was marked as pending by ${adminName}. Reason: ${reason}`;
+
+          for (const uid of recipientUserIds) {
+            await notificationService.createNotification({
+              societyId: req.societyId,
+              userId: uid,
+              title,
+              body,
+              type: "maintenance",
+              link: `/maintenance/${req.params.cycleId}/${req.params.unitId}`,
+              metadata: {
+                cycleId: String(req.params.cycleId),
+                unitId: String(req.params.unitId),
+                receiptNo: payment?.receiptNo,
+                reason,
+                cancelledBy: adminName,
+              },
+            });
+          }
+
+          pushNotificationService.sendPushToUsers({
+            userIds: recipientUserIds,
+            title,
+            body,
+            data: {
+              screen: "MaintenanceDetail",
+              cycleId: String(req.params.cycleId),
+              unitId: String(req.params.unitId),
+            },
+          });
+        }
+      } catch (_) {}
+
       const record = await maintenanceService.getCycleUnitDetail(
         req.societyId,
         cycle,

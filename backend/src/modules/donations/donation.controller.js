@@ -74,6 +74,56 @@ class DonationController {
     try {
       const reason = req.body?.reason || req.query?.reason || "Donation cancelled by admin";
       const donation = await donationService.cancel(req.societyId, req.params.id, req.userId, reason);
+
+      // Dispatch donor push & in-app notification
+      try {
+        const { Unit } = require("../unit/unit.model");
+        const { pushNotificationService } = require("../../shared/services/pushNotification.service");
+        const notificationService = require("../notification/notification.service");
+
+        let recipientUserIds = [];
+        if (donation.unitId) {
+          const unitDoc = await Unit.findById(donation.unitId).select("ownerId tenantId label block").lean();
+          recipientUserIds = [unitDoc?.ownerId, unitDoc?.tenantId].filter(Boolean).map(String);
+        }
+        if (donation.createdBy) {
+          recipientUserIds.push(String(donation.createdBy));
+        }
+        recipientUserIds = [...new Set(recipientUserIds)];
+
+        if (recipientUserIds.length > 0) {
+          const adminName = req.user?.name || req.membership?.user?.name || "Society Admin";
+          const amt = Number(donation.amount || 0).toLocaleString("en-IN");
+          const receiptNoStr = donation.receiptNo ? ` (Receipt #${donation.receiptNo})` : "";
+          const title = "⚠️ Donation Cancelled";
+          const body = `Donation of ₹${amt}${receiptNoStr} was cancelled by ${adminName}. Reason: ${reason}`;
+
+          for (const uid of recipientUserIds) {
+            await notificationService.createNotification({
+              societyId: req.societyId,
+              userId: uid,
+              title,
+              body,
+              type: "donation",
+              link: "/donations",
+              metadata: {
+                donationId: String(donation._id),
+                receiptNo: donation.receiptNo,
+                reason,
+                cancelledBy: adminName,
+              },
+            });
+          }
+
+          pushNotificationService.sendPushToUsers({
+            userIds: recipientUserIds,
+            title,
+            body,
+            data: { screen: "Donations" },
+          });
+        }
+      } catch (_) {}
+
       res.json({ success: true, message: "Donation cancelled successfully", data: donation });
     } catch (error) {
       next(error);
