@@ -129,6 +129,8 @@ const transferFeeSchema = new mongoose.Schema(
 );
 
 transferFeeSchema.index({ societyId: 1, collectedAt: -1 });
+transferFeeSchema.index({ societyId: 1, isReversed: 1, collectedAt: -1 });
+transferFeeSchema.index({ societyId: 1, isActive: 1, collectedAt: -1 });
 transferFeeSchema.index({ societyId: 1, unitId: 1 });
 transferFeeSchema.index({ societyId: 1, receiptNo: 1 }, { unique: true });
 transferFeeSchema.index({ societyId: 1, createdAt: -1 });

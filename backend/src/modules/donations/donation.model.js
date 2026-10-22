@@ -116,6 +116,8 @@ const donationSchema = new mongoose.Schema(
 );
 
 donationSchema.index({ societyId: 1, collectedAt: -1 });
+donationSchema.index({ societyId: 1, isReversed: 1, collectedAt: -1 });
+donationSchema.index({ societyId: 1, isActive: 1, collectedAt: -1 });
 donationSchema.index({ societyId: 1, unitId: 1 });
 donationSchema.index({ societyId: 1, receiptNo: 1 }, { unique: true });
 donationSchema.index({ societyId: 1, createdAt: -1 });

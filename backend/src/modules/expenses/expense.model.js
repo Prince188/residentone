@@ -126,6 +126,7 @@ const expenseSchema = new mongoose.Schema(
 );
 
 expenseSchema.index({ societyId: 1, expenseDate: -1 });
+expenseSchema.index({ societyId: 1, isCancelled: 1, expenseDate: -1 });
 expenseSchema.index({ societyId: 1, category: 1, expenseDate: -1 });
 expenseSchema.index({ societyId: 1, eventId: 1, expenseDate: -1 });
 
