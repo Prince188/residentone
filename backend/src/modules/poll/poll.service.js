@@ -57,7 +57,10 @@ class PollService {
       societyId,
       createdBy: userId,
       question: data.question.trim(),
-      options: data.options.map((text) => ({ text: text.trim(), votes: 0 })),
+      options: data.options.map((opt) => ({
+        text: (typeof opt === "string" ? opt : opt?.text || "").trim(),
+        votes: 0,
+      })),
       type: data.type || "open",
       endDate: new Date(data.endDate),
       status: "active",

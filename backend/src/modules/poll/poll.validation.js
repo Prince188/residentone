@@ -1,5 +1,22 @@
 const { z } = require("zod");
 
+const optionItemSchema = z.union([
+  z
+    .string()
+    .trim()
+    .min(1, "Option cannot be empty")
+    .max(200, "Option cannot exceed 200 characters"),
+  z
+    .object({
+      text: z
+        .string()
+        .trim()
+        .min(1, "Option cannot be empty")
+        .max(200, "Option cannot exceed 200 characters"),
+    })
+    .transform((val) => val.text.trim()),
+]);
+
 const createPollSchema = z.object({
   question: z
     .string()
@@ -7,18 +24,18 @@ const createPollSchema = z.object({
     .min(5, "Question must be at least 5 characters")
     .max(500, "Question cannot exceed 500 characters"),
   options: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1, "Option cannot be empty")
-        .max(200, "Option cannot exceed 200 characters")
-    )
+    .array(optionItemSchema)
     .min(2, "At least 2 options required")
     .max(4, "Maximum 4 options allowed")
-    .refine((arr) => new Set(arr.map((o) => o.trim().toLowerCase())).size === arr.length, {
-      message: "Options must be unique",
-    }),
+    .refine(
+      (arr) => {
+        const texts = arr.map((o) => (typeof o === "string" ? o : o?.text || "").trim().toLowerCase());
+        return new Set(texts).size === texts.length;
+      },
+      {
+        message: "Options must be unique",
+      }
+    ),
   type: z.enum(["open", "secret"]).default("open").optional(),
   endDate: z
     .string()
