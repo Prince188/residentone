@@ -160,6 +160,23 @@ const otpVerifyLimiter = rateLimit({
 });
 
 /**
+ * 4b. Public Visitor Pass limiter for /visitors/pass/:id/public
+ * Max 30 views per 15 minutes per IP.
+ * Prevents automated scraping and ID enumeration bots.
+ */
+const publicPassLimiter = rateLimit({
+  windowMs: FIFTEEN_MINUTES,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SlidingWindowStore(FIFTEEN_MINUTES),
+  handler: createRateLimitHandler(
+    "Too many requests to view digital passes. Please try again later.",
+    "PASS_SCRAPE_LIMIT"
+  ),
+});
+
+/**
  * 5. NoSQL Operator Sanitizer
  * Recursively removes any object keys starting with '$' or containing '.'
  * from req.body, req.query, and req.params to prevent MongoDB operator injection.
@@ -222,6 +239,7 @@ module.exports = {
   authLimiter,
   otpSendLimiter,
   otpVerifyLimiter,
+  publicPassLimiter,
   sanitizeMongoInput,
   preventParameterPollution,
 };

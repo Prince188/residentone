@@ -1,6 +1,7 @@
 const express = require("express");
 const visitorController = require("./visitor.controller");
 const { authenticate, requireSociety } = require("../../middlewares/auth.middleware");
+const { publicPassLimiter } = require("../../middlewares/security.middleware");
 const {
   resolveSocietyContext,
 } = require("../../middlewares/society.context.middleware");
@@ -18,8 +19,8 @@ const {
 
 const router = express.Router();
 
-// Public route for digital visitor pass preview (e.g. from WhatsApp link)
-router.get("/pass/:id/public", (req, res, next) =>
+// Public route for digital visitor pass preview (e.g. from WhatsApp link) - protected with rate limiter
+router.get("/pass/:id/public", publicPassLimiter, (req, res, next) =>
   visitorController.getPublicPass(req, res, next)
 );
 

@@ -579,18 +579,30 @@ class VisitorService {
   }
 
   async getPublicPass(visitorId) {
-    const visitor = await Visitor.findById(visitorId)
+    const cleanId = String(visitorId || "").trim();
+    if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) {
+      throw new AppError("Invalid digital pass link", 400);
+    }
+
+    const visitor = await Visitor.findById(cleanId)
       .populate("unitId", "label doorNo block floor")
-      .populate("hostUserId", "name phone")
+      .populate("hostUserId", "name")
       .populate("societyId", "name address city state pincode")
       .lean();
 
     if (!visitor) throw new AppError("Digital pass not found", 404);
 
+    // Mask phone number for privacy against scraping
+    let maskedPhone = "";
+    if (visitor.phone) {
+      const p = String(visitor.phone).trim();
+      maskedPhone = p.length > 5 ? p.slice(0, 2) + "*****" + p.slice(-3) : "*****";
+    }
+
     return {
       id: visitor._id,
       name: visitor.name,
-      phone: visitor.phone,
+      phone: maskedPhone,
       visitorType: visitor.visitorType,
       company: visitor.company,
       vehicleNumber: visitor.vehicleNumber,

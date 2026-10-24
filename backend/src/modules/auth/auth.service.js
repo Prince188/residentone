@@ -230,8 +230,8 @@ class AuthService {
       message: `Verification code sent to ${masked}`,
       identifier: normalized,
       masked,
-      // For development / testing environments, include debugOtp so testing is instant
-      ...(config.isProduction ? {} : { debugOtp: otpCode }),
+      // Only expose debugOtp when explicitly enabled in local testing, never in production
+      ...(!config.isProduction && process.env.ENABLE_DEBUG_OTP === "true" ? { debugOtp: otpCode } : {}),
     };
   }
 
@@ -313,8 +313,8 @@ class AuthService {
    * 3. Reset password using the verified resetToken or Firebase verification token
    */
   async resetPasswordWithToken({ resetToken, firebaseToken, identifier, newPassword }) {
-    if (!newPassword || newPassword.length < 6) {
-      throw new AppError("Password must be at least 6 characters long", 400);
+    if (!newPassword || newPassword.length < 8) {
+      throw new AppError("Password must be at least 8 characters long", 400);
     }
 
     let targetUserId = null;
@@ -392,8 +392,8 @@ class AuthService {
   async forgotPassword(identifier, newPassword) {
     const value = String(identifier || "").trim();
     if (!value) throw new AppError("Phone number or email is required", 400);
-    if (!newPassword || newPassword.length < 6) {
-      throw new AppError("Password must be at least 6 characters", 400);
+    if (!newPassword || newPassword.length < 8) {
+      throw new AppError("Password must be at least 8 characters", 400);
     }
 
     const isEmail = value.includes("@");

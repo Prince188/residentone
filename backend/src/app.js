@@ -114,7 +114,8 @@ const corsOptions = {
 
     const isAllowed =
       allowedOrigins.includes(origin) ||
-      origin.endsWith(".vercel.app") ||
+      origin === "https://residentone.vercel.app" ||
+      /^https:\/\/([a-z0-9-]+\.)?residentone\.vercel\.app$/.test(origin) ||
       origin.startsWith("http://localhost:") ||
       origin.startsWith("http://127.0.0.1:") ||
       origin === "http://localhost" ||

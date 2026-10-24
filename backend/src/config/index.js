@@ -9,6 +9,17 @@ function requireEnv(name) {
   return value;
 }
 
+if (process.env.NODE_ENV === "production") {
+  if (
+    process.env.JWT_ACCESS_SECRET?.includes("change-in-production") ||
+    process.env.JWT_REFRESH_SECRET?.includes("change-in-production")
+  ) {
+    throw new Error(
+      "FATAL SECURITY ERROR: Default JWT secrets detected in production environment! Please set a cryptographically secure JWT_ACCESS_SECRET and JWT_REFRESH_SECRET."
+    );
+  }
+}
+
 const config = {
   port: parseInt(process.env.PORT || "5000", 10),
   nodeEnv: process.env.NODE_ENV || "development",
