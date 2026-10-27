@@ -469,21 +469,21 @@ export default function RegisterPage() {
                       </div>
                       <span className="text-sm leading-relaxed text-on-surface-variant">
                         I agree to the{" "}
-                        <a
-                          href="#terms"
-                          onClick={(e) => e.preventDefault()}
+                        <Link
+                          to="/terms"
+                          target="_blank"
                           className="font-semibold text-on-surface underline decoration-outline-variant underline-offset-4 hover:text-primary hover:decoration-primary"
                         >
                           Terms of Service
-                        </a>{" "}
+                        </Link>{" "}
                         and{" "}
-                        <a
-                          href="#privacy"
-                          onClick={(e) => e.preventDefault()}
+                        <Link
+                          to="/privacy"
+                          target="_blank"
                           className="font-semibold text-on-surface underline decoration-outline-variant underline-offset-4 hover:text-primary hover:decoration-primary"
                         >
                           Privacy Policy
-                        </a>
+                        </Link>
                         .
                       </span>
                     </label>
