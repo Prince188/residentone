@@ -88,6 +88,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    privacyConsent: {
+      consentGiven: { type: Boolean, default: true },
+      consentTimestamp: { type: Date, default: Date.now },
+      policyVersion: { type: String, default: "2.1.0" },
+    },
+    privacySettings: {
+      hidePhoneInDirectory: { type: Boolean, default: false },
+      hideEmailInDirectory: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );

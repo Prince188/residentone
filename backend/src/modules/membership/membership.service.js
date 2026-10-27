@@ -30,7 +30,7 @@ class MembershipService {
 
   async getDirectory(societyId, query = {}) {
     const members = await Membership.find({ societyId, isActive: true })
-      .populate("userId", "name phone occupation avatarUrl")
+      .populate("userId", "name phone occupation avatarUrl privacySettings")
       .populate("units", "label unitNumber")
       .lean();
 
@@ -47,7 +47,8 @@ class MembershipService {
           (a, b) => (a.unitNumber ?? NO_ORDER) - (b.unitNumber ?? NO_ORDER)
         );
       const houseLabels = houses.map((u) => u.label).filter(Boolean);
-      const maskedPhone = this.maskPhone(m.userId.phone);
+      const isHidden = Boolean(m.userId?.privacySettings?.hidePhoneInDirectory);
+      const maskedPhone = isHidden ? "Private" : this.maskPhone(m.userId.phone);
       const occupation = (m.userId.occupation || "").trim();
       const avatarUrl = m.userId.avatarUrl || null;
 

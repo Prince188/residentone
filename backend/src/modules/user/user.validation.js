@@ -8,6 +8,12 @@ const updateProfileSchema = z.object({
   avatarUrl: z.string().optional().nullable(),
   familyMembers: z.coerce.number().int().min(0).max(50).optional().nullable(),
   vehicles: z.array(z.string().trim()).optional(),
+  privacySettings: z
+    .object({
+      hidePhoneInDirectory: z.boolean().optional(),
+      hideEmailInDirectory: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const changePasswordSchema = z.object({

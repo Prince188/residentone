@@ -34,6 +34,7 @@ class UserController {
       if (occupation !== undefined) updateData.occupation = occupation;
       if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
       if (familyMembers !== undefined) updateData.familyMembers = familyMembers;
+      if (req.body.privacySettings !== undefined) updateData.privacySettings = req.body.privacySettings;
       if (vehicles !== undefined) {
         const cleanVehicles = Array.isArray(vehicles)
           ? vehicles.map((v) => String(v).trim().toUpperCase()).filter(Boolean)

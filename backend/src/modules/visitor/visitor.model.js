@@ -129,6 +129,8 @@ visitorSchema.index({ societyId: 1, "parcelDetails.isParcel": 1, "parcelDetails.
 visitorSchema.index({ societyId: 1, passcode: 1 });
 visitorSchema.index({ unitId: 1, createdAt: -1 });
 visitorSchema.index({ hostUserId: 1, createdAt: -1 });
+// DPDP Act 2023 Statutory Storage Limitation: Automatically purge visitor records after 90 days (7,776,000 seconds)
+visitorSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
 const Visitor = mongoose.model("Visitor", visitorSchema);
 
