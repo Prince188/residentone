@@ -25,9 +25,9 @@ export default function Footer() {
         </div>
         <div className="flex flex-col gap-4">
           <h4 className="font-label-md font-bold text-on-surface uppercase tracking-widest mb-4">Legal</h4>
-          <a href="#privacy" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Privacy Policy</a>
-          <a href="#terms" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Terms of Service</a>
-          <a href="#cookies" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Cookie Policy</a>
+          <Link to="/privacy" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Privacy Policy</Link>
+          <Link to="/terms" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Terms of Service</Link>
+          <Link to="/privacy#rights" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">DPDP Rights</Link>
         </div>
       </div>
     </footer>

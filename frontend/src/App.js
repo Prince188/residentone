@@ -10,6 +10,8 @@ import AboutPage from "./features/landing/AboutPage";
 import PricingPage from "./features/landing/PricingPage";
 import ContactPage from "./features/landing/ContactPage";
 import FeaturesPage from "./features/landing/FeaturesPage";
+import PrivacyPolicyPage from "./features/legal/PrivacyPolicyPage";
+import TermsOfServicePage from "./features/legal/TermsOfServicePage";
 import LoginPage from "./features/auth/LoginPage";
 import RegisterPage from "./features/auth/RegisterPage";
 import CreateSocietyPage from "./features/society/CreateSocietyPage";
@@ -88,6 +90,8 @@ function App() {
             <Route path="/pricing" element={<PublicLayout><PricingPage /></PublicLayout>} />
             <Route path="/contact" element={<PublicLayout><ContactPage /></PublicLayout>} />
             <Route path="/features" element={<PublicLayout><FeaturesPage /></PublicLayout>} />
+            <Route path="/privacy" element={<PublicLayout><PrivacyPolicyPage /></PublicLayout>} />
+            <Route path="/terms" element={<PublicLayout><TermsOfServicePage /></PublicLayout>} />
             <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
             <Route path="/register" element={<PublicLayout><RegisterPage /></PublicLayout>} />
             <Route
