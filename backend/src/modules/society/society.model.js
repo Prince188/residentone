@@ -58,6 +58,21 @@ const societySchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    securityPhone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    liftHelpline: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    emergencyContacts: {
+      securityPhone: { type: String, trim: true, default: "" },
+      managerPhone: { type: String, trim: true, default: "" },
+      liftHelpline: { type: String, trim: true, default: "" },
+    },
     logoUrl: {
       type: String,
       default: null,

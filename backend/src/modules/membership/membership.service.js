@@ -305,7 +305,7 @@ class MembershipService {
 
   async findUserSocieties(userId) {
     let memberships = await Membership.find({ userId, isActive: true })
-      .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt appliedReferralCode appliedCouponCode discountAppliedAmount")
+      .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt appliedReferralCode appliedCouponCode discountAppliedAmount contactPhone emergencyContacts securityPhone liftHelpline")
       .populate("units")
       .sort({ createdAt: 1 })
       .lean();
@@ -345,7 +345,7 @@ class MembershipService {
               await FamilyMember.findByIdAndUpdate(fl._id, { userId });
             }
             const populated = await Membership.findById(newMem._id)
-              .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt appliedReferralCode appliedCouponCode discountAppliedAmount")
+              .populate("societyId", "name city state pincode address isActive status societyType subscriptionPlan subscriptionBilling isSubscriptionPaid totalUnits subscriptionStartedAt subscriptionExpiresAt appliedReferralCode appliedCouponCode discountAppliedAmount contactPhone emergencyContacts securityPhone liftHelpline")
               .populate("units")
               .lean();
             if (populated) memberships.push(populated);
@@ -387,6 +387,11 @@ class MembershipService {
           appliedReferralCode: membership.societyId.appliedReferralCode || null,
           appliedCouponCode: membership.societyId.appliedCouponCode || null,
           discountAppliedAmount: membership.societyId.discountAppliedAmount || 0,
+          contactPhone: membership.societyId.contactPhone || null,
+          securityPhone: membership.societyId.securityPhone || membership.societyId.emergencyContacts?.securityPhone || null,
+          liftHelpline: membership.societyId.liftHelpline || membership.societyId.emergencyContacts?.liftHelpline || null,
+          phone: membership.societyId.emergencyContacts?.managerPhone || membership.societyId.contactPhone || null,
+          emergencyContacts: membership.societyId.emergencyContacts || null,
         },
         units: (membership.units || [])
           .filter((unit) => unit && unit.isActive !== false)

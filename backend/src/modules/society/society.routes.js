@@ -101,6 +101,31 @@ router.patch(
   (req, res, next) => societyController.updateMySociety(req, res, next)
 );
 
+router.get(
+  "/emergency-contacts",
+  authenticate,
+  resolveSocietyContext,
+  (req, res, next) => societyController.getEmergencyContacts(req, res, next)
+);
+router.patch(
+  "/emergency-contacts",
+  authenticate,
+  resolveSocietyContext,
+  requireRole("super_admin", "society_admin", "manager", "wing_admin", "committee_member"),
+  (req, res, next) => societyController.updateEmergencyContacts(req, res, next)
+);
+router.get(
+  "/:id/emergency-contacts",
+  authenticate,
+  (req, res, next) => societyController.getEmergencyContacts(req, res, next)
+);
+router.patch(
+  "/:id/emergency-contacts",
+  authenticate,
+  requireRole("super_admin", "society_admin", "manager", "wing_admin", "committee_member"),
+  (req, res, next) => societyController.updateEmergencyContacts(req, res, next)
+);
+
 router.put(
   "/permissions",
   authenticate,

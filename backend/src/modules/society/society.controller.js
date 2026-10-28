@@ -222,6 +222,9 @@ class SocietyController {
         "contactPhone",
         "subscriptionPlan",
         "subscriptionBilling",
+        "securityPhone",
+        "liftHelpline",
+        "emergencyContacts",
       ];
       const payload = {};
       for (const k of allowed) if (req.body[k] !== undefined) payload[k] = req.body[k];
@@ -304,6 +307,43 @@ class SocietyController {
 
       const result = await societyService.paySubscription(societyId, req.body, req.userId);
       res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getEmergencyContacts(req, res, next) {
+    try {
+      const societyId = req.societyId || req.params.id;
+      if (!societyId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "NO_SOCIETY", message: "Society context required" },
+        });
+      }
+      const contacts = await societyService.getEmergencyContacts(societyId);
+      res.json({ success: true, data: contacts });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateEmergencyContacts(req, res, next) {
+    try {
+      const societyId = req.societyId || req.params.id;
+      if (!societyId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "NO_SOCIETY", message: "Society context required" },
+        });
+      }
+      const { securityPhone, managerPhone, liftHelpline } = req.body;
+      const contacts = await societyService.updateEmergencyContacts(
+        societyId,
+        { securityPhone, managerPhone, liftHelpline },
+        req.userId
+      );
+      res.json({ success: true, data: contacts });
     } catch (error) {
       next(error);
     }

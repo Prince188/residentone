@@ -1420,6 +1420,193 @@ class SocietyService {
     } catch (_) {}
     return society;
   }
+
+  async getEmergencyContacts(societyId) {
+    const society = await Society.findById(societyId).select(
+      'name contactPhone contactPersonName emergencyContacts securityPhone liftHelpline'
+    ).lean();
+    if (!society) {
+      throw new AppError('Society not found', 404);
+    }
+
+    const { Staff } = require('../staff/staff.model');
+    const { Membership } = require('../membership/membership.model');
+
+    // 1. Fetch assigned active Security Guard
+    let autoGuard = null;
+    try {
+      const guardStaff = await Staff.findOne({
+        societyId,
+        staffType: 'security_guard',
+        isActive: true,
+      })
+        .populate('userId', 'name phone')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean();
+
+      if (guardStaff && guardStaff.userId?.phone) {
+        autoGuard = {
+          name: guardStaff.userId.name || 'Main Gate Guard',
+          phone: guardStaff.userId.phone,
+          source: 'staff',
+          gate: guardStaff.gate || 'Main Security Gate',
+        };
+      } else {
+        const guardMember = await Membership.findOne({
+          societyId,
+          $or: [{ role: 'security_guard' }, { additionalRoles: 'security_guard' }],
+          isActive: true,
+        })
+          .populate('userId', 'name phone')
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .lean();
+
+        if (guardMember && guardMember.userId?.phone) {
+          autoGuard = {
+            name: guardMember.userId.name || 'Security Guard',
+            phone: guardMember.userId.phone,
+            source: 'membership',
+            gate: 'Main Security Gate',
+          };
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch assigned active Society Manager
+    let autoManager = null;
+    try {
+      const managerMember = await Membership.findOne({
+        societyId,
+        $or: [
+          { role: 'manager' },
+          { additionalRoles: 'manager' },
+          { role: 'helpdesk_manager' },
+          { additionalRoles: 'helpdesk_manager' },
+        ],
+        isActive: true,
+      })
+        .populate('userId', 'name phone')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean();
+
+      if (managerMember && managerMember.userId?.phone) {
+        autoManager = {
+          name: managerMember.userId.name || 'Society Manager',
+          phone: managerMember.userId.phone,
+          source: 'membership',
+          role: managerMember.role,
+        };
+      } else {
+        const managerStaff = await Staff.findOne({
+          societyId,
+          staffType: { $in: ['manager', 'office'] },
+          isActive: true,
+        })
+          .populate('userId', 'name phone')
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .lean();
+
+        if (managerStaff && managerStaff.userId?.phone) {
+          autoManager = {
+            name: managerStaff.userId.name || 'Facility Manager',
+            phone: managerStaff.userId.phone,
+            source: 'staff',
+          };
+        } else {
+          // Society Admin fallback
+          const adminMember = await Membership.findOne({
+            societyId,
+            $or: [{ role: 'society_admin' }, { additionalRoles: 'society_admin' }],
+            isActive: true,
+          })
+            .populate('userId', 'name phone')
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .lean();
+
+          if (adminMember && adminMember.userId?.phone) {
+            autoManager = {
+              name: adminMember.userId.name || society.contactPersonName || 'Society Admin',
+              phone: adminMember.userId.phone,
+              source: 'society_admin',
+            };
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Fetch assigned Lift Technician / Helpline
+    let autoLift = null;
+    try {
+      const liftStaff = await Staff.findOne({
+        societyId,
+        staffType: 'technician',
+        isActive: true,
+      })
+        .populate('userId', 'name phone')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean();
+
+      if (liftStaff && liftStaff.userId?.phone) {
+        autoLift = {
+          name: liftStaff.userId.name || 'Lift Technician',
+          phone: liftStaff.userId.phone,
+          source: 'staff',
+        };
+      }
+    } catch (_) {}
+
+    const custom = {
+      securityPhone: String(society.emergencyContacts?.securityPhone || society.securityPhone || '').trim(),
+      managerPhone: String(society.emergencyContacts?.managerPhone || '').trim(),
+      liftHelpline: String(society.emergencyContacts?.liftHelpline || society.liftHelpline || '').trim(),
+    };
+
+    const effectiveSecurityPhone = custom.securityPhone || autoGuard?.phone || '020-27654321';
+    const effectiveManagerPhone = custom.managerPhone || autoManager?.phone || society.contactPhone || '020-27654322';
+    const effectiveLiftHelpline = custom.liftHelpline || autoLift?.phone || '1800-209-5438';
+
+    return {
+      securityPhone: effectiveSecurityPhone,
+      managerPhone: effectiveManagerPhone,
+      liftHelpline: effectiveLiftHelpline,
+      custom,
+      autoDetected: {
+        guard: autoGuard,
+        manager: autoManager,
+        lift: autoLift,
+      },
+    };
+  }
+
+  async updateEmergencyContacts(societyId, data = {}, userId) {
+    const society = await Society.findById(societyId);
+    if (!society) {
+      throw new AppError('Society not found', 404);
+    }
+
+    if (!society.emergencyContacts) {
+      society.emergencyContacts = {};
+    }
+
+    if (data.securityPhone !== undefined) {
+      society.emergencyContacts.securityPhone = String(data.securityPhone || '').trim();
+      society.securityPhone = society.emergencyContacts.securityPhone;
+    }
+    if (data.managerPhone !== undefined) {
+      society.emergencyContacts.managerPhone = String(data.managerPhone || '').trim();
+    }
+    if (data.liftHelpline !== undefined) {
+      society.emergencyContacts.liftHelpline = String(data.liftHelpline || '').trim();
+      society.liftHelpline = society.emergencyContacts.liftHelpline;
+    }
+
+    if (userId) {
+      society.updatedBy = userId;
+    }
+
+    await society.save();
+    return this.getEmergencyContacts(societyId);
+  }
 }
 
 module.exports = new SocietyService();
