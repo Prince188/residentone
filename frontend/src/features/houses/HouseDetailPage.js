@@ -44,7 +44,10 @@ function OwnerForm({ house }) {
     return () => clearTimeout(timer);
   }, [phone]);
 
-  const isSearching = debouncedQuery.length >= 3;
+  const digitsTyped = phone.replace(/\D/g, "");
+  const debouncedDigits = debouncedQuery.replace(/\D/g, "");
+  // DPDP Privacy Guard: Only search when the full 10-digit number is typed
+  const isSearching = debouncedDigits.length >= 10;
 
   const searchQuery = useQuery({
     queryKey: ["owner-search", debouncedQuery],
@@ -52,10 +55,16 @@ function OwnerForm({ house }) {
     enabled: isSearching,
   });
 
-  const matches = pickedUser ? [] : searchQuery.data || [];
+  const rawMatches = pickedUser ? [] : searchQuery.data || [];
+  const exactMatch = isSearching
+    ? rawMatches.find((u) => {
+        const uDigits = String(u.phone || "").replace(/\D/g, "");
+        return uDigits.endsWith(debouncedDigits.slice(-10));
+      }) || (rawMatches.length === 1 ? rawMatches[0] : null)
+    : null;
+  const matches = exactMatch ? [exactMatch] : [];
   const showDropdown =
     !pickedUser && isSearching && matches.length > 0 && !searchQuery.isFetching;
-  const digitsTyped = phone.replace(/\D/g, "");
   const canSubmit = name.trim().length > 0 && digitsTyped.length >= 10;
 
   const assignMutation = useMutation({
