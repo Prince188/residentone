@@ -401,20 +401,19 @@ class UnitService {
     if (!raw) return [];
 
     const digits = normalizePhone(raw);
-    const conditions = [];
-    if (digits.length >= 3) {
-      conditions.push({ phone: { $regex: escapeRegExp(digits) } });
-    }
-    if (/[a-zA-Z]/.test(raw)) {
-      const rx = new RegExp(escapeRegExp(raw), "i");
-      conditions.push({ name: rx });
-      conditions.push({ email: rx });
-    }
-    if (conditions.length === 0) return [];
+    // DPDP Protection & Anti-Harvesting: Require at least 10 digits for phone lookup to prevent number harvesting
+    if (digits.length < 10) return [];
 
-    const users = await User.find({ $or: conditions })
+    const last10 = digits.slice(-10);
+    const users = await User.find({
+      $or: [
+        { phone: raw },
+        { phone: `+91${last10}` },
+        { phone: new RegExp(`${last10}$`) },
+      ],
+    })
       .select("name email phone occupation vehicles familyMembers createdAt")
-      .limit(8)
+      .limit(1)
       .lean();
 
     const { FamilyMember } = require("../family-member/family-member.model");
