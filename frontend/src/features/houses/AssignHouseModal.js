@@ -245,7 +245,7 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
     return () => clearTimeout(timer);
   }, [phone]);
 
-  const isSearching = debouncedQuery.length >= 3;
+  const isSearching = debouncedQuery.replace(/\D/g, "").length >= 10;
 
   const searchQuery = useQuery({
     queryKey: ["owner-search", debouncedQuery],
@@ -722,14 +722,14 @@ export default function AssignHouseModal({ house, onClose, onEditHouse, onDelete
                         setPhone(e.target.value);
                         setPickedUser(false);
                       }}
-                      placeholder="Type to search existing accounts..."
+                      placeholder="Enter 10-digit mobile number"
                       showDigitCounter={true}
                     />
                   </FormField>
                   {showDropdown && (
                     <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl max-h-72 overflow-y-auto">
                       <p className="border-b border-outline-variant bg-surface-container-low px-4 py-2 text-label-sm font-semibold text-on-surface-variant">
-                        Matching accounts — click to autofill all details
+                        Existing Resident Account Found — click to autofill all details
                       </p>
                       {matches.map((user) => (
                         <button
