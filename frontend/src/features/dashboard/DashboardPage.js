@@ -44,6 +44,7 @@ const generalCards = [
   { icon: "account_balance_wallet", label: "Society Wallet", to: "/wallet" },
   { icon: "home_work", label: "My Unit", to: "/my-unit" },
   { icon: "group_add", label: "Add Members", to: "/family-members" },
+  { icon: "forum", label: "Community Hub", to: "/community" },
   { icon: "campaign", label: "Notices", to: "/notices" },
   { icon: "badge", label: "Visitors", to: "/visitors" },
   { icon: "package_2", label: "Gate Parcels", to: "/visitors?tab=parcels" },
@@ -56,6 +57,7 @@ const generalCards = [
   { icon: "emergency", label: "Emergency", to: "/emergency-contacts" },
   { icon: "groups", label: "Directory", to: "/directory" },
   { icon: "directions_car", label: "Vehicles", to: "/vehicles" },
+  { icon: "card_giftcard", label: "Refer & Earn 🎁", to: "/referrals" },
 ];
 
 const CARD_TINTS = [

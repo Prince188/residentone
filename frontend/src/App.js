@@ -82,6 +82,8 @@ import MyDonationsPage from "./features/donations/MyDonationsPage";
 import TransferFeesPage from "./features/transferFees/TransferFeesPage";
 import SocietyWalletPage from "./features/wallet/SocietyWalletPage";
 import VerifyReceiptPage from "./features/verify/VerifyReceiptPage";
+import CommunityPage from "./features/community/CommunityPage";
+import ReferralsPage from "./features/referrals/ReferralsPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
 import NotificationToastContainer from "./components/notifications/NotificationToastContainer";
 import ForceChangePasswordModal from "./components/ForceChangePasswordModal";
@@ -122,6 +124,8 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/community" element={<CommunityPage />} />
+              <Route path="/referrals" element={<ReferralsPage />} />
               <Route path="/verify" element={<VerifyReceiptPage />} />
               <Route path="/houses" element={<ManageHousesPage />} />
               <Route path="/houses/:unitId" element={<HouseDetailPage />} />

@@ -4,6 +4,7 @@ export const RESIDENT_NAV_SECTIONS = [
     label: "Main",
     items: [
       { label: "Dashboard", to: "/dashboard", icon: "dashboard" },
+      { label: "Community", to: "/community", icon: "forum" },
       { label: "Notices", to: "/notices", icon: "campaign" },
       { label: "Complaints", to: "/complaints", icon: "report_problem" },
       { label: "Visitors", to: "/visitors", icon: "badge" },
@@ -31,6 +32,7 @@ export const RESIDENT_NAV_SECTIONS = [
       { label: "My Unit", to: "/my-unit", icon: "home_work" },
       { label: "Vehicles", to: "/vehicles", icon: "directions_car" },
       { label: "Emergency", to: "/emergency-contacts", icon: "emergency" },
+      { label: "Refer & Earn 🎁", to: "/referrals", icon: "card_giftcard" },
       { label: "Help & Support", to: "/help", icon: "help" },
     ],
   },
