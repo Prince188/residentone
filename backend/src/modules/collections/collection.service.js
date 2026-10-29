@@ -262,7 +262,7 @@ class CollectionService {
 
       if (isPaid && payment) {
         if (payment.gatewayStatus === "paid" || (payment.method && payment.method.toLowerCase().includes("razorpay"))) {
-          receivedBy = "Online (Razorpay)";
+          receivedBy = "Online (Cashfree)";
         } else if (payment.recordedByHouse) {
           recordedByHouse = payment.recordedByHouse;
           recordedByName = payment.recordedByName || payment.recordedBy?.name || "Admin";

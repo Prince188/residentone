@@ -42,7 +42,7 @@ const subscriptionPaymentSchema = new mongoose.Schema(
     },
     gateway: {
       type: String,
-      default: "Razorpay",
+      default: "Cashfree",
     },
     transactionId: {
       type: String,

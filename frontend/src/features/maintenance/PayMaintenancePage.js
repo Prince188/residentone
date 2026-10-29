@@ -123,10 +123,10 @@ export default function PayMaintenancePage() {
         return;
       }
 
-      // Real Razorpay checkout fallback
+      // Real checkout fallback
       const loaded = await loadRazorpayScript();
       if (!loaded) {
-        setError("Failed to load Razorpay. Check internet.");
+        setError("Failed to load payment checkout SDK. Check internet.");
         return;
       }
       const options = {
@@ -259,7 +259,7 @@ export default function PayMaintenancePage() {
                 </div>
               </div>
               <p className="mt-2 text-label-sm text-on-surface-variant">
-                Society gets full {formatAmount(base)} ({roleLabel} rate) — Razorpay keeps fee. Instant
+                Society gets full {formatAmount(base)} ({roleLabel} rate) — Cashfree keeps fee. Instant
                 receipt.
               </p>
               <button
@@ -270,11 +270,11 @@ export default function PayMaintenancePage() {
               >
                 {createOrderMutation.isPending
                   ? "Creating order..."
-                  : `Pay ${formatAmount(feeInfo ? feeInfo.total : total)} Online`}
+                  : `Pay ${formatAmount(feeInfo ? feeInfo.total : total)} Online (Cashfree)`}
               </button>
               {feeInfo?.isMock && (
                 <p className="mt-2 text-center text-label-sm text-amber-700">
-                  Mock mode — no real Razorpay keys. Will simulate success for testing cash flow.
+                  Mock mode — no real Cashfree keys. Will simulate success for testing cash flow.
                 </p>
               )}
             </div>
@@ -336,7 +336,7 @@ export default function PayMaintenancePage() {
             </p>
           )}
           <p className="mt-3 text-center text-label-sm text-outline">
-            Due by {formatDate(r.cycle.dueDate)} · Razorpay = online convenience, Cash = save fee
+            Due by {formatDate(r.cycle.dueDate)} · Cashfree = online convenience, Cash = save fee
           </p>
         </section>
       )}

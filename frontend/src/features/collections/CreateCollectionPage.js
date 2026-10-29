@@ -129,7 +129,7 @@ export default function CreateCollectionPage() {
           </Link>
         </div>
 
-        <p className="text-label-sm text-outline">Residents will see this on Collections page and can pay via cash (admin) or Razorpay online.</p>
+        <p className="text-label-sm text-outline">Residents will see this on Collections page and can pay via cash (admin) or Cashfree online.</p>
       </form>
     </div>
   );

@@ -290,7 +290,7 @@ class DonationService {
       const methodLower = String(d.method || "").toLowerCase();
       let receivedByStr = "Society Office";
       if (methodLower.includes("razorpay") || methodLower.includes("online")) {
-        receivedByStr = "Online (Razorpay)";
+        receivedByStr = "Online (Cashfree)";
       } else if (collectorHouse) {
         receivedByStr = collectorHouse;
       }
@@ -651,7 +651,7 @@ class DonationService {
 
       let receivedBy = "Society Office";
       if (d.method && d.method.toLowerCase().includes("razorpay")) {
-        receivedBy = "Online (Razorpay)";
+        receivedBy = "Online (Cashfree)";
       } else if (d.collectedBy) {
         const recUser = d.collectedBy;
         const recUserId = String(recUser._id || recUser);

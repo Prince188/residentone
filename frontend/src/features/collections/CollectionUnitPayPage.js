@@ -227,7 +227,7 @@ export default function CollectionUnitPayPage() {
       // Razorpay checkout fallback
       const loaded = await loadRazorpayScript();
       if (!loaded) {
-        setError("Failed to load Razorpay checkout SDK. Please check your internet connection.");
+        setError("Failed to load Cashfree checkout SDK. Please check your internet connection.");
         return;
       }
 
@@ -513,7 +513,7 @@ export default function CollectionUnitPayPage() {
               </div>
 
               <p className="mt-2.5 text-label-sm text-on-surface-variant">
-                Society gets full {formatAmount(base)} for {r.collection?.title} — Razorpay keeps gateway fee. Instant receipt generated upon payment.
+                Society gets full {formatAmount(base)} for {r.collection?.title} — Cashfree keeps gateway fee. Instant receipt generated upon payment.
               </p>
 
               <button
@@ -524,12 +524,12 @@ export default function CollectionUnitPayPage() {
               >
                 {createOrderMutation.isPending
                   ? "Creating order..."
-                  : `Pay ${formatAmount(feeInfo ? feeInfo.total : total)} Online`}
+                  : `Pay ${formatAmount(feeInfo ? feeInfo.total : total)} Online (Cashfree) (Cashfree)`}
               </button>
 
               {feeInfo?.isMock && (
                 <p className="mt-2 text-center text-label-sm text-amber-700">
-                  Mock mode — no real Razorpay keys configured. Simulating success for testing.
+                  Mock mode — no real Cashfree keys configured. Simulating success for testing.
                 </p>
               )}
             </div>
@@ -582,7 +582,7 @@ export default function CollectionUnitPayPage() {
           )}
 
           <p className="mt-4 text-center text-label-sm text-outline">
-            Due by {formatDate(r.collection?.dueDate)} · Razorpay = online convenience, Cash = save fee
+            Due by {formatDate(r.collection?.dueDate)} · Cashfree = online convenience, Cash = save fee
           </p>
         </section>
       )}

@@ -194,7 +194,7 @@ export default function TermsOfServicePage() {
                 </h2>
               </div>
               <p className="mb-3">
-                ResidentOne facilitates online payments through RBI-authorized payment aggregators (such as Razorpay) and enables administrators to record offline bank or cash payments:
+                ResidentOne facilitates online payments through RBI-authorized payment aggregators (such as Cashfree) and enables administrators to record offline bank or cash payments:
               </p>
               <div className="space-y-3 text-sm text-gray-600">
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">

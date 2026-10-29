@@ -11,9 +11,9 @@ const services = [
   {
     icon: "💰",
     title: "Billing & Payments",
-    desc: "Automated maintenance billing, online payment collection via Razorpay, and expense tracking.",
+    desc: "Automated maintenance billing, online payment collection via Cashfree, and expense tracking.",
     color: "bg-green-50",
-    features: ["Auto invoice generation", "Razorpay integration", "Payment tracking", "Expense management"],
+    features: ["Auto invoice generation", "Cashfree integration", "Payment tracking", "Expense management"],
   },
   {
     icon: "🔧",

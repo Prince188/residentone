@@ -8,7 +8,7 @@ const FAQ_DATA = [
     category: "maintenance",
     question: "How do I pay my monthly maintenance dues online?",
     answer:
-      "Go to Maintenance from the sidebar, find your flat's due card, and click 'Pay Online'. You can pay via UPI, Netbanking, Credit/Debit card through Razorpay. Once payment succeeds, an official society receipt is instantly generated and downloadable.",
+      "Go to Maintenance from the sidebar, find your flat's due card, and click 'Pay Online'. You can pay via UPI, Netbanking, Credit/Debit card through Cashfree. Once payment succeeds, an official society receipt is instantly generated and downloadable.",
   },
   {
     id: "maint-2",

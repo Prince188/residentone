@@ -1173,7 +1173,7 @@ class SocietyService {
       ratePerUnit,
       amount,
       status: "paid",
-      gateway: data.isDemoSimulation ? "Demo Simulator" : (data.gateway || "Razorpay"),
+      gateway: data.isDemoSimulation ? "Demo Simulator" : (data.gateway || "Cashfree"),
       transactionId: data.transactionId || `SUB-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
       paidAt: nowPay,
       periodStart: baseDate,
