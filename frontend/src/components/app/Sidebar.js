@@ -95,15 +95,17 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
         } md:translate-x-0 ${isCollapsed ? "md:w-20" : "md:w-64"}`}
       >
         <div className="flex h-16 shrink-0 items-center gap-2 border-b border-outline-variant px-4">
-          <Link to="/dashboard" className="flex items-center gap-2 no-underline">
-            <span className="material-symbols-outlined text-primary text-[28px]">apartment</span>
-            <span
-              className={`text-[20px] font-bold tracking-tight text-on-surface ${
-                isCollapsed ? "md:hidden" : ""
-              }`}
-            >
-              ResidentOne
-            </span>
+          <Link to="/dashboard" className="flex items-center gap-2 no-underline overflow-hidden">
+            <img
+              src="/logo-mark.png"
+              alt="ResidentOne"
+              className={`h-8 w-8 object-contain shrink-0 ${isCollapsed ? "mx-auto" : "hidden"}`}
+            />
+            <img
+              src="/logo-transparent.png"
+              alt="ResidentOne"
+              className={`h-8 w-auto object-contain ${isCollapsed ? "hidden" : "block"}`}
+            />
           </Link>
           <button
             type="button"

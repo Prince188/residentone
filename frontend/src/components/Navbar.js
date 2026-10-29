@@ -39,12 +39,13 @@ export default function Navbar() {
         <div className="flex justify-between items-center max-w-container-max mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop h-16 md:h-24">
           <Link
             to="/"
-            className="text-[20px] md:text-[24px] font-bold text-on-surface flex items-center gap-2 tracking-tight no-underline shrink-0"
+            className="flex items-center gap-2 tracking-tight no-underline shrink-0"
           >
-            <span className="material-symbols-outlined text-primary text-[28px] md:text-[32px]">
-              apartment
-            </span>
-            ResidentOne
+            <img
+              src="/logo-transparent.png"
+              alt="ResidentOne"
+              className="h-8 md:h-10 w-auto object-contain"
+            />
           </Link>
 
           {/* Desktop nav */}

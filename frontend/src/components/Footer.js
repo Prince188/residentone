@@ -5,9 +5,8 @@ export default function Footer() {
     <footer className="bg-surface-container-lowest w-full py-20 border-t border-surface-variant">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-12 max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
         <div className="md:col-span-2 flex flex-col gap-6">
-          <Link to="/" className="text-[24px] font-bold text-on-surface flex items-center gap-2 tracking-tight no-underline">
-            <span className="material-symbols-outlined text-primary text-[32px]">apartment</span>
-            ResidentOne
+          <Link to="/" className="flex items-center gap-2 tracking-tight no-underline">
+            <img src="/logo-transparent.png" alt="ResidentOne" className="h-9 w-auto object-contain" />
           </Link>
           <p className="font-body-sm text-on-surface-variant max-w-sm">
             Elevating community management through intelligent, transparent, and beautiful software solutions.

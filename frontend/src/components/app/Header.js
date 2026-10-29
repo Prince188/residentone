@@ -56,10 +56,18 @@ export default function Header({ onMenuClick }) {
 
       <Link
         to="/dashboard"
-        className="shrink-0 text-[20px] font-bold text-on-surface flex items-center gap-2 tracking-tight no-underline"
+        className="shrink-0 flex items-center gap-2 no-underline"
       >
-        <span className="material-symbols-outlined text-primary text-[26px]">apartment</span>
-        <span className="hidden sm:block">ResidentOne</span>
+        <img
+          src="/logo-mark.png"
+          alt="ResidentOne"
+          className="h-7 w-7 object-contain sm:hidden"
+        />
+        <img
+          src="/logo-transparent.png"
+          alt="ResidentOne"
+          className="h-7 w-auto object-contain hidden sm:block"
+        />
       </Link>
 
       <div className="min-w-0 flex-1 flex justify-start md:justify-center">

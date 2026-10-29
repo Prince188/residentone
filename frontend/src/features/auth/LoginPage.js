@@ -54,6 +54,11 @@ export default function LoginPage() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[680px] h-[680px] border border-white/[0.04] rounded-full" />
 
             <div className="relative z-10 p-10 xl:p-14 2xl:p-16 pb-8">
+              <Link to="/" className="inline-block mb-8">
+                <div className="bg-white/95 rounded-2xl p-2 px-3.5 inline-flex items-center shadow-lg">
+                  <img src="/logo.png" alt="ResidentOne" className="h-8 w-auto object-contain" />
+                </div>
+              </Link>
               <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-md border border-white/15 rounded-full px-4 py-2">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                 <span className="text-white/90 text-xs font-semibold tracking-widest uppercase">
@@ -181,21 +186,11 @@ export default function LoginPage() {
           <div className="flex-1 flex items-center justify-center bg-surface-container-lowest px-4 sm:px-6 lg:px-10 xl:px-14 py-8 lg:py-10">
             <div className="w-full max-w-[460px]">
               {/* Mobile brand */}
-              <div className="lg:hidden flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-inverse-surface rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="material-symbols-outlined text-white text-[22px]">
-                    apartment
-                  </span>
-                </div>
-                <div>
-                  <div className="font-bold text-[18px] tracking-tight leading-none text-on-surface">
-                    ResidentOne
-                  </div>
-                  <div className="text-[11px] tracking-widest uppercase font-semibold text-on-surface-variant">
-                    Society OS
-                  </div>
-                </div>
-                <span className="ml-auto text-xs font-medium text-on-surface-variant bg-surface-container border border-outline-variant/30 px-3 py-1.5 rounded-full">
+              <div className="lg:hidden flex items-center justify-between mb-8">
+                <Link to="/" className="flex items-center gap-2">
+                  <img src="/logo-transparent.png" alt="ResidentOne" className="h-9 w-auto object-contain" />
+                </Link>
+                <span className="text-xs font-medium text-on-surface-variant bg-surface-container border border-outline-variant/30 px-3 py-1.5 rounded-full">
                   Secure login
                 </span>
               </div>
