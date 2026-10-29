@@ -4,9 +4,12 @@ const paymentController = require("./payment.controller");
 const { authenticate } = require("../../middlewares/auth.middleware");
 
 // Cashfree Webhook endpoint (public with cryptographic signature verification)
-router.post("/cashfree-webhook", (req, res, next) =>
-  paymentController.handleCashfreeWebhook(req, res, next)
-);
+router.all("/cashfree-webhook", (req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD") {
+    return res.status(200).json({ status: "alive", endpoint: "cashfree-webhook" });
+  }
+  return paymentController.handleCashfreeWebhook(req, res, next);
+});
 
 // Check order status
 router.get("/orders/:orderId/status", authenticate, (req, res, next) =>
