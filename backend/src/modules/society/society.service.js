@@ -1034,11 +1034,20 @@ class SocietyService {
       }
     }
 
-    const society = await Society.findByIdAndUpdate(
+    let society = await Society.findByIdAndUpdate(
       id,
       { ...data, updatedBy: data.updatedBy },
       { new: true, runValidators: true }
     );
+    if (society && society.bankDetails?.accountNumber && society.bankDetails?.ifsc) {
+      try {
+        const cashfreeService = require("../../shared/services/cashfree.service");
+        const vendorId = await cashfreeService.createOrUpdateVendor(society);
+        if (vendorId && vendorId !== society.cashfreeVendorId) {
+          society = await Society.findByIdAndUpdate(id, { cashfreeVendorId: vendorId }, { new: true });
+        }
+      } catch (err) {}
+    }
     try {
       const s = require("../../socket");
       if (society && s.emitSocietyChange) s.emitSocietyChange("update", society);

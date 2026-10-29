@@ -17,6 +17,7 @@ import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "..
 import api from "../../lib/api";
 import { hasPermission } from "../../lib/permissions";
 import { printReceiptHtml } from "../../lib/pdfHelper";
+import { openCashfreeCheckout } from "../../lib/cashfree";
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -186,6 +187,44 @@ export default function CollectionUnitPayPage() {
         return;
       }
 
+      // Cashfree Dropin Checkout (with automatic split to society)
+      if (order.paymentSessionId) {
+        try {
+          await openCashfreeCheckout({
+            paymentSessionId: order.paymentSessionId,
+            mode: order.env || "sandbox",
+            onSuccess: async () => {
+              try {
+                await verifyRazorpayPayment(id, unitId, {
+                  orderId: order.id,
+                  cfOrderId: order.cfOrderId,
+                });
+                setSuccess(`Payment successful — ₹${order.total} paid. Receipt generated.`);
+                queryClient.invalidateQueries({ queryKey: ["collection-unit-detail"] });
+                queryClient.invalidateQueries({ queryKey: ["collection-units"] });
+                queryClient.invalidateQueries({ queryKey: ["collections"] });
+                setTimeout(() => {
+                  navigate(`/collections/pay?collection=${id}`);
+                }, 1500);
+              } catch (e) {
+                setSuccess(`Payment confirmed — ₹${order.total} paid.`);
+                queryClient.invalidateQueries({ queryKey: ["collections"] });
+                setTimeout(() => {
+                  navigate(`/collections/pay?collection=${id}`);
+                }, 1500);
+              }
+            },
+            onFailure: (err) => {
+              setError(err?.message || "Payment cancelled or failed");
+            },
+          });
+        } catch (err) {
+          setError(err?.message || "Failed to launch Cashfree checkout");
+        }
+        return;
+      }
+
+      // Razorpay checkout fallback
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         setError("Failed to load Razorpay checkout SDK. Please check your internet connection.");
@@ -448,7 +487,7 @@ export default function CollectionUnitPayPage() {
             <div className="rounded-2xl border-2 border-primary bg-primary/5 p-4 sm:p-5">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[24px]">payments</span>
-                <p className="text-body-md font-bold text-on-surface">Pay Online (Razorpay)</p>
+                <p className="text-body-md font-bold text-on-surface">Pay Online (UPI / Cards / Net Banking)</p>
                 <span className="ml-auto rounded-full bg-primary px-2.5 py-0.5 text-label-xs font-bold uppercase tracking-wider text-on-primary">
                   Recommended
                 </span>

@@ -225,6 +225,7 @@ class SocietyController {
         "securityPhone",
         "liftHelpline",
         "emergencyContacts",
+        "bankDetails",
       ];
       const payload = {};
       for (const k of allowed) if (req.body[k] !== undefined) payload[k] = req.body[k];

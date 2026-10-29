@@ -49,6 +49,19 @@ const config = {
     gstOnFeePercent: parseFloat(process.env.RAZORPAY_GST_PERCENT || "18"),
   },
 
+  cashfree: {
+    appId: process.env.CASHFREE_APP_ID || null,
+    secretKey: process.env.CASHFREE_SECRET_KEY || null,
+    env: process.env.CASHFREE_ENV || "sandbox",
+    apiVersion: process.env.CASHFREE_API_VERSION || "2023-08-01",
+    baseUrl:
+      process.env.CASHFREE_ENV === "production"
+        ? "https://api.cashfree.com/pg"
+        : "https://sandbox.cashfree.com/pg",
+    feePercent: parseFloat(process.env.CASHFREE_FEE_PERCENT || "2"),
+    gstOnFeePercent: parseFloat(process.env.CASHFREE_GST_PERCENT || "18"),
+  },
+
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || "klwbffur",
     apiKey: process.env.CLOUDINARY_API_KEY || "998551396528618",

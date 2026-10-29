@@ -84,6 +84,15 @@ const updateSocietySchema = z.object({
   logoUrl: z.string().nullable().optional(),
   subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional(),
   subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional(),
+  bankDetails: z
+    .object({
+      accountNumber: z.string().optional(),
+      ifsc: z.string().optional(),
+      accountHolderName: z.string().optional(),
+      bankName: z.string().optional(),
+      pan: z.string().optional(),
+    })
+    .optional(),
 });
 const rejectSocietySchema = z.object({
   reason: z

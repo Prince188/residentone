@@ -37,6 +37,7 @@ const couponRoutes = require("./modules/coupon/coupon.routes");
 const appConfigRoutes = require("./modules/app-config/app-config.routes");
 const auditLogRoutes = require("./modules/audit-log/audit-log.routes");
 const sosRoutes = require("./modules/sos/sos.routes");
+const paymentRoutes = require("./modules/payment/payment.routes");
 
 const { AppError } = require("./shared/utils/errors");
 const {
@@ -82,14 +83,15 @@ app.use(
     ieNoOpen: true,
     // 10. Restrict legacy cross-domain policies
     permittedCrossDomainPolicies: { permittedPolicies: "none" },
-    // 11. Content Security Policy: Block framing while allowing legitimate cloud image rendering
+    // 11. Content Security Policy: Block framing while allowing legitimate cloud image rendering and Cashfree SDK
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         frameAncestors: ["'none'"],
+        frameSrc: ["'self'", "https://sandbox.cashfree.com", "https://api.cashfree.com"],
         imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https:", "blob:"],
         objectSrc: ["'none'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://sdk.cashfree.com"],
         styleSrc: ["'self'", "'unsafe-inline'"],
       },
     },
@@ -136,7 +138,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(compression({ threshold: 1024 }));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req, res, buf) => {
+      req.rawBody = buf ? buf.toString() : "";
+    },
+  })
+);
 
 // Security filters against NoSQL injection and Parameter Pollution
 app.use(sanitizeMongoInput);
@@ -176,6 +185,7 @@ app.use("/api/v1/coupons", couponRoutes);
 app.use("/api/v1/app-config", appConfigRoutes);
 app.use("/api/v1/audit-logs", auditLogRoutes);
 app.use("/api/v1/sos", sosRoutes);
+app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/societies/:societyId/members", membershipRoutes);
 
 app.use(errorHandler);

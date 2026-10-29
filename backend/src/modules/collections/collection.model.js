@@ -117,7 +117,12 @@ const collectionPaymentSchema = new mongoose.Schema(
     },
     gatewayStatus: {
       type: String,
-      enum: ["cash", "created", "paid"],
+      enum: ["cash", "created", "paid", "failed"],
+      default: "cash",
+    },
+    paymentGateway: {
+      type: String,
+      enum: ["cash", "razorpay", "cashfree", "mock"],
       default: "cash",
     },
     razorpayOrderId: {
@@ -129,6 +134,19 @@ const collectionPaymentSchema = new mongoose.Schema(
       default: null,
     },
     razorpaySignature: {
+      type: String,
+      default: null,
+    },
+    cfOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    paymentSessionId: {
+      type: String,
+      default: null,
+    },
+    cashfreePaymentId: {
       type: String,
       default: null,
     },

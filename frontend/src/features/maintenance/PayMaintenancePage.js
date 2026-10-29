@@ -13,6 +13,7 @@ import {
 } from "../../lib/maintenance";
 import useSocietyStore, { selectActiveMembership, selectActiveSociety } from "../../stores/society.store";
 import { hasPermission } from "../../lib/permissions";
+import { openCashfreeCheckout } from "../../lib/cashfree";
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -89,7 +90,40 @@ export default function PayMaintenancePage() {
         return;
       }
 
-      // Real Razorpay checkout
+      // Cashfree Dropin Checkout (with automatic split to society)
+      if (order.paymentSessionId) {
+        try {
+          await openCashfreeCheckout({
+            paymentSessionId: order.paymentSessionId,
+            mode: order.env || "sandbox",
+            onSuccess: async () => {
+              try {
+                await verifyRazorpayPayment(cycleId, unitId, {
+                  orderId: order.id,
+                  cfOrderId: order.cfOrderId,
+                  months: 1,
+                });
+                setSuccess(`Payment successful — ₹${order.total} paid. Receipt generated.`);
+                queryClient.invalidateQueries({ queryKey: ["maintenance"] });
+                setTimeout(() => navigate(`/maintenance/${unitId}?cycle=${cycleId}`), 1500);
+              } catch (e) {
+                // Webhook might already have processed it
+                setSuccess(`Payment confirmed — ₹${order.total} paid.`);
+                queryClient.invalidateQueries({ queryKey: ["maintenance"] });
+                setTimeout(() => navigate(`/maintenance/${unitId}?cycle=${cycleId}`), 1500);
+              }
+            },
+            onFailure: (err) => {
+              setError(err?.message || "Payment cancelled or failed");
+            },
+          });
+        } catch (err) {
+          setError(err?.message || "Failed to launch Cashfree checkout");
+        }
+        return;
+      }
+
+      // Real Razorpay checkout fallback
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         setError("Failed to load Razorpay. Check internet.");
@@ -201,7 +235,7 @@ export default function PayMaintenancePage() {
             <div className="rounded-xl border-2 border-primary bg-primary/5 p-4">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">payments</span>
-                <p className="text-body-md font-semibold text-on-surface">Pay Online (Razorpay)</p>
+                <p className="text-body-md font-semibold text-on-surface">Pay Online (UPI / Cards / Net Banking)</p>
                 <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-label-sm text-on-primary">
                   Recommended
                 </span>

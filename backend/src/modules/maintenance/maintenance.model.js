@@ -122,7 +122,12 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    // Razorpay gateway fields (null for cash/manual)
+    // Gateway fields (Razorpay & Cashfree)
+    paymentGateway: {
+      type: String,
+      enum: ["cash", "razorpay", "cashfree", "mock"],
+      default: "cash",
+    },
     razorpayOrderId: {
       type: String,
       default: null,
@@ -133,6 +138,19 @@ const paymentSchema = new mongoose.Schema(
       default: null,
     },
     razorpaySignature: {
+      type: String,
+      default: null,
+    },
+    cfOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    paymentSessionId: {
+      type: String,
+      default: null,
+    },
+    cashfreePaymentId: {
       type: String,
       default: null,
     },

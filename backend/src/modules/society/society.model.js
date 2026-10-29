@@ -157,6 +157,19 @@ const societySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    cashfreeVendorId: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    bankDetails: {
+      accountNumber: { type: String, trim: true, default: "" },
+      ifsc: { type: String, trim: true, uppercase: true, default: "" },
+      accountHolderName: { type: String, trim: true, default: "" },
+      bankName: { type: String, trim: true, default: "" },
+      pan: { type: String, trim: true, uppercase: true, default: "" },
+    },
   },
   { timestamps: true }
 );

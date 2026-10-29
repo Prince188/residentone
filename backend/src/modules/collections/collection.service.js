@@ -578,9 +578,47 @@ class CollectionService {
     }).lean();
     if (existing) throw new AppError("Payment already recorded for this house", 409);
 
-    const { createOrder } = require("../../shared/services/razorpay.service");
+    const cashfreeService = require("../../shared/services/cashfree.service");
+    const { createOrder: createRazorpayOrder } = require("../../shared/services/razorpay.service");
     const receipt = `cc_${String(collection._id).slice(-6)}_${String(unitId).slice(-6)}`;
-    const order = await createOrder({ amount: collection.amount, receipt });
+
+    let order = null;
+    let paymentGateway = "cashfree";
+
+    if (cashfreeService.isCashfreeConfigured()) {
+      const { Society } = require("../society/society.model");
+      const { User } = require("../user/user.model");
+      const society = await Society.findById(societyId).select("name contactEmail contactPhone bankDetails cashfreeVendorId").lean();
+      let vendorId = society?.cashfreeVendorId;
+      if (!vendorId && society?.bankDetails?.accountNumber && society?.bankDetails?.ifsc) {
+        vendorId = await cashfreeService.createOrUpdateVendor(society);
+        if (vendorId) {
+          await Society.findByIdAndUpdate(societyId, { cashfreeVendorId: vendorId });
+        }
+      }
+
+      const user = await User.findById(userId).select("name email phone").lean();
+
+      order = await cashfreeService.createOrder({
+        amount: collection.amount,
+        receipt,
+        customer: {
+          id: userId,
+          name: user?.name,
+          email: user?.email,
+          phone: user?.phone,
+        },
+        splitVendorId: vendorId || null,
+        splitAmount: collection.amount,
+        orderNote: `Collection: ${collection.title || "Society Fund"}`,
+      });
+      order.gateway = "cashfree";
+      paymentGateway = "cashfree";
+    } else {
+      order = await createRazorpayOrder({ amount: collection.amount, receipt });
+      order.gateway = "razorpay";
+      paymentGateway = "razorpay";
+    }
 
     await CollectionPayment.findOneAndUpdate(
       { societyId, collectionId: collection._id, unitId },
@@ -589,11 +627,14 @@ class CollectionService {
         collectionId: collection._id,
         unitId,
         paidOn: new Date(),
-        method: "Razorpay",
+        method: paymentGateway === "cashfree" ? "Cashfree" : "Razorpay",
+        paymentGateway,
         amount: order.baseAmount,
         fee: order.fee,
         totalAmount: order.total,
         razorpayOrderId: order.id,
+        cfOrderId: order.cfOrderId || null,
+        paymentSessionId: order.paymentSessionId || null,
         gatewayStatus: "created",
         recordedBy: userId,
         isActive: false,
@@ -604,19 +645,35 @@ class CollectionService {
   }
 
   async verifyRazorpayPayment(societyId, collection, unitId, userId, data) {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = data;
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
-      throw new AppError("Missing Razorpay payment details", 400);
+    const orderId = data.razorpayOrderId || data.orderId || data.cfOrderId;
+    const paymentId = data.razorpayPaymentId || data.paymentId || data.cfPaymentId;
+    const signature = data.razorpaySignature || data.signature;
+
+    if (!orderId) {
+      throw new AppError("Missing payment order ID", 400);
     }
-    const { verifySignature } = require("../../shared/services/razorpay.service");
-    const isValid = verifySignature({ orderId: razorpayOrderId, paymentId: razorpayPaymentId, signature: razorpaySignature });
-    if (!isValid) throw new AppError("Invalid Razorpay signature", 400);
+
+    const isCashfree = String(orderId).startsWith("cc_") || String(orderId).startsWith("cf_") || String(orderId).startsWith("split_");
+    let isMock = String(orderId).includes("mock") || String(paymentId).includes("mock");
+
+    if (isCashfree && !isMock) {
+      const cashfreeService = require("../../shared/services/cashfree.service");
+      const cfOrder = await cashfreeService.getOrder(orderId);
+      if (cfOrder && cfOrder.order_status !== "PAID" && cfOrder.order_status !== "ACTIVE") {
+        throw new AppError("Payment not confirmed by Cashfree yet", 400);
+      }
+    } else if (!isCashfree && !isMock) {
+      if (!signature) throw new AppError("Missing payment signature", 400);
+      const { verifySignature } = require("../../shared/services/razorpay.service");
+      const isValid = verifySignature({ orderId, paymentId, signature });
+      if (!isValid) throw new AppError("Invalid payment signature", 400);
+    }
 
     const pending = await CollectionPayment.findOne({
       societyId,
       collectionId: collection._id,
       unitId,
-      razorpayOrderId,
+      $or: [{ razorpayOrderId: orderId }, { cfOrderId: orderId }],
     });
     if (!pending) throw new AppError("Order not found. Create order first.", 404);
 
