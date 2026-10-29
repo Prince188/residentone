@@ -35,7 +35,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="bg-surface-container-lowest fixed top-0 w-full z-50 border-b border-surface-variant">
+      <nav className="bg-white/80 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-black/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div className="flex justify-between items-center max-w-container-max mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop h-16 md:h-24">
           <Link
             to="/"

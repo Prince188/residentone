@@ -27,7 +27,6 @@ const adminCards = [
   { icon: "real_estate_agent", label: "Transfer Fees", to: "/transfer-fees", perm: "collect_transfer_fees" },
   { icon: "account_balance_wallet", label: "Society Wallet", to: "/wallet" },
   { icon: "verified", label: "Verify Receipt", to: "/verify" },
-  { icon: "verified", label: "Verify Receipt", to: "/verify" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
   { icon: "event_available", label: "Manage Amenities", to: "/amenities/manage" },
   { icon: "how_to_vote", label: "Create Poll", to: "/polls/new" },
@@ -136,16 +135,16 @@ function SquareCard({ icon, label, to, tint, badge, isLocked, isSubscriptionUnpa
     return (
       <div
         title={tooltip}
-        className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low p-3 opacity-50 cursor-not-allowed select-none transition-all shadow-none"
+        className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-black/[0.04] bg-surface-container-low p-3 opacity-50 cursor-not-allowed select-none transition-all shadow-none"
       >
         <span
-          className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full text-white shadow-sm ring-2 ring-surface-container-lowest ${
+          className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full text-white shadow-sm ring-2 ring-white ${
             isSubscriptionUnpaid ? "bg-amber-600" : "bg-error"
           }`}
         >
           <span className="material-symbols-outlined text-[12px]">lock</span>
         </span>
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-high text-outline shadow-none sm:h-12 sm:w-12">
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-container-high text-outline shadow-none sm:h-12 sm:w-12">
           <span className="material-symbols-outlined text-[22px] sm:text-[26px]">{icon}</span>
         </span>
         <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[11px] font-semibold leading-tight text-on-surface-variant line-clamp-2 sm:text-[13px]">
@@ -158,19 +157,19 @@ function SquareCard({ icon, label, to, tint, badge, isLocked, isSubscriptionUnpa
   return (
     <Link
       to={to}
-      className="group relative flex flex-col items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 no-underline transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-lg active:translate-y-0"
+      className="group relative flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-black/[0.05] bg-white p-3 sm:p-3.5 no-underline transition-all duration-200 shadow-apple hover:shadow-apple-hover hover:-translate-y-0.5 active:scale-[0.96] active:translate-y-0"
     >
       {showBadge && (
-        <span className="absolute -right-1.5 -top-1.5 z-10 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-error px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-error shadow-md ring-2 ring-surface-container-lowest">
+        <span className="absolute -right-1.5 -top-1.5 z-10 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
           {display}
         </span>
       )}
       <span
-        className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-110 group-active:scale-95 sm:h-12 sm:w-12 ${tint}`}
+        className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-xs transition-transform duration-200 group-hover:scale-105 sm:h-12 sm:w-12 ${tint}`}
       >
         <span className="material-symbols-outlined text-[22px] sm:text-[26px]">{icon}</span>
       </span>
-      <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[11px] font-semibold leading-tight text-on-surface line-clamp-2 sm:text-[13px]">
+      <span className="flex h-[2.5em] w-full items-start justify-center overflow-hidden px-0.5 text-center text-[11px] font-semibold leading-tight text-slate-800 line-clamp-2 sm:text-[13px]">
         {label}
       </span>
     </Link>

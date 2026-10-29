@@ -7,16 +7,33 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    background-color: #f8faf9;
   }
   body {
-    @apply font-body text-on-surface;
+    @apply font-body text-on-surface bg-surface;
     font-optical-sizing: auto;
   }
-  h1, h2, h3 {
+  h1, h2, h3, h4 {
     @apply font-display tracking-tight;
   }
   ::selection {
     @apply bg-primary text-on-primary;
+  }
+
+  /* Slender macOS-style smooth scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
   }
 }
 
@@ -26,5 +43,24 @@
   }
   .page-subtitle {
     @apply mt-0.5 text-xs text-on-surface-variant sm:mt-1 sm:text-body-sm;
+  }
+
+  /* Apple Glass & Card Components */
+  .apple-glass {
+    background: rgba(248, 250, 249, 0.78);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .apple-card {
+    @apply rounded-2xl bg-white border border-black/[0.06] shadow-apple transition-all duration-200;
+  }
+
+  .apple-card:hover {
+    @apply shadow-apple-hover -translate-y-0.5;
+  }
+
+  .apple-button-tactile {
+    @apply transition-transform duration-150 active:scale-[0.97];
   }
 }

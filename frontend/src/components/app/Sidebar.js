@@ -12,13 +12,13 @@ function NavItem({ item, isCollapsed, onNavigate, isLocked }) {
     return (
       <div
         title="Locked: Subscription payment required to unlock this feature."
-        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-body-sm text-outline opacity-50 cursor-not-allowed select-none ${
+        className={`flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-400 opacity-50 cursor-not-allowed select-none ${
           isCollapsed ? "md:justify-center md:px-0" : ""
         }`}
       >
-        <span className="material-symbols-outlined shrink-0 text-[20px]">{item.icon}</span>
+        <span className="material-symbols-outlined shrink-0 text-[19px]">{item.icon}</span>
         <span className={`truncate flex-1 ${isCollapsed ? "md:hidden" : ""}`}>{item.label}</span>
-        <span className={`material-symbols-outlined text-[14px] text-amber-600 ${isCollapsed ? "md:hidden" : ""}`}>lock</span>
+        <span className={`material-symbols-outlined text-[13px] text-amber-600 ${isCollapsed ? "md:hidden" : ""}`}>lock</span>
       </div>
     );
   }
@@ -29,16 +29,16 @@ function NavItem({ item, isCollapsed, onNavigate, isLocked }) {
       onClick={onNavigate}
       title={isCollapsed ? item.label : undefined}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-lg px-3 py-2.5 text-body-sm transition-colors ${
+        `flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] transition-all duration-150 active:scale-[0.98] ${
           isCollapsed ? "md:justify-center md:px-0" : ""
         } ${
           isActive
-            ? "bg-primary-fixed font-semibold text-on-primary-fixed"
-            : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
+            ? "bg-primary text-white font-semibold shadow-[0_2px_8px_rgba(19,74,54,0.22)]"
+            : "text-slate-600 font-medium hover:bg-black/[0.04] hover:text-slate-900"
         }`
       }
     >
-      <span className="material-symbols-outlined shrink-0 text-[20px]">{item.icon}</span>
+      <span className="material-symbols-outlined shrink-0 text-[19px]">{item.icon}</span>
       <span className={`truncate ${isCollapsed ? "md:hidden" : ""}`}>{item.label}</span>
     </NavLink>
   );
@@ -83,18 +83,19 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
     <>
       {isDrawerOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 md:hidden"
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300 md:hidden"
           onClick={onDrawerClose}
           aria-hidden="true"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-outline-variant bg-surface-container-lowest transform transition-all duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-black/[0.06] bg-[#FAFBF9]/85 backdrop-blur-2xl transform transition-all duration-300 ease-in-out ${
           isDrawerOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0 ${isCollapsed ? "md:w-20" : "md:w-64"}`}
       >
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-outline-variant px-4">
+        {/* Brand Header */}
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-black/[0.06] px-4">
           <Link to="/dashboard" className="flex items-center gap-2 no-underline overflow-hidden">
             <img
               src="/logo-mark.png"
@@ -111,31 +112,32 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
             type="button"
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="ml-auto hidden h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors cursor-pointer md:flex"
+            className="ml-auto hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 transition-colors cursor-pointer md:flex active:scale-95"
           >
-            <span className="material-symbols-outlined text-[22px]">
+            <span className="material-symbols-outlined text-[20px]">
               {isCollapsed ? "chevron_right" : "chevron_left"}
             </span>
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-5">
+        {/* Navigation scroll list */}
+        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3.5 py-4">
           {isManagingSpecificSociety && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 space-y-2">
               <div className={`flex items-center gap-2 ${isCollapsed ? "md:justify-center" : ""}`}>
                 <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
                 <span className={`text-[11px] font-bold uppercase tracking-wider text-primary truncate ${isCollapsed ? "md:hidden" : ""}`}>
                   Managing Society
                 </span>
               </div>
-              <p className={`text-body-sm font-bold text-on-surface truncate ${isCollapsed ? "md:hidden" : ""}`}>
+              <p className={`text-[13px] font-bold text-on-surface truncate ${isCollapsed ? "md:hidden" : ""}`}>
                 {activeSociety.name}
               </p>
               <button
                 type="button"
                 onClick={handleExitToPlatform}
                 title={isCollapsed ? "Exit to Platform Admin" : undefined}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-1.5 px-2 text-[12px] font-semibold text-on-primary shadow-sm hover:bg-primary/90 cursor-pointer ${
+                className={`flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-1.5 px-2 text-[12px] font-semibold text-white shadow-xs hover:bg-primary/90 cursor-pointer active:scale-95 ${
                   isCollapsed ? "md:px-0" : ""
                 }`}
               >
@@ -149,25 +151,25 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
             <Link
               to="/dashboard"
               onClick={onDrawerClose}
-              className={`rounded-xl border p-3 space-y-1 block no-underline ${
+              className={`rounded-2xl border p-3 space-y-1 block no-underline transition-all ${
                 isSubscriptionExpired
-                  ? "border-red-500/30 bg-red-500/10"
-                  : "border-amber-500/30 bg-amber-500/10"
+                  ? "border-red-500/20 bg-red-500/10 hover:bg-red-500/15"
+                  : "border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/15"
               }`}
             >
               <div className={`flex items-center gap-2 ${isCollapsed ? "md:justify-center" : ""}`}>
                 <span className={`material-symbols-outlined text-[18px] ${
                   isSubscriptionExpired ? "text-red-600" : "text-amber-600"
                 }`}>
-                  lock
+                  {isSubscriptionExpired ? "error" : "lock"}
                 </span>
-                <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${
                   isSubscriptionExpired ? "text-red-900" : "text-amber-900"
                 } ${isCollapsed ? "md:hidden" : ""}`}>
-                  {isSubscriptionExpired ? "Subscription Expired" : "Payment Due"}
+                  {isSubscriptionExpired ? "Subscription Expired" : "Action Required"}
                 </span>
               </div>
-              <p className={`text-[11px] font-medium ${
+              <p className={`text-[11px] font-medium leading-snug ${
                 isSubscriptionExpired ? "text-red-950" : "text-amber-950"
               } ${isCollapsed ? "md:hidden" : ""}`}>
                 {isSubscriptionExpired
@@ -181,24 +183,24 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
             to="/"
             onClick={onDrawerClose}
             title={isCollapsed ? "Go to Home" : undefined}
-            className={`flex items-center gap-3 rounded-lg bg-primary px-3 py-2.5 text-body-sm font-semibold text-on-primary no-underline transition-colors hover:bg-primary/90 ${
+            className={`flex items-center gap-3 rounded-xl bg-primary px-3 py-2 text-[13px] font-semibold text-white no-underline shadow-[0_2px_8px_rgba(19,74,54,0.20)] transition-all hover:bg-primary/90 active:scale-[0.98] ${
               isCollapsed ? "md:justify-center md:px-0" : ""
             }`}
           >
-            <span className="material-symbols-outlined shrink-0 text-[20px]">home</span>
+            <span className="material-symbols-outlined shrink-0 text-[19px]">home</span>
             <span className={`truncate ${isCollapsed ? "md:hidden" : ""}`}>Go to Home</span>
           </Link>
 
           {navSections.map((section) => (
-            <div key={section.id}>
+            <div key={section.id} className="space-y-1">
               <p
-                className={`mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-outline ${
+                className={`px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 ${
                   isCollapsed ? "md:hidden" : ""
                 }`}
               >
                 {section.label}
               </p>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {section.items.map((item) => (
                   <NavItem
                     key={item.to}

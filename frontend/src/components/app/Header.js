@@ -44,19 +44,19 @@ export default function Header({ onMenuClick }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 md:gap-4 border-b border-outline-variant bg-surface-container-lowest px-margin-mobile md:px-margin-desktop">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 md:gap-4 border-b border-black/[0.06] bg-[#F8FAF9]/80 backdrop-blur-xl px-margin-mobile md:px-margin-desktop shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <button
         type="button"
         onClick={onMenuClick}
         aria-label="Open navigation menu"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors cursor-pointer md:hidden"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-600 hover:bg-black/[0.04] hover:text-slate-900 transition-colors cursor-pointer md:hidden active:scale-95"
       >
         <span className="material-symbols-outlined text-[24px]">menu</span>
       </button>
 
       <Link
         to="/dashboard"
-        className="shrink-0 flex items-center gap-2 no-underline"
+        className="shrink-0 flex items-center gap-2 no-underline active:scale-95 transition-transform"
       >
         <img
           src="/logo-mark.png"
@@ -73,7 +73,7 @@ export default function Header({ onMenuClick }) {
       <div className="min-w-0 flex-1 flex justify-start md:justify-center">
         {isPlatformAdmin ? (
           isSuperAdminManaging && activeSociety ? (
-            <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 shadow-sm">
+            <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-1.5 shadow-xs">
               <span className="material-symbols-outlined shrink-0 text-primary text-[20px]">
                 shield_person
               </span>
@@ -87,14 +87,14 @@ export default function Header({ onMenuClick }) {
               </div>
               {activeSociety.isSubscriptionPaid && (
                 <div className="hidden sm:flex items-center gap-1 shrink-0 ml-1">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300/70 px-2 py-0.5 text-[10px] font-bold">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300/70 px-2.5 py-0.5 text-[10px] font-bold">
                     <span className="material-symbols-outlined text-[12px] text-emerald-600">verified</span>
                     <span>{planName}</span>
                   </span>
                   <button
                     type="button"
                     onClick={openUpgradeModal}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 text-[10px] font-bold transition-all cursor-pointer hover:scale-102"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-0.5 text-[10px] font-bold transition-all cursor-pointer active:scale-95"
                     title="Upgrade subscription plan"
                   >
                     <span className="material-symbols-outlined text-[12px]">upgrade</span>
@@ -105,7 +105,7 @@ export default function Header({ onMenuClick }) {
               <button
                 type="button"
                 onClick={handleExitSocietyMode}
-                className="ml-2 inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[12px] font-semibold text-on-primary no-underline transition-all hover:bg-primary/90 cursor-pointer"
+                className="ml-2 inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-1 text-[12px] font-semibold text-white no-underline transition-all hover:bg-primary/90 cursor-pointer active:scale-95"
                 title="Exit back to Platform Dashboard"
               >
                 <span className="material-symbols-outlined text-[14px]">logout</span>
@@ -113,7 +113,7 @@ export default function Header({ onMenuClick }) {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 md:px-3 md:py-2">
+            <div className="flex items-center gap-2 rounded-xl px-2 py-1.5 md:px-3 md:py-2">
               <span className="material-symbols-outlined shrink-0 text-primary text-[22px] hidden sm:block">
                 admin_panel_settings
               </span>
@@ -134,7 +134,7 @@ export default function Header({ onMenuClick }) {
               <div className="flex items-center gap-1.5 shrink-0">
                 <span
                   title={`Active Plan: ${planName}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300/70 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs"
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs"
                 >
                   <span className="material-symbols-outlined text-[13px] text-emerald-600">verified</span>
                   <span>{planName}</span>
@@ -143,7 +143,7 @@ export default function Header({ onMenuClick }) {
                   <button
                     type="button"
                     onClick={openUpgradeModal}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-0.5 text-[11px] font-bold transition-all cursor-pointer shadow-2xs hover:scale-102"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold transition-all cursor-pointer shadow-2xs active:scale-95"
                     title="Upgrade subscription plan"
                   >
                     <span className="material-symbols-outlined text-[13px]">upgrade</span>
@@ -157,14 +157,14 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="shrink-0 flex items-center gap-1 md:gap-2">
-        {/* Audio Alerts Toggle (desktop only; tablet and mobile adjusted in UserMenu profile dropdown) */}
+        {/* Audio Alerts Toggle */}
         <button
           type="button"
           onClick={handleToggleSound}
           title={isMuted ? "Audio Muted - Click to Unmute" : "Audio Alerts Active - Click to Mute"}
-          className={`hidden lg:flex h-10 w-10 items-center justify-center rounded-xl transition-all cursor-pointer ${
+          className={`hidden lg:flex h-10 w-10 items-center justify-center rounded-xl transition-all cursor-pointer active:scale-95 ${
             isMuted
-              ? "text-outline hover:text-on-surface hover:bg-surface-container-high"
+              ? "text-slate-400 hover:text-slate-700 hover:bg-black/[0.04]"
               : "text-primary hover:bg-primary/10"
           }`}
         >
@@ -173,12 +173,12 @@ export default function Header({ onMenuClick }) {
           </span>
         </button>
 
-        {/* Notification Bell (desktop only; tablet and mobile adjusted in UserMenu profile dropdown) */}
+        {/* Notification Bell */}
         <div className="hidden lg:block">
           <NotificationBell />
         </div>
 
-        {/* User Profile Menu (all devices; contains sound and notification controls on tablet/mobile) */}
+        {/* User Profile Menu */}
         <UserMenu />
       </div>
     </header>
