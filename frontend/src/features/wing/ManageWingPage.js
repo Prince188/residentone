@@ -70,7 +70,7 @@ export default function ManageWingPage() {
 
   const familyQuery = useQuery({
     queryKey: ["family-members", activeSociety?.id],
-    queryFn: async () => (await getFamilyMembers()).data.data,
+    queryFn: async () => (await getFamilyMembers({ all: true, scope: "society" })).data.data,
     enabled: Boolean(activeSociety && canAccess),
   });
   const familyByHouse = useMemo(() => {

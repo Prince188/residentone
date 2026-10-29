@@ -130,6 +130,9 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["house"] });
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       setIsAddFamilyModalOpen(false);
       setFamilyForm({ name: "", relation: "spouse", phone: "", occupation: "" });
       setSuccessMsg("Family member added! They are now recognized across all your society houses.");
@@ -177,6 +180,9 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["house"] });
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       setEditingFamilyMember(null);
       setSuccessMsg("Family member details updated successfully!");
       setErrorMsg("");

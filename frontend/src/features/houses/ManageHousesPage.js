@@ -115,7 +115,7 @@ export default function ManageHousesPage() {
 
   const familyQuery = useQuery({
     queryKey: ["family-members", activeSociety?.id],
-    queryFn: async () => (await getFamilyMembers()).data.data,
+    queryFn: async () => (await getFamilyMembers({ all: true, scope: "society" })).data.data,
     enabled: Boolean(activeSociety && canManageHouses),
     staleTime: 1000 * 60 * 3,
   });
@@ -124,15 +124,11 @@ export default function ManageHousesPage() {
     const familyMembersList = familyQuery.data || [];
     houses.forEach((house) => {
       const activeResidentId = house.tenant?.id || house.owner?.id || null;
-      if (activeResidentId) {
-        map[String(house.id)] = familyMembersList.filter(
-          (m) => String(m.addedBy?._id || m.addedBy) === String(activeResidentId)
-        );
-      } else {
-        map[String(house.id)] = familyMembersList.filter(
-          (m) => String(m.unitId?._id || m.unitId) === String(house.id)
-        );
-      }
+      map[String(house.id)] = familyMembersList.filter(
+        (m) =>
+          String(m.unitId?._id || m.unitId) === String(house.id) ||
+          (activeResidentId && String(m.addedBy?._id || m.addedBy) === String(activeResidentId))
+      );
     });
     return map;
   }, [houses, familyQuery.data]);

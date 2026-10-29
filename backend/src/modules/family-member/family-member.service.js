@@ -12,9 +12,19 @@ class FamilyMemberService {
       filter.addedBy = query.userId || query.addedBy;
       if (societyId) filter.societyId = societyId;
     } else if (query?.unitId) {
-      filter.unitId = query.unitId;
-      if (societyId) filter.societyId = societyId;
-    } else if (scopeAll && !isMine) {
+      const targetUnitId = query.unitId;
+      const unit = await Unit.findById(targetUnitId).select("ownerId tenantId societyId").lean();
+      const residentIds = [];
+      if (unit?.ownerId) residentIds.push(unit.ownerId);
+      if (unit?.tenantId) residentIds.push(unit.tenantId);
+
+      const orList = [{ unitId: targetUnitId }];
+      if (residentIds.length > 0) {
+        orList.push({ addedBy: { $in: residentIds } });
+      }
+      filter.$or = orList;
+      if (societyId || unit?.societyId) filter.societyId = societyId || unit.societyId;
+    } else {
       const isAdmin = membership && ["super_admin", "society_admin"].includes(membership.role);
       let canManageHouses = isAdmin;
 
@@ -27,7 +37,8 @@ class FamilyMemberService {
         } catch {}
       }
 
-      if (canManageHouses && societyId) {
+      // If Admin/Manager OR explicitly requested society-wide scope (and not requested 'mine')
+      if (!isMine && (scopeAll || canManageHouses) && societyId) {
         // Universal Household: Admin sees family members linked directly or added by any active resident of this society
         const units = await Unit.find({ societyId, isActive: true })
           .select("ownerId tenantId")
@@ -44,19 +55,16 @@ class FamilyMemberService {
         }
         filter.$or = orConditions;
       } else {
-        filter.addedBy = userId;
-        if (societyId) filter.societyId = societyId;
-      }
-    } else {
-      // Default: Return ONLY household members belonging to the current user or their assigned units
-      const myUnitIds = (membership?.units || []).map((u) => u?._id || u?.id || u).filter(Boolean);
-      const userConditions = [{ addedBy: userId }];
-      if (myUnitIds.length > 0) {
-        userConditions.push({ unitId: { $in: myUnitIds } });
-      }
-      filter.$or = userConditions;
-      if (societyId) {
-        filter.societyId = societyId;
+        // Default: Return ONLY household members belonging to the current user or their assigned units
+        const myUnitIds = (membership?.units || []).map((u) => u?._id || u?.id || u).filter(Boolean);
+        const userConditions = [{ addedBy: userId }];
+        if (myUnitIds.length > 0) {
+          userConditions.push({ unitId: { $in: myUnitIds } });
+        }
+        filter.$or = userConditions;
+        if (societyId) {
+          filter.societyId = societyId;
+        }
       }
     }
 

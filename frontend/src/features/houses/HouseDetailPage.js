@@ -529,7 +529,9 @@ export default function HouseDetailPage() {
                 <span className="text-[11px] font-bold uppercase tracking-wider text-outline flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">group</span> Family Members
                 </span>
-                <p className="mt-1 font-bold text-on-surface">{(house.owner || house.tenant)?.familyMembers ?? "—"}</p>
+                <p className="mt-1 font-bold text-on-surface">
+                  {(house.familyCount != null ? house.familyCount : (house.familyMembers?.length ?? (house.owner || house.tenant)?.familyMembers)) ?? "—"}
+                </p>
               </div>
 
               <div>
@@ -548,6 +550,53 @@ export default function HouseDetailPage() {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Household & Family Members List */}
+            <div className="mt-4 rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-4">
+              <div className="flex items-center justify-between border-b border-outline-variant/40 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-primary">groups</span>
+                  <span className="text-body-sm font-bold text-on-surface">Household & Family Members</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-label-sm font-bold text-primary">
+                    {house.familyMembers?.length || house.familyCount || 0}
+                  </span>
+                </div>
+              </div>
+
+              {house.familyMembers && house.familyMembers.length > 0 ? (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {house.familyMembers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-3 space-y-1 shadow-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-on-surface text-body-sm">{m.name}</p>
+                        <span className="rounded-md bg-secondary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary capitalize">
+                          {m.relation || "Member"}
+                        </span>
+                      </div>
+                      {m.phone && (
+                        <p className="flex items-center gap-1 text-[12px] text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[13px] text-outline">call</span>
+                          {m.phone}
+                        </p>
+                      )}
+                      {m.occupation && (
+                        <p className="flex items-center gap-1 text-[12px] text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[13px] text-outline">work</span>
+                          {m.occupation}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-body-sm text-outline italic">
+                  No family members registered for this house yet.
+                </p>
+              )}
             </div>
 
             {canManageHouses && (

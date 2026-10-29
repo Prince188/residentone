@@ -137,6 +137,9 @@ export default function FamilyMembersPage() {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       queryClient.invalidateQueries({ queryKey: ["directory"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["house"] });
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       setMsg("Family member added");
       setErr("");
       setForm({ name: "", relation: "other", phone: "", occupation: "" });
@@ -151,6 +154,9 @@ export default function FamilyMembersPage() {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       queryClient.invalidateQueries({ queryKey: ["directory"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["house"] });
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       setEditingMember(null);
       setMsg("Family member details updated");
       setErr("");
@@ -165,6 +171,9 @@ export default function FamilyMembersPage() {
       queryClient.invalidateQueries({ queryKey: ["family-members"] });
       queryClient.invalidateQueries({ queryKey: ["directory"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["house"] });
+      queryClient.invalidateQueries({ queryKey: ["house-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       setDeletingMember(null);
       setMsg("Family member removed");
       setTimeout(() => setMsg(""), 3000);

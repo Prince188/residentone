@@ -318,11 +318,43 @@ class UnitService {
     const unit = await this.findUnitInSociety(societyId, unitId);
     const populated = await unit.populate("ownerId", "name email phone vehicles occupation familyMembers isActive createdAt");
     await populated.populate("tenantId", "name email phone vehicles occupation familyMembers isActive createdAt");
-    const [card, society] = await Promise.all([
+
+    const { FamilyMember } = require("../family-member/family-member.model");
+    const residentIds = [populated.ownerId?._id, populated.tenantId?._id].filter(Boolean);
+    const orConditions = [{ unitId: unit._id }];
+    if (residentIds.length > 0) {
+      orConditions.push({ addedBy: { $in: residentIds } });
+    }
+
+    const [card, society, familyMembers] = await Promise.all([
       Promise.resolve(this.mapUnitCard(populated)),
       Society.findById(societyId).select("name").lean(),
+      FamilyMember.find({
+        societyId,
+        isActive: true,
+        $or: orConditions,
+      })
+        .populate("addedBy", "name")
+        .sort({ createdAt: -1 })
+        .lean(),
     ]);
-    return { ...card, societyName: society ? society.name : null };
+
+    const formattedFamily = familyMembers.map((m) => ({
+      id: m._id,
+      name: m.name,
+      relation: m.relation,
+      phone: m.phone || "",
+      occupation: m.occupation || "",
+      addedBy: m.addedBy ? { id: m.addedBy._id, name: m.addedBy.name } : null,
+      createdAt: m.createdAt,
+    }));
+
+    return {
+      ...card,
+      societyName: society ? society.name : null,
+      familyMembers: formattedFamily,
+      familyCount: formattedFamily.length,
+    };
   }
 
   async linkOwnerToUnit(user, unit, desiredRole = "owner") {
