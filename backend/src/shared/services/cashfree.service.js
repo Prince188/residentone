@@ -36,8 +36,15 @@ async function createOrUpdateVendor(society) {
   const bank = society.bankDetails || {};
 
   if (!bank.accountNumber || !bank.ifsc) {
-    logger.warn(`Society ${society.name} does not have complete bank details, skipping vendor creation`);
-    return null;
+    if (config.cashfree.env === "sandbox") {
+      logger.info(`Society ${society.name} missing bank details, using sandbox test bank details for vendor registration`);
+      bank.accountNumber = "123456789012";
+      bank.ifsc = "HDFC0000001";
+      bank.accountHolderName = society.name || "Society Admin";
+    } else {
+      logger.warn(`Society ${society.name} does not have complete bank details, skipping vendor creation`);
+      return null;
+    }
   }
 
   // Clean phone to 10 digits
@@ -105,7 +112,9 @@ async function createOrder({
 }) {
   const fee = calculateFee(amount);
   const total = amount + fee;
-  const orderId = receipt || `cf_ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  // Always use a unique orderId per checkout attempt to prevent Cashfree 409 conflict
+  const baseReceipt = receipt || "cf";
+  const orderId = `${baseReceipt}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
   // Mock Mode when keys not present
   if (!isCashfreeConfigured()) {
@@ -137,14 +146,14 @@ async function createOrder({
     order_currency: "INR",
     customer_details: {
       customer_id: String(customer.id || customer._id || "cust_resident").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50),
-      customer_name: customer.name || "Resident",
+      customer_name: (customer.name || "Resident").slice(0, 100),
       customer_email: customer.email || "resident@residentone.com",
       customer_phone: phone,
     },
     order_meta: {
       return_url: returnUrl || null,
     },
-    order_note: orderNote,
+    order_note: (orderNote || "ResidentOne Payment").slice(0, 200),
   };
 
   // If society vendor ID provided, split base maintenance directly to society
@@ -158,13 +167,25 @@ async function createOrder({
   }
 
   try {
-    const res = await fetch(`${config.cashfree.baseUrl}/orders`, {
+    let res = await fetch(`${config.cashfree.baseUrl}/orders`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
+    let data = await res.json();
+
+    // If order split failed because the vendor is not yet active or invalid, retry WITHOUT split so the resident can still complete payment
+    if (!res.ok && payload.order_splits) {
+      logger.warn(`Cashfree order split failed (${JSON.stringify(data)}), retrying without split...`);
+      delete payload.order_splits;
+      res = await fetch(`${config.cashfree.baseUrl}/orders`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(payload),
+      });
+      data = await res.json();
+    }
 
     if (!res.ok) {
       logger.error(`Cashfree createOrder API error: ${JSON.stringify(data)}`);
@@ -185,22 +206,8 @@ async function createOrder({
       env: config.cashfree.env,
     };
   } catch (err) {
-    logger.error("Error creating Cashfree order, falling back to mock:", err);
-    const mockId = `cf_mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    return {
-      id: mockId,
-      cfOrderId: `cf_mock_${Date.now()}`,
-      paymentSessionId: `session_mock_${Date.now()}`,
-      orderAmount: total,
-      currency: "INR",
-      receipt,
-      fee,
-      total,
-      baseAmount: amount,
-      isMock: true,
-      mockReason: err.message,
-      env: config.cashfree.env,
-    };
+    logger.error("Error creating Cashfree order:", err);
+    throw err;
   }
 }
 

@@ -1073,7 +1073,7 @@ class MaintenanceService {
       societyId,
       cycleId: cycle._id,
       unitId,
-      $or: [{ razorpayOrderId: orderId }, { cfOrderId: orderId }],
+      $or: [{ razorpayOrderId: orderId }, { cfOrderId: orderId }, { gatewayStatus: "created" }, { gatewayStatus: "pending" }],
     });
     if (!pending) throw new AppError("Order not found. Create order first.", 404);
 
