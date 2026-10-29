@@ -60,26 +60,27 @@ export default function ManageExpensesPage() {
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   // Queries
-  const { data: expenses = [], isLoading: loadingExpenses } = useQuery({
+  const { data: expensesData = [], isLoading: loadingExpenses } = useQuery({
     queryKey: ["expenses", societyId],
     queryFn: async () => {
       const res = await getExpenses();
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data)) return res.data;
-      if (Array.isArray(res?.expenses)) return res.expenses;
-      return [];
+      const raw = Array.isArray(res) ? res : res?.data?.expenses ?? res?.data?.data ?? res?.expenses ?? res?.data ?? [];
+      return Array.isArray(raw) ? raw : [];
     },
     enabled: Boolean(societyId),
   });
+  const expenses = Array.isArray(expensesData) ? expensesData : [];
 
-  const { data: events = [] } = useQuery({
+  const { data: eventsData = [] } = useQuery({
     queryKey: ["events", societyId],
     queryFn: async () => {
       const res = await getEvents();
-      return Array.isArray(res) ? res : res?.events || res?.data || [];
+      const raw = Array.isArray(res) ? res : res?.data?.events ?? res?.data?.data ?? res?.events ?? res?.data ?? [];
+      return Array.isArray(raw) ? raw : [];
     },
     enabled: Boolean(societyId),
   });
+  const events = Array.isArray(eventsData) ? eventsData : [];
 
   // Mutations
   const saveMutation = useMutation({

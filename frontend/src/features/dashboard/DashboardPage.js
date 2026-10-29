@@ -1918,10 +1918,14 @@ export default function DashboardPage() {
 
   const noticesQuery = useQuery({
     queryKey: ["notices", activeSociety?.id, "recent"],
-    queryFn: async () => (await getNotices(2)).data.data,
+    queryFn: async () => {
+      const res = await getNotices(2);
+      const raw = res?.data?.data ?? res?.data?.notices ?? res?.data ?? res;
+      return Array.isArray(raw) ? raw : [];
+    },
     enabled: Boolean(activeSociety) && (!isSuperAdmin || isSuperAdminManaging),
   });
-  const recentNotices = noticesQuery.data || [];
+  const recentNotices = Array.isArray(noticesQuery.data) ? noticesQuery.data : [];
 
   const maintenanceQuery = useQuery({
     queryKey: ["maintenance", "latest"],

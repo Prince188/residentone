@@ -14,24 +14,29 @@ function notifyMuteChange() {
   soundListeners.forEach((listener) => listener(isMutedState));
 }
 
-function getAudioContext() {
+function getAudioContext(userInitiated = false) {
   if (typeof window === "undefined") return null;
   if (!audioCtx) {
+    if (!userInitiated) return null;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+      try {
+        audioCtx = new AudioContextClass();
+      } catch {
+        return null;
+      }
     }
   }
-  if (audioCtx && audioCtx.state === "suspended") {
+  if (audioCtx && audioCtx.state === "suspended" && userInitiated) {
     audioCtx.resume().catch(() => {});
   }
   return audioCtx;
 }
 
-// Unlock audio context on first user interaction
+// Unlock audio context on first user gesture
 if (typeof window !== "undefined") {
   const unlockAudio = () => {
-    const ctx = getAudioContext();
+    const ctx = getAudioContext(true);
     if (ctx && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
     }
@@ -39,16 +44,16 @@ if (typeof window !== "undefined") {
     window.removeEventListener("keydown", unlockAudio);
     window.removeEventListener("touchstart", unlockAudio);
   };
-  window.addEventListener("click", unlockAudio, { passive: true });
-  window.addEventListener("keydown", unlockAudio, { passive: true });
-  window.addEventListener("touchstart", unlockAudio, { passive: true });
+  window.addEventListener("click", unlockAudio, { passive: true, once: true });
+  window.addEventListener("keydown", unlockAudio, { passive: true, once: true });
+  window.addEventListener("touchstart", unlockAudio, { passive: true, once: true });
 }
 
 /**
  * Synthesizes a single bell/tone note with gentle attack and decay
  */
 function playTone(freq, startTime, duration, type = "sine", gainLevel = 0.3) {
-  const ctx = getAudioContext();
+  const ctx = getAudioContext(true);
   if (!ctx || isMutedState) return;
 
   try {
@@ -76,7 +81,7 @@ function playTone(freq, startTime, duration, type = "sine", gainLevel = 0.3) {
  * Plays a single two-tone intercom doorbell chime
  */
 function playDoorbellChime() {
-  const ctx = getAudioContext();
+  const ctx = getAudioContext(true);
   if (!ctx || isMutedState) return;
 
   const now = ctx.currentTime;
@@ -121,7 +126,7 @@ export const sound = {
    * Soft 2-tone notification chime for general alerts and notices
    */
   playNotification: () => {
-    const ctx = getAudioContext();
+    const ctx = getAudioContext(true);
     if (!ctx || isMutedState) return;
 
     const now = ctx.currentTime;
@@ -133,7 +138,7 @@ export const sound = {
    * Upbeat 3-note harmonic chime for success actions (check-in, approval, payments)
    */
   playSuccess: () => {
-    const ctx = getAudioContext();
+    const ctx = getAudioContext(true);
     if (!ctx || isMutedState) return;
 
     const now = ctx.currentTime;
@@ -146,7 +151,7 @@ export const sound = {
    * Alert tone for high-priority or urgent warnings
    */
   playAlert: () => {
-    const ctx = getAudioContext();
+    const ctx = getAudioContext(true);
     if (!ctx || isMutedState) return;
 
     const now = ctx.currentTime;

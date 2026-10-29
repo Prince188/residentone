@@ -21,14 +21,16 @@ export default function CommunityPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   // Queries
-  const { data: notices = [], isLoading: loadingNotices } = useQuery({
+  const { data: noticesData = [], isLoading: loadingNotices } = useQuery({
     queryKey: ["notices", societyId],
     queryFn: async () => {
-      const res = await getNotices({ limit: 40 });
-      return Array.isArray(res) ? res : res?.notices || res?.data || [];
+      const res = await getNotices(40);
+      const raw = res?.data?.data ?? res?.data?.notices ?? res?.data ?? res;
+      return Array.isArray(raw) ? raw : [];
     },
     enabled: Boolean(societyId),
   });
+  const notices = Array.isArray(noticesData) ? noticesData : [];
 
   const { data: pollsRes, isLoading: loadingPolls } = useQuery({
     queryKey: ["polls", societyId],
@@ -40,6 +42,8 @@ export default function CommunityPage() {
     ? pollsRes.data.data
     : Array.isArray(pollsRes?.data)
     ? pollsRes.data
+    : Array.isArray(pollsRes)
+    ? pollsRes
     : [];
 
   const { data: dirRes, isLoading: loadingDir } = useQuery({
@@ -52,6 +56,8 @@ export default function CommunityPage() {
     ? dirRes.data.data
     : Array.isArray(dirRes?.data)
     ? dirRes.data
+    : Array.isArray(dirRes)
+    ? dirRes
     : [];
 
   // Mutations
@@ -77,37 +83,40 @@ export default function CommunityPage() {
 
   // Filtered Notices
   const filteredNotices = useMemo(() => {
-    if (!search.trim()) return notices;
+    const list = Array.isArray(notices) ? notices : [];
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
-    return notices.filter(
+    return list.filter(
       (n) =>
-        (n.title || "").toLowerCase().includes(q) ||
-        (n.content || "").toLowerCase().includes(q) ||
-        (n.category || "").toLowerCase().includes(q)
+        (n?.title || "").toLowerCase().includes(q) ||
+        (n?.content || "").toLowerCase().includes(q) ||
+        (n?.category || "").toLowerCase().includes(q)
     );
   }, [notices, search]);
 
   // Filtered Polls
   const filteredPolls = useMemo(() => {
-    if (!search.trim()) return polls;
+    const list = Array.isArray(polls) ? polls : [];
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
-    return polls.filter(
+    return list.filter(
       (p) =>
-        (p.question || "").toLowerCase().includes(q) ||
-        (p.description || "").toLowerCase().includes(q)
+        (p?.question || "").toLowerCase().includes(q) ||
+        (p?.description || "").toLowerCase().includes(q)
     );
   }, [polls, search]);
 
   // Filtered Directory
   const filteredDirectory = useMemo(() => {
-    if (!search.trim()) return directory;
+    const list = Array.isArray(directory) ? directory : [];
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
-    return directory.filter(
+    return list.filter(
       (m) =>
-        (m.user?.name || m.name || "").toLowerCase().includes(q) ||
-        (m.user?.phone || m.phone || "").toLowerCase().includes(q) ||
-        (m.unit?.unitNumber || m.unitNumber || "").toLowerCase().includes(q) ||
-        (m.wing?.name || m.wing || "").toLowerCase().includes(q)
+        (m?.user?.name || m?.name || "").toLowerCase().includes(q) ||
+        (m?.user?.phone || m?.phone || "").toLowerCase().includes(q) ||
+        (m?.unit?.unitNumber || m?.unitNumber || "").toLowerCase().includes(q) ||
+        (m?.wing?.name || m?.wing || "").toLowerCase().includes(q)
     );
   }, [directory, search]);
 
@@ -158,10 +167,10 @@ export default function CommunityPage() {
       </div>
 
       {/* Tab Switcher & Search Bar */}
-      <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 shadow-sm space-y-3">
+      <div className="rounded-2xl border border-black/[0.05] bg-white p-3 shadow-apple space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {/* Tabs */}
-          <div className="flex items-center gap-1 rounded-xl bg-surface-container p-1 text-xs font-bold">
+          <div className="flex items-center gap-1 rounded-2xl bg-black/[0.04] p-1.5 text-xs font-semibold">
             <button
               onClick={() => { setActiveTab("notices"); setSearch(""); }}
               className={`flex items-center gap-1.5 rounded-lg px-4 py-2 transition-all ${
@@ -242,7 +251,7 @@ export default function CommunityPage() {
                 <div
                   key={notice._id || notice.id}
                   onClick={() => setSelectedNotice(notice)}
-                  className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3 flex flex-col justify-between"
+                  className="rounded-2xl border border-black/[0.05] bg-white p-5 shadow-apple hover:shadow-apple-hover transition-all cursor-pointer space-y-3 flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">

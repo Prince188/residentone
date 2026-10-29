@@ -54,7 +54,7 @@ export default function TransferFeesPage() {
     enabled: Boolean(societyId),
   });
 
-  const transferFees = feesRes?.data || [];
+  const transferFees = Array.isArray(feesRes?.data) ? feesRes.data : Array.isArray(feesRes?.data?.data) ? feesRes.data.data : [];
 
   const { data: unitsRes } = useQuery({
     queryKey: ["units", societyId],
@@ -62,7 +62,7 @@ export default function TransferFeesPage() {
     enabled: Boolean(societyId),
   });
 
-  const units = unitsRes?.data?.data || unitsRes?.data || [];
+  const units = Array.isArray(unitsRes?.data?.data) ? unitsRes.data.data : Array.isArray(unitsRes?.data) ? unitsRes.data : [];
 
   // Mutations
   const createMutation = useMutation({

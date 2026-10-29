@@ -56,7 +56,7 @@ export default function DonationsPage() {
     enabled: Boolean(societyId),
   });
 
-  const donations = donationsRes?.data || [];
+  const donations = Array.isArray(donationsRes?.data) ? donationsRes.data : Array.isArray(donationsRes?.data?.data) ? donationsRes.data.data : [];
 
   const { data: unitsRes } = useQuery({
     queryKey: ["units", societyId],
@@ -64,7 +64,7 @@ export default function DonationsPage() {
     enabled: Boolean(societyId),
   });
 
-  const units = unitsRes?.data?.data || unitsRes?.data || [];
+  const units = Array.isArray(unitsRes?.data?.data) ? unitsRes.data.data : Array.isArray(unitsRes?.data) ? unitsRes.data : [];
 
   // Mutations
   const collectMutation = useMutation({

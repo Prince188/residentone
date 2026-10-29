@@ -20,8 +20,8 @@ export default function SocietyWalletPage() {
   });
 
   const wallet = walletSummary?.wallet || {};
-  const transactions = walletSummary?.recentTransactions || [];
-  const eventSummaries = walletSummary?.eventSummaries || [];
+  const transactions = Array.isArray(walletSummary?.recentTransactions) ? walletSummary.recentTransactions : [];
+  const eventSummaries = Array.isArray(walletSummary?.eventSummaries) ? walletSummary.eventSummaries : [];
 
   const netBalance = Number(wallet.netBalance || 0);
   const totalIncome = Number(wallet.totalIncome || 0);
