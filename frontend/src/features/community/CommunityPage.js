@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useSocietyStore, {
   selectActiveSociety,
-  selectActiveMembership,
 } from "../../stores/society.store";
 import { getNotices, timeAgo } from "../../lib/notices";
 import { getPolls, votePoll, formatPollEndDate } from "../../lib/polls";
@@ -12,7 +11,6 @@ import { getSocietyDirectory } from "../../lib/directory";
 export default function CommunityPage() {
   const queryClient = useQueryClient();
   const activeSociety = useSocietyStore(selectActiveSociety);
-  const activeMembership = useSocietyStore(selectActiveMembership);
 
   const societyId = activeSociety?.id || activeSociety?._id;
   const [activeTab, setActiveTab] = useState("notices"); // 'notices' | 'polls' | 'directory'

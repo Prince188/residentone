@@ -38,7 +38,7 @@ export default function EmergencyContactsPage() {
   ].includes(role) || !role;
 
   // Helpline contacts query
-  const { data: emergencyData, isLoading } = useQuery({
+  const { data: emergencyData } = useQuery({
     queryKey: ["emergency-contacts", societyId],
     queryFn: async () => {
       const res = await api.get("/societies/emergency-contacts");
