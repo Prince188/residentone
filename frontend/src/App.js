@@ -75,6 +75,12 @@ import PayCollectionsPage from "./features/collections/PayCollectionsPage";
 import ManageSocietyPage from "./features/society/ManageSocietyPage";
 import ManageWingPage from "./features/wing/ManageWingPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
+import ManageExpensesPage from "./features/expenses/ManageExpensesPage";
+import EventExpenseDetailsPage from "./features/expenses/EventExpenseDetailsPage";
+import DonationsPage from "./features/donations/DonationsPage";
+import MyDonationsPage from "./features/donations/MyDonationsPage";
+import TransferFeesPage from "./features/transferFees/TransferFeesPage";
+import SocietyWalletPage from "./features/wallet/SocietyWalletPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
 import NotificationToastContainer from "./components/notifications/NotificationToastContainer";
 import ForceChangePasswordModal from "./components/ForceChangePasswordModal";
@@ -158,6 +164,12 @@ function App() {
               <Route path="/collections/:id/units/:unitId" element={<CollectionUnitPayPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/my-unit" element={<MyUnitPage />} />
+              <Route path="/expenses" element={<ManageExpensesPage />} />
+              <Route path="/expenses/events/:eventId" element={<EventExpenseDetailsPage />} />
+              <Route path="/donations" element={<DonationsPage />} />
+              <Route path="/donations/my" element={<MyDonationsPage />} />
+              <Route path="/transfer-fees" element={<TransferFeesPage />} />
+              <Route path="/wallet" element={<SocietyWalletPage />} />
               <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />

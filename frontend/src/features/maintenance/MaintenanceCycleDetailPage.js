@@ -255,7 +255,7 @@ export default function MaintenanceCycleDetailPage() {
   const counts = unitsQuery.data?.counts || { all: 0, paid: 0, pending: 0, overdue: 0, late_paid: 0 };
   const stats = unitsQuery.data?.stats || {};
   const pagination = unitsQuery.data?.pagination || { page: 1, totalPages: 1, totalCount: 0, hasNextPage: false, hasPrevPage: false };
-  const filtered = units;
+
 
   const hasPayments = (counts.paid + counts.late_paid) > 0;
 

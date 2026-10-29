@@ -4,16 +4,34 @@ export const RESIDENT_NAV_SECTIONS = [
     label: "Main",
     items: [
       { label: "Dashboard", to: "/dashboard", icon: "dashboard" },
-      { label: "Maintenance", to: "/maintenance", icon: "build" },
+      { label: "Notices", to: "/notices", icon: "campaign" },
       { label: "Complaints", to: "/complaints", icon: "report_problem" },
       { label: "Visitors", to: "/visitors", icon: "badge" },
-      { label: "Notices", to: "/notices", icon: "campaign" },
+      { label: "Amenities", to: "/amenities", icon: "pool" },
+      { label: "Documents", to: "/documents", icon: "folder_open" },
+    ],
+  },
+  {
+    id: "finances",
+    label: "Finances & Treasury",
+    items: [
+      { label: "Maintenance Dues", to: "/maintenance", icon: "build" },
+      { label: "Collections", to: "/collections/pay", icon: "handshake" },
+      { label: "Donations", to: "/donations", icon: "volunteer_activism" },
+      { label: "Expenses & Ledgers", to: "/expenses", icon: "payments" },
+      { label: "Transfer Fees", to: "/transfer-fees", icon: "real_estate_agent" },
+      { label: "Society Wallet", to: "/wallet", icon: "account_balance_wallet" },
     ],
   },
   {
     id: "account",
     label: "Account",
-    items: [{ label: "Help & Support", to: "/help", icon: "help" }],
+    items: [
+      { label: "My Unit", to: "/my-unit", icon: "home_work" },
+      { label: "Vehicles", to: "/vehicles", icon: "directions_car" },
+      { label: "Emergency", to: "/emergency-contacts", icon: "emergency" },
+      { label: "Help & Support", to: "/help", icon: "help" },
+    ],
   },
 ];
 
@@ -61,4 +79,3 @@ export const ADMIN_NAV_SECTIONS = [
     items: [{ label: "Help & Support", to: "/help", icon: "help" }],
   },
 ];
-
