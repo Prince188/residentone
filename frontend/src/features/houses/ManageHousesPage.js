@@ -167,7 +167,6 @@ export default function ManageHousesPage() {
     }
   };
 
-  const isWingAdmin = isPureWingAdmin(activeMembership);
 
   // Apartment detection: wings exist via block field
   const isApartmentStructure = useMemo(() => {

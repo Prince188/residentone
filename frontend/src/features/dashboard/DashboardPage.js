@@ -26,6 +26,8 @@ const adminCards = [
   { icon: "volunteer_activism", label: "Collect Donations", to: "/donations", perm: "collect_donations" },
   { icon: "real_estate_agent", label: "Transfer Fees", to: "/transfer-fees", perm: "collect_transfer_fees" },
   { icon: "account_balance_wallet", label: "Society Wallet", to: "/wallet" },
+  { icon: "verified", label: "Verify Receipt", to: "/verify" },
+  { icon: "verified", label: "Verify Receipt", to: "/verify" },
   { icon: "edit_square", label: "Create Notice", to: "/notices/new" },
   { icon: "event_available", label: "Manage Amenities", to: "/amenities/manage" },
   { icon: "how_to_vote", label: "Create Poll", to: "/polls/new" },

@@ -81,6 +81,7 @@ import DonationsPage from "./features/donations/DonationsPage";
 import MyDonationsPage from "./features/donations/MyDonationsPage";
 import TransferFeesPage from "./features/transferFees/TransferFeesPage";
 import SocietyWalletPage from "./features/wallet/SocietyWalletPage";
+import VerifyReceiptPage from "./features/verify/VerifyReceiptPage";
 import CreateSocietyModal from "./features/society/CreateSocietyModal";
 import NotificationToastContainer from "./components/notifications/NotificationToastContainer";
 import ForceChangePasswordModal from "./components/ForceChangePasswordModal";
@@ -112,6 +113,7 @@ function App() {
             />
             <Route path="/house-invite/:token" element={<PublicLayout><HouseInvitePage /></PublicLayout>} />
             <Route path="/visitor-pass/:id" element={<PublicVisitorPassPage />} />
+            <Route path="/verify-receipt" element={<PublicLayout><VerifyReceiptPage /></PublicLayout>} />
             <Route
               element={
                 <ProtectedRoute>
@@ -120,6 +122,7 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/verify" element={<VerifyReceiptPage />} />
               <Route path="/houses" element={<ManageHousesPage />} />
               <Route path="/houses/:unitId" element={<HouseDetailPage />} />
               <Route path="/maintenance" element={<MaintenancePage />} />

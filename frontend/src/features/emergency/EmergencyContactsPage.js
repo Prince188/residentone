@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import useSocietyStore, { selectActiveSociety, selectActiveMembership } from "../../stores/society.store";
+import {
+  SOS_TYPES,
+  triggerSOS,
+  getMyActiveSOS,
+  getActiveSOSList,
+  resolveSOS,
+} from "../../lib/sos";
 
 export default function EmergencyContactsPage() {
   const queryClient = useQueryClient();
@@ -10,7 +17,18 @@ export default function EmergencyContactsPage() {
   const activeMembership = useSocietyStore(selectActiveMembership);
   const patchSociety = useSocietyStore((state) => state.patchSociety);
 
+  const societyId = activeSociety?.id || activeSociety?._id;
   const role = activeMembership?.role || "";
+  const isGuardOrAdmin = [
+    "super_admin",
+    "society_admin",
+    "manager",
+    "wing_admin",
+    "committee_member",
+    "security_guard",
+    "staff",
+  ].includes(role);
+
   const canEdit = [
     "super_admin",
     "society_admin",
@@ -19,16 +37,33 @@ export default function EmergencyContactsPage() {
     "committee_member",
   ].includes(role) || !role;
 
+  // Helpline contacts query
   const { data: emergencyData, isLoading } = useQuery({
-    queryKey: ["emergency-contacts", activeSociety?.id],
+    queryKey: ["emergency-contacts", societyId],
     queryFn: async () => {
       const res = await api.get("/societies/emergency-contacts");
       return res.data?.data;
     },
-    enabled: Boolean(activeSociety?.id),
+    enabled: Boolean(societyId),
     staleTime: 30000,
   });
 
+  // SOS Active status queries
+  const { data: myActiveSos } = useQuery({
+    queryKey: ["my-active-sos", societyId],
+    queryFn: () => getMyActiveSOS(),
+    enabled: Boolean(societyId),
+    refetchInterval: 6000,
+  });
+
+  const { data: societyIncidents = [] } = useQuery({
+    queryKey: ["active-sos-list", societyId],
+    queryFn: () => getActiveSOSList(),
+    enabled: Boolean(societyId && isGuardOrAdmin),
+    refetchInterval: 6000,
+  });
+
+  // States
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [form, setForm] = useState({
     securityPhone: "",
@@ -36,17 +71,30 @@ export default function EmergencyContactsPage() {
     liftHelpline: "",
   });
   const [errorMsg, setErrorMsg] = useState("");
+  const [statusMsg, setStatusMsg] = useState("");
 
+  // SOS Dispatch Modal state
+  const [isSosModalOpen, setIsSosModalOpen] = useState(false);
+  const [selectedSosType, setSelectedSosType] = useState("medical");
+  const [locationNote, setLocationNote] = useState("");
+  const [dispatching, setDispatching] = useState(false);
+
+  // SOS Resolution Modal state
+  const [resolvingIncident, setResolvingIncident] = useState(null);
+  const [resolutionNote, setResolutionNote] = useState("");
+  const [isFalseAlarm, setIsFalseAlarm] = useState(false);
+
+  // Mutations
   const updateContactsMutation = useMutation({
     mutationFn: async (payload) => {
       const res = await api.patch("/societies/emergency-contacts", payload);
       return res.data?.data;
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(["emergency-contacts", activeSociety?.id], updated);
+      queryClient.setQueryData(["emergency-contacts", societyId], updated);
       queryClient.invalidateQueries(["emergency-contacts"]);
-      if (activeSociety?.id && patchSociety) {
-        patchSociety(activeSociety.id, {
+      if (societyId && patchSociety) {
+        patchSociety(societyId, {
           securityPhone: updated.securityPhone,
           phone: updated.managerPhone,
           liftHelpline: updated.liftHelpline,
@@ -54,6 +102,8 @@ export default function EmergencyContactsPage() {
         });
       }
       setIsEditOpen(false);
+      setStatusMsg("Helpline contacts updated successfully");
+      setTimeout(() => setStatusMsg(""), 3500);
     },
     onError: (err) => {
       setErrorMsg(
@@ -61,6 +111,39 @@ export default function EmergencyContactsPage() {
         err?.response?.data?.message ||
         "Failed to update emergency helpline numbers."
       );
+    },
+  });
+
+  const triggerSosMutation = useMutation({
+    mutationFn: (payload) => triggerSOS(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["my-active-sos"]);
+      queryClient.invalidateQueries(["active-sos-list"]);
+      setIsSosModalOpen(false);
+      setLocationNote("");
+      setStatusMsg("🚨 EMERGENCY SOS DISPATCHED: Security desk and guards notified!");
+      setTimeout(() => setStatusMsg(""), 5000);
+    },
+    onError: (err) => {
+      setErrorMsg(err?.response?.data?.message || "Failed to trigger SOS alert.");
+      setTimeout(() => setErrorMsg(""), 4000);
+    },
+  });
+
+  const resolveSosMutation = useMutation({
+    mutationFn: ({ id, note, falseAlarm }) =>
+      resolveSOS(id, { resolutionNote: note, isFalseAlarm: falseAlarm }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["my-active-sos"]);
+      queryClient.invalidateQueries(["active-sos-list"]);
+      setResolvingIncident(null);
+      setResolutionNote("");
+      setStatusMsg("Emergency incident marked as resolved.");
+      setTimeout(() => setStatusMsg(""), 3500);
+    },
+    onError: (err) => {
+      setErrorMsg(err?.response?.data?.message || "Failed to resolve incident.");
+      setTimeout(() => setErrorMsg(""), 4000);
     },
   });
 
@@ -81,6 +164,20 @@ export default function EmergencyContactsPage() {
       managerPhone: form.managerPhone.trim(),
       liftHelpline: form.liftHelpline.trim(),
     });
+  };
+
+  const handleDispatchSos = (e) => {
+    e.preventDefault();
+    setDispatching(true);
+    triggerSosMutation.mutate(
+      {
+        emergencyType: selectedSosType,
+        locationDescription: locationNote.trim(),
+      },
+      {
+        onSettled: () => setDispatching(false),
+      }
+    );
   };
 
   const guardPhone =
@@ -114,7 +211,6 @@ export default function EmergencyContactsPage() {
       tagBg: emergencyData?.custom?.securityPhone ? "bg-amber-100 text-amber-800" : (emergencyData?.autoDetected?.guard ? "bg-emerald-100 text-emerald-800" : "bg-surface-container-high text-on-surface-variant"),
       icon: "shield",
       color: "bg-emerald-600 text-white",
-      ringColor: "ring-emerald-200 dark:ring-emerald-900/60",
     },
     {
       id: "manager",
@@ -127,7 +223,6 @@ export default function EmergencyContactsPage() {
       tagBg: emergencyData?.custom?.managerPhone ? "bg-amber-100 text-amber-800" : (emergencyData?.autoDetected?.manager ? "bg-sky-100 text-sky-800" : "bg-surface-container-high text-on-surface-variant"),
       icon: "corporate_fare",
       color: "bg-sky-600 text-white",
-      ringColor: "ring-sky-200 dark:ring-sky-900/60",
     },
     {
       id: "lift",
@@ -140,7 +235,6 @@ export default function EmergencyContactsPage() {
       tagBg: emergencyData?.custom?.liftHelpline ? "bg-amber-100 text-amber-800" : "bg-orange-100 text-orange-800",
       icon: "elevator",
       color: "bg-amber-600 text-white",
-      ringColor: "ring-amber-200 dark:ring-amber-900/60",
     },
   ];
 
@@ -148,54 +242,125 @@ export default function EmergencyContactsPage() {
     { name: "National Emergency Helpline", number: "112", icon: "emergency", color: "bg-red-500 text-white" },
     { name: "Police", number: "100", icon: "local_police", color: "bg-blue-600 text-white" },
     { name: "Ambulance", number: "102 / 108", icon: "ambulance", color: "bg-emerald-600 text-white" },
-    { name: "Fire Department", number: "101", icon: "fire_truck", color: "bg-orange-600 text-white" },
-    { name: "Women Helpline", number: "1091", icon: "shield", color: "bg-purple-600 text-white" },
-    { name: "Disaster Management", number: "1077", icon: "warning", color: "bg-amber-600 text-white" },
+    { name: "Fire Station", number: "101", icon: "local_fire_department", color: "bg-amber-500 text-white" },
+    { name: "Women Helpline", number: "1091", icon: "shield", color: "bg-purple-500 text-white" },
+    { name: "Child Helpline", number: "1098", icon: "child_care", color: "bg-sky-500 text-white" },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-12">
-      <Link
-        to="/dashboard"
-        className="inline-flex items-center gap-1 text-label-md text-on-surface-variant no-underline hover:text-primary"
-      >
-        <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-        Dashboard
-      </Link>
+    <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 space-y-6">
+      {/* Toast Alert */}
+      {statusMsg && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 text-sm font-medium">
+          <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+          {statusMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-4 text-red-800 text-sm font-medium">
+          <span className="material-symbols-outlined text-red-600">error</span>
+          {errorMsg}
+        </div>
+      )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header with SOS Trigger Button */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="page-title">Emergency Contacts</h1>
-          <p className="page-subtitle">
-            Essential emergency contacts, auto-synced society helpline numbers, and local medical assistance.
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-rose-600 text-[28px]">e911_emergency</span>
+            <h1 className="text-2xl font-bold text-on-surface">Emergency & SOS Helplines</h1>
+          </div>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Immediate dispatch alerts, on-duty guard desk assistance & essential emergency contacts.
           </p>
         </div>
+
+        <button
+          onClick={() => setIsSosModalOpen(true)}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:from-red-700 hover:to-rose-800 transition-all transform hover:scale-[1.02]"
+        >
+          <span className="material-symbols-outlined text-[20px] animate-pulse">sos</span>
+          Trigger Emergency SOS
+        </button>
       </div>
 
-      {/* 1. SOCIETY EMERGENCY & HELPDESK CONTACTS */}
-      <section className="space-y-3">
+      {/* ACTIVE SOS NOTIFICATION BANNER (if user has active SOS or guard has incident) */}
+      {myActiveSos && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-rose-700 to-red-800 p-5 text-white shadow-lg animate-pulse">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[36px]">warning</span>
+              <div>
+                <h3 className="text-base font-extrabold uppercase tracking-wide">
+                  YOUR EMERGENCY SOS IS CURRENTLY ACTIVE ({myActiveSos.emergencyType?.toUpperCase()})
+                </h3>
+                <p className="text-xs text-red-100">
+                  On-duty security guards and society manager have been alerted. Stand by for assistance.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setResolvingIncident(myActiveSos)}
+              className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-50 shadow-sm"
+            >
+              Resolve / Cancel Alert
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* GUARD/ADMIN ACTIVE SOCIETY INCIDENTS */}
+      {isGuardOrAdmin && societyIncidents.length > 0 && (
+        <div className="rounded-2xl border border-red-300 bg-red-50 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-red-800 font-bold text-sm">
+              <span className="material-symbols-outlined text-red-600">notifications_active</span>
+              Active Emergency SOS Incidents in Society ({societyIncidents.length})
+            </div>
+          </div>
+          <div className="space-y-2">
+            {societyIncidents.map((inc) => (
+              <div key={inc._id || inc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-xl p-3 border border-red-200 gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-red-700 uppercase text-xs tracking-wider">
+                      {inc.emergencyType} Alert
+                    </span>
+                    <span className="text-xs text-on-surface-variant">· Flat {inc.unit?.unitNumber || "Resident"}</span>
+                  </div>
+                  <p className="text-xs text-on-surface mt-0.5">
+                    <strong>Resident:</strong> {inc.triggeredByName || "Resident"} ({inc.triggeredByPhone || "—"})
+                    {inc.locationDescription ? ` · Note: ${inc.locationDescription}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setResolvingIncident(inc)}
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                >
+                  Mark Resolved
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 1. Society Assigned Helplines (Guard, Manager, Lift) */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-title-sm font-semibold text-on-surface flex items-center gap-2">
-              <span>Society Helpdesk & Security</span>
-              {isLoading && (
-                <span className="text-body-xs text-on-surface-variant font-normal">
-                  (Syncing numbers...)
-                </span>
-              )}
-            </h2>
-            <p className="text-body-xs text-on-surface-variant">
-              Auto-synced with assigned security guards and society managers.
+            <h2 className="text-lg font-bold text-on-surface">Society Dedicated Helplines</h2>
+            <p className="text-xs text-on-surface-variant">
+              Quick access contacts for your building security gate, management office, and lift breakdowns.
             </p>
           </div>
           {canEdit && (
             <button
-              type="button"
               onClick={openEditModal}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-sm font-semibold text-primary transition hover:bg-surface-container-high shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-surface-container transition-colors shadow-sm"
             >
               <span className="material-symbols-outlined text-[16px]">edit</span>
-              Edit Numbers
+              Edit 3 Helplines
             </button>
           )}
         </div>
@@ -204,7 +369,7 @@ export default function EmergencyContactsPage() {
           {societyContacts.map((c) => (
             <div
               key={c.id}
-              className="relative flex flex-col justify-between rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition hover:shadow-md ring-1 ring-inset ring-transparent hover:ring-opacity-50"
+              className="relative flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition hover:shadow-md"
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
@@ -215,17 +380,16 @@ export default function EmergencyContactsPage() {
                     {c.tag}
                   </span>
                 </div>
-                <h3 className="mt-3 text-title-sm font-bold text-on-surface">{c.title}</h3>
-                <p className="mt-0.5 text-body-xs text-on-surface-variant line-clamp-1">{c.sub}</p>
-                <p className="mt-2 text-title-md font-extrabold text-primary tracking-tight">{c.number}</p>
+                <h3 className="mt-3 text-base font-bold text-on-surface">{c.title}</h3>
+                <p className="mt-0.5 text-xs text-on-surface-variant line-clamp-1">{c.sub}</p>
+                <p className="mt-2 text-xl font-extrabold text-primary tracking-tight">{c.number}</p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-outline-variant/60 flex items-center justify-between">
-                <span className="text-body-xs text-on-surface-variant font-medium">Direct Dial</span>
+              <div className="mt-4 pt-3 border-t border-outline-variant flex items-center justify-between">
+                <span className="text-xs text-on-surface-variant font-medium">Direct Dial</span>
                 <a
                   href={`tel:${c.number.replace(/\s+/g, "")}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-label-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-                  title={`Call ${c.title}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
                 >
                   <span className="material-symbols-outlined text-[16px]">call</span>
                   Call Now
@@ -236,64 +400,60 @@ export default function EmergencyContactsPage() {
         </div>
       </section>
 
-      {/* 2. Medical Help Callout */}
-      <section className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-rose-50/70 to-surface-container-lowest p-5 sm:p-6 shadow-sm dark:border-rose-900/60 dark:from-rose-950/40 dark:via-surface-container-lowest">
+      {/* 2. Medical & Essential Help Callout */}
+      <section className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-surface-container-lowest p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3.5">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white shadow-sm">
               <span className="material-symbols-outlined text-[26px]">medical_services</span>
             </span>
             <div>
-              <h2 className="text-title-sm font-semibold text-on-surface">
-                Need Medical Help in Society?
-              </h2>
-              <p className="mt-1 text-body-sm text-on-surface-variant max-w-xl">
-                Find resident doctors, nurses, healthcare specialists, or electricians living right in your society who can provide immediate assistance during an emergency.
+              <h2 className="text-base font-bold text-on-surface">Need Medical Help in Society?</h2>
+              <p className="mt-1 text-xs text-on-surface-variant max-w-xl">
+                Find resident doctors, healthcare specialists, or electricians living right in your society who can provide immediate assistance during an emergency.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2.5 sm:shrink-0">
             <Link
               to="/directory?search=doctor"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2.5 text-label-md font-semibold text-white shadow-sm transition hover:bg-rose-700"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 transition"
             >
-              <span className="material-symbols-outlined text-[18px]">stethoscope</span>
+              <span className="material-symbols-outlined text-[16px]">stethoscope</span>
               Find Society Doctors
             </Link>
             <Link
               to="/directory?search=electrician"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2.5 text-label-md font-semibold text-on-surface transition hover:bg-surface-container-high"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container transition"
             >
-              <span className="material-symbols-outlined text-[18px]">bolt</span>
+              <span className="material-symbols-outlined text-[16px]">bolt</span>
               Find Electricians
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 3. General Public Emergency Numbers */}
+      {/* 3. National Public Emergency Numbers */}
       <section className="space-y-3">
-        <h2 className="text-title-sm font-semibold text-on-surface">
-          Public Emergency Numbers
-        </h2>
+        <h2 className="text-base font-bold text-on-surface">National Public Emergency Numbers</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {emergencyServices.map((service) => (
             <div
               key={service.name}
-              className="flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-lowest p-4 transition hover:shadow-sm"
+              className="flex items-center justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${service.color}`}>
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${service.color}`}>
                   <span className="material-symbols-outlined text-[20px]">{service.icon}</span>
                 </span>
                 <div>
-                  <p className="text-body-sm font-semibold text-on-surface">{service.name}</p>
-                  <p className="text-title-sm font-bold text-primary">{service.number}</p>
+                  <p className="text-xs font-medium text-on-surface">{service.name}</p>
+                  <p className="text-base font-extrabold text-primary">{service.number}</p>
                 </div>
               </div>
               <a
                 href={`tel:${service.number.split(" ")[0]}`}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-high text-primary hover:bg-primary hover:text-on-primary transition"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-container text-primary hover:bg-primary hover:text-on-primary transition"
                 title={`Call ${service.name}`}
               >
                 <span className="material-symbols-outlined text-[18px]">call</span>
@@ -303,144 +463,219 @@ export default function EmergencyContactsPage() {
         </div>
       </section>
 
-      {/* EDIT MODAL FOR ONLY THE 3 SOCIETY NUMBERS */}
-      {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-surface-container-lowest p-6 shadow-2xl border border-outline-variant animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/60">
-              <div>
-                <h3 className="text-title-md font-bold text-on-surface">Edit Society Emergency Numbers</h3>
-                <p className="text-body-xs text-on-surface-variant mt-0.5">
-                  Customize the 3 helplines or leave blank to auto-sync with assigned staff.
-                </p>
+      {/* Trigger SOS Modal */}
+      {isSosModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-outline-variant pb-3">
+              <div className="flex items-center gap-2 text-red-600 font-bold text-base">
+                <span className="material-symbols-outlined">warning</span>
+                Dispatch Emergency SOS
               </div>
               <button
-                type="button"
-                onClick={() => setIsEditOpen(false)}
-                className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container-high transition"
+                onClick={() => setIsSosModalOpen(false)}
+                className="rounded-lg p-1 text-on-surface-variant hover:bg-surface-container"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            {errorMsg && (
-              <div className="mt-4 rounded-lg bg-red-50 p-3 text-body-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-                {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handleSave} className="mt-4 space-y-4">
-              {/* Security Guard */}
-              <div className="rounded-xl border border-outline-variant/70 bg-surface-container-low/40 p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-label-md font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[18px] text-emerald-600">shield</span>
-                    Security Guard Number
-                  </label>
-                  {emergencyData?.autoDetected?.guard && (
+            <form onSubmit={handleDispatchSos} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase mb-2">
+                  Select Emergency Category *
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {SOS_TYPES.map((t) => (
                     <button
+                      key={t.type}
                       type="button"
-                      onClick={() => setForm({ ...form, securityPhone: "" })}
-                      className="text-body-xs text-emerald-700 font-semibold hover:underline"
+                      onClick={() => setSelectedSosType(t.type)}
+                      className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                        selectedSosType === t.type
+                          ? `${t.bg} border-2 border-primary shadow-sm`
+                          : "border-outline-variant bg-surface hover:bg-surface-container"
+                      }`}
                     >
-                      Use Auto-Assigned
+                      <span className={`material-symbols-outlined text-[24px] ${t.color}`}>{t.icon}</span>
+                      <div>
+                        <div className="text-xs font-bold text-on-surface">{t.label}</div>
+                        <div className="text-[11px] text-on-surface-variant">{t.desc}</div>
+                      </div>
                     </button>
-                  )}
+                  ))}
                 </div>
-                <p className="text-body-xs text-on-surface-variant">
-                  {emergencyData?.autoDetected?.guard
-                    ? `Assigned Guard: ${emergencyData.autoDetected.guard.name} (${emergencyData.autoDetected.guard.phone})`
-                    : "Auto-fetches from active guards registered in Staff"}
-                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase mb-1">
+                  Location / Specific Details (Optional)
+                </label>
                 <input
-                  type="tel"
+                  type="text"
+                  placeholder="e.g. Near Lift B lobby, 4th floor, Flat 402"
+                  value={locationNote}
+                  onChange={(e) => setLocationNote(e.target.value)}
+                  className="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSosModalOpen(false)}
+                  className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={dispatching}
+                  className="rounded-xl bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {dispatching ? "Dispatching..." : "Confirm & Send SOS"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit 3 Helplines Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-outline-variant pb-3">
+              <h2 className="text-lg font-bold text-on-surface">Edit Society Helplines</h2>
+              <button
+                onClick={() => setIsEditOpen(false)}
+                className="rounded-lg p-1 text-on-surface-variant hover:bg-surface-container"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase mb-1">
+                  Security Guard Phone
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 9876543210 or 020-27654321"
                   value={form.securityPhone}
                   onChange={(e) => setForm({ ...form, securityPhone: e.target.value })}
-                  placeholder={emergencyData?.autoDetected?.guard?.phone || "Enter custom guard phone"}
-                  className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none"
+                  className="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
                 />
               </div>
 
-              {/* Society Manager */}
-              <div className="rounded-xl border border-outline-variant/70 bg-surface-container-low/40 p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-label-md font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[18px] text-sky-600">corporate_fare</span>
-                    Society Manager Number
-                  </label>
-                  {emergencyData?.autoDetected?.manager && (
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, managerPhone: "" })}
-                      className="text-body-xs text-sky-700 font-semibold hover:underline"
-                    >
-                      Use Auto-Assigned
-                    </button>
-                  )}
-                </div>
-                <p className="text-body-xs text-on-surface-variant">
-                  {emergencyData?.autoDetected?.manager
-                    ? `Assigned Manager: ${emergencyData.autoDetected.manager.name} (${emergencyData.autoDetected.manager.phone})`
-                    : "Auto-fetches from assigned society manager or admin"}
-                </p>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase mb-1">
+                  Society Manager Phone
+                </label>
                 <input
-                  type="tel"
+                  type="text"
+                  placeholder="e.g. 9876543211 or 020-27654322"
                   value={form.managerPhone}
                   onChange={(e) => setForm({ ...form, managerPhone: e.target.value })}
-                  placeholder={emergencyData?.autoDetected?.manager?.phone || activeSociety?.contactPhone || "Enter custom manager phone"}
-                  className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none"
+                  className="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
                 />
               </div>
 
-              {/* Lift Man */}
-              <div className="rounded-xl border border-outline-variant/70 bg-surface-container-low/40 p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-label-md font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[18px] text-amber-600">elevator</span>
-                    Lift Man / Helpline Number
-                  </label>
-                  {emergencyData?.autoDetected?.lift && (
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, liftHelpline: "" })}
-                      className="text-body-xs text-amber-700 font-semibold hover:underline"
-                    >
-                      Use Auto-Assigned
-                    </button>
-                  )}
-                </div>
-                <p className="text-body-xs text-on-surface-variant">
-                  {emergencyData?.autoDetected?.lift
-                    ? `Assigned Technician: ${emergencyData.autoDetected.lift.name} (${emergencyData.autoDetected.lift.phone})`
-                    : "24/7 lift breakdown & entrapment helpline"}
-                </p>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase mb-1">
+                  Lift Man / Breakdown Helpline
+                </label>
                 <input
-                  type="tel"
+                  type="text"
+                  placeholder="e.g. 1800-209-5438"
                   value={form.liftHelpline}
                   onChange={(e) => setForm({ ...form, liftHelpline: e.target.value })}
-                  placeholder={emergencyData?.autoDetected?.lift?.phone || "Enter lift helpline phone"}
-                  className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface focus:border-primary focus:outline-none"
+                  className="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
-                  disabled={updateContactsMutation.isPending}
-                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md font-medium text-on-surface hover:bg-surface-container-high transition"
+                  className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updateContactsMutation.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 text-label-md font-semibold text-on-primary shadow-sm hover:bg-primary/90 transition disabled:opacity-50"
+                  className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {updateContactsMutation.isPending ? "Saving..." : "Save Helpline Numbers"}
+                  {updateContactsMutation.isPending ? "Saving..." : "Save Helplines"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Resolve Incident Modal */}
+      {resolvingIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-on-surface">Resolve Emergency Incident</h3>
+            <p className="text-xs text-on-surface-variant">
+              Confirm that the situation has been investigated and resolved by the security desk.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase mb-1">
+                  Resolution Note (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Guard responded, resident attended by medical team"
+                  value={resolutionNote}
+                  onChange={(e) => setResolutionNote(e.target.value)}
+                  className="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="falseAlarm"
+                  checked={isFalseAlarm}
+                  onChange={(e) => setIsFalseAlarm(e.target.checked)}
+                  className="rounded text-red-600 focus:ring-red-500"
+                />
+                <label htmlFor="falseAlarm" className="text-xs text-on-surface font-medium cursor-pointer">
+                  Mark as False Alarm / Accidental Trigger
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResolvingIncident(null)}
+                  className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    resolveSosMutation.mutate({
+                      id: resolvingIncident._id || resolvingIncident.id,
+                      note: resolutionNote,
+                      falseAlarm: isFalseAlarm,
+                    })
+                  }
+                  disabled={resolveSosMutation.isPending}
+                  className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {resolveSosMutation.isPending ? "Resolving..." : "Confirm Resolved"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

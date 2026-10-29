@@ -21,6 +21,7 @@ export const RESIDENT_NAV_SECTIONS = [
       { label: "Expenses & Ledgers", to: "/expenses", icon: "payments" },
       { label: "Transfer Fees", to: "/transfer-fees", icon: "real_estate_agent" },
       { label: "Society Wallet", to: "/wallet", icon: "account_balance_wallet" },
+      { label: "Verify Receipt", to: "/verify", icon: "verified" },
     ],
   },
   {
