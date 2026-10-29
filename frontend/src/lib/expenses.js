@@ -38,6 +38,62 @@ export async function exportWalletExcel() {
   return api.get("/wallet/export-excel", { responseType: "blob" });
 }
 
+export async function exportExpensesExcel(params = {}) {
+  return api.get("/expenses/export-excel", { params, responseType: "blob" });
+}
+
+export function downloadClientExpenseCsv({ eventName = "Event", expenses = [], societyName = "Society" }) {
+  const sanitize = (val) => {
+    if (val == null) return '""';
+    const s = String(val).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const rows = [
+    [`RESIDENTONE - EXPENSE STATEMENT`],
+    [`Society:`, societyName],
+    [`Event / Fund Tag:`, eventName],
+    [`Generated On:`, new Date().toLocaleString("en-IN")],
+    [],
+    [`S.No`, `Date`, `Expense Title`, `Category`, `Vendor / Payee`, `Payment Mode`, `Amount (INR)`, `Bill Attached`, `Notes`],
+  ];
+
+  let totalAmount = 0;
+  expenses.forEach((item, index) => {
+    const amt = Number(item.amount) || 0;
+    totalAmount += amt;
+    const cat = (item.category || "others").replace(/_/g, " ").toUpperCase();
+    const dateStr = item.date || item.expenseDate ? new Date(item.date || item.expenseDate).toLocaleDateString("en-IN") : "—";
+    const hasBill = item.receiptUrl || item.billUrl ? "Yes" : "No";
+    rows.push([
+      index + 1,
+      dateStr,
+      item.title || item.description || "—",
+      cat,
+      item.vendorName || item.payee || "—",
+      (item.paymentMethod || item.paymentMode || "cash").replace(/_/g, " ").toUpperCase(),
+      amt.toFixed(2),
+      hasBill,
+      item.notes || "",
+    ]);
+  });
+
+  rows.push([]);
+  rows.push([`TOTAL`, ``, ``, ``, ``, `${expenses.length} Vouchers`, totalAmount.toFixed(2), ``, ``]);
+
+  const csvContent = "\uFEFF" + rows.map((r) => r.map(sanitize).join(",")).join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const cleanName = eventName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${cleanName}_Expenses_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export function formatAmount(val) {
   return `₹${Number(val || 0).toLocaleString("en-IN")}`;
 }

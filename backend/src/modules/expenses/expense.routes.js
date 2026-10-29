@@ -11,6 +11,7 @@ router.use(authenticate, resolveSocietyContext, requireSociety);
 
 // All society members can view society expenses for transparency
 router.get("/", (req, res, next) => expenseController.list(req, res, next));
+router.get("/export-excel", (req, res, next) => expenseController.exportExcel(req, res, next));
 
 // Admin/permission holders can create, update, delete expenses
 router.post("/", requirePermission("manage_expenses"), (req, res, next) => expenseController.create(req, res, next));

@@ -37,6 +37,17 @@ class ExpenseController {
     }
   }
 
+  async exportExcel(req, res, next) {
+    try {
+      const { buffer, filename } = await expenseService.exportExcel(req.societyId, req.query);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.status(200).send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async update(req, res, next) {
     try {
       const expense = await expenseService.update(req.societyId, req.params.id, req.body);
