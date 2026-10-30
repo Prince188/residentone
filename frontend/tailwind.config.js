@@ -133,6 +133,36 @@ module.exports = {
         "apple-modal": "0 24px 64px rgba(0, 0, 0, 0.20)",
         "apple-glass": "0 8px 32px 0 rgba(0, 33, 22, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.7)",
       },
+      keyframes: {
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "float-slow": {
+          "0%, 100%": { transform: "translate(0px, 0px) scale(1)" },
+          "33%": { transform: "translate(18px, -14px) scale(1.05)" },
+          "66%": { transform: "translate(-12px, 10px) scale(0.97)" },
+        },
+        "float-reverse": {
+          "0%, 100%": { transform: "translate(0px, 0px) scale(1)" },
+          "50%": { transform: "translate(-16px, 14px) scale(1.04)" },
+        },
+        pulseGlow: {
+          "0%, 100%": { opacity: "0.5", transform: "scale(1)" },
+          "50%": { opacity: "0.85", transform: "scale(1.08)" },
+        },
+        fadeSlideUp: {
+          "0%": { opacity: "0", transform: "translateY(14px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        float: "float 5s ease-in-out infinite",
+        "float-slow": "float-slow 8s ease-in-out infinite",
+        "float-reverse": "float-reverse 10s ease-in-out infinite",
+        "pulse-glow": "pulseGlow 4s ease-in-out infinite",
+        "fade-slide-up": "fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+      },
     },
   },
   plugins: [],
