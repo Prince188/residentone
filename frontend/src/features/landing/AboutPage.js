@@ -2,35 +2,35 @@ import { Link } from "react-router-dom";
 import SEO from "../../components/SEO";
 
 const values = [
-  { icon: "touch_app", title: "Simplicity", desc: "We believe managing a society shouldn't require a computer science degree. Our tools are intuitive and easy to use." },
-  { icon: "diversity_3", title: "Community First", desc: "Every feature is designed to strengthen community bonds and make resident life more convenient." },
-  { icon: "security", title: "Security", desc: "Role-based access and data encryption ensure your society's information stays private and protected." },
+  { icon: "touch_app", title: "Apple Simplicity", desc: "We believe managing a society shouldn't require complex training. Every screen is intuitive, accessible, and delight to use." },
+  { icon: "diversity_3", title: "Community First", desc: "Every tool is designed to eliminate neighborhood friction, build trust, and bring families together in harmonious living." },
+  { icon: "security", title: "Bank-Grade Security", desc: "Role-based permissions, 256-bit encrypted visitor records, and strict data masking keep your community safe and private." },
 ];
 
 const milestones = [
-  { icon: "lightbulb", year: "2024", title: "The Idea", desc: "Frustrated by outdated society management tools, we set out to build something better for residential communities." },
-  { icon: "rocket_launch", year: "2025", title: "MVP Launch", desc: "Launched with core features: billing, complaints, and visitor management for pilot societies." },
-  { icon: "domain", year: "2026", title: "Full Platform", desc: "Expanded to cover parking, documents, notices, events, and multi-society management with role-based access." },
+  { icon: "lightbulb", year: "2024", title: "The Vision", desc: "Frustrated by fragmented WhatsApp chats and manual billing books, we set out to build an Apple-grade residential OS." },
+  { icon: "rocket_launch", year: "2025", title: "Pilot Launch", desc: "Rolled out core automated billing, gate security passes, and complaint tracking across 50 pilot residential societies." },
+  { icon: "domain", year: "2026", title: "Full Platform", desc: "Expanded to amenity bookings, digital ballot polling, society expense ledgers, and multi-society administration." },
 ];
 
 const stats = [
-  { num: "50+", label: "Societies Onboarded" },
-  { num: "10k+", label: "Residents Connected" },
-  { num: "99.9%", label: "Uptime Guaranteed" },
-  { num: "4.8/5", label: "Average Rating" },
+  { num: "500+", label: "Societies Onboarded" },
+  { num: "50k+", label: "Connected Residents" },
+  { num: "99.9%", label: "Platform Uptime" },
+  { num: "4.9/5", label: "App Store Rating" },
 ];
 
 const aboutSchema = {
   "@context": "https://schema.org",
   "@type": "AboutPage",
-  "name": "About ResidentOne",
-  "description": "Building modern software to simplify residential society management, accounting, security, and community living.",
-  "url": "https://residentone.app/about"
+  name: "About ResidentOne",
+  description: "Building modern software to simplify residential society management, accounting, security, and community living.",
+  url: "https://residentone.app/about"
 };
 
 export default function AboutPage() {
   return (
-    <main className="flex-grow">
+    <main className="flex-grow bg-surface">
       <SEO
         title="About Us — Empowering Residential Communities"
         description="Learn about ResidentOne's mission to modernize housing societies through intuitive technology, transparent accounting, and secure community management."
@@ -43,88 +43,97 @@ export default function AboutPage() {
         canonicalPath="/about"
         schema={aboutSchema}
       />
-      {/* Hero */}
-      <header className="relative bg-on-primary-fixed overflow-hidden min-h-[400px] md:min-h-[500px] flex items-center pt-10">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#002117] via-primary/90 to-[#002117] opacity-80" />
-        </div>
-        <div className="relative z-10 max-w-container mx-auto px-margin-mobile md:px-margin-desktop w-full text-center">
-          <span className="inline-block py-1 px-3 rounded-full bg-surface-container-highest/20 text-inverse-primary text-label-sm font-semibold mb-4 backdrop-blur-sm border border-inverse-primary/30 uppercase tracking-widest">
-            About Us
+      {/* 🍏 Hero */}
+      <header className="relative bg-gradient-to-b from-[#E8FDF2]/50 via-surface to-surface overflow-hidden pt-28 pb-16 md:pt-36 md:pb-24 flex items-center">
+        <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop w-full text-center relative z-10">
+          <span className="inline-block py-1 px-3.5 rounded-full bg-primary-light text-primary text-xs font-bold mb-4 border border-primary/15 uppercase tracking-widest">
+            Our Story
           </span>
-          <h1 className="text-[32px] md:text-[42px] lg:text-[52px] leading-[1.1] tracking-tight font-bold text-on-primary max-w-4xl mx-auto mb-6">
-            Building Better Communities
+          <h1 className="text-[34px] md:text-[46px] lg:text-[56px] leading-[1.08] tracking-tight font-bold text-on-surface max-w-3xl mx-auto mb-5 font-display">
+            Elevating Residential Living Across India
           </h1>
-          <p className="text-body-md md:text-body-lg text-inverse-primary max-w-2xl mx-auto mb-8 leading-relaxed">
-            ResidentOne was created to solve a simple problem: residential society management is
-            fragmented, outdated, and painful. We're changing that.
+          <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-8 leading-relaxed">
+            ResidentOne was created to replace chaotic manual paperwork and fragmented messaging with an Apple-grade, high-trust platform built for homeowners, tenants, and committee managers.
           </p>
         </div>
       </header>
 
-      {/* Mission & Vision */}
-      <section className="py-16 md:py-20 bg-surface">
-        <div className="max-w-container mx-auto px-margin-mobile md:px-margin-desktop">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+      {/* 🍏 Mission & Vision */}
+      <section className="py-14 md:py-20 bg-white border-y border-black/[0.05]">
+        <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 items-center">
             <div>
-              <h2 className="text-[24px] md:text-[32px] font-semibold tracking-[-0.01em] text-on-surface mb-2">Our Mission</h2>
-              <p className="text-body-md md:text-body-lg text-on-surface-variant mb-8 leading-relaxed">
-                To empower residential societies with modern, affordable technology that simplifies
-                day-to-day operations — from maintenance billing to visitor management — so committees
-                can focus on building better communities.
+              <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary-light px-3 py-1 rounded-full border border-primary/15 inline-block mb-3">
+                Core Purpose
+              </span>
+              <h2 className="text-[26px] md:text-[34px] font-bold text-on-surface mb-3 font-display">Our Mission</h2>
+              <p className="text-body-md text-on-surface-variant mb-6 leading-relaxed">
+                To empower residential societies with modern, transparent, and beautiful software that simplifies billing, guards the gate, and empowers committees to focus on community well-being.
               </p>
-              <h2 className="text-[24px] md:text-[32px] font-semibold tracking-[-0.01em] text-on-surface mb-2">Our Vision</h2>
-              <p className="text-body-md md:text-body-lg text-on-surface-variant mb-8 leading-relaxed">
-                We envision every residential society running smoothly with the right digital tools.
-                Transparent finances, resolved complaints, informed residents, and secure premises.
+              <h2 className="text-[26px] md:text-[34px] font-bold text-on-surface mb-3 font-display">Our Vision</h2>
+              <p className="text-body-md text-on-surface-variant mb-8 leading-relaxed">
+                We envision every residential apartment running smoothly: 100% transparent balance sheets, zero gate security lapses, swift complaint resolution, and informed residents.
               </p>
               <Link
                 to="/features"
-                className="bg-brand text-on-primary text-label-md font-semibold px-6 py-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-sm no-underline inline-block"
+                className="ios-btn-primary px-7 py-3 text-body-sm no-underline shadow-xs"
               >
-                See What We Offer
+                Explore Modules
               </Link>
             </div>
-            <div className="bg-surface-container-low rounded-xl p-8 border border-outline-variant shadow-sm h-full flex flex-col justify-center">
-              <div className="w-full h-64 bg-surface-container-highest rounded-lg flex items-center justify-center text-on-surface-variant">
-                <span className="text-[64px]">🏢</span>
+            <div className="ios-card p-8 bg-surface-container flex flex-col justify-center items-center text-center">
+              <div className="w-20 h-20 rounded-3xl bg-white text-primary flex items-center justify-center text-3xl shadow-sm mb-4">
+                🏢
               </div>
+              <h3 className="text-xl font-bold text-on-surface mb-2 font-display">500+ Societies Transformed</h3>
+              <p className="text-body-sm text-on-surface-variant max-w-sm">
+                From luxury high-rises to cooperative housing colonies, ResidentOne scales with every community layout.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="py-12 md:py-16 bg-on-primary-fixed text-on-primary relative">
-        <div className="absolute inset-0 bg-brand opacity-90 mix-blend-multiply" />
-        <div className="relative z-10 max-w-container mx-auto px-margin-mobile md:px-margin-desktop">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {stats.map((s) => (
-              <div key={s.label}>
-                <div className="text-[32px] md:text-[48px] lg:text-[56px] leading-none font-bold mb-2 font-display">{s.num}</div>
-                <div className="text-label-sm font-semibold text-inverse-primary uppercase tracking-wider">{s.label}</div>
-              </div>
-            ))}
+      {/* 🍏 Ambient Stats Strip */}
+      <section className="py-12 md:py-16 bg-surface">
+        <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop">
+          <div className="rounded-3xl bg-gradient-to-br from-[#004730] via-[#006948] to-[#002117] text-white p-8 md:p-12 shadow-apple-hero">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-white/10">
+              {stats.map((s) => (
+                <div key={s.label} className="pt-4 md:pt-0">
+                  <div className="text-[34px] md:text-[48px] font-bold font-display leading-none mb-2">{s.num}</div>
+                  <div className="text-xs uppercase tracking-widest text-emerald-200 font-semibold">{s.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Timeline */}
-      <section className="py-16 md:py-20 bg-surface-container-lowest">
-        <div className="max-w-container mx-auto px-margin-mobile md:px-margin-desktop">
-          <h2 className="text-[24px] md:text-[32px] font-semibold tracking-[-0.01em] text-on-surface text-center mb-12 md:mb-16">Our Journey</h2>
-          <div className="space-y-12 max-w-3xl mx-auto relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-outline-variant before:to-transparent">
+      {/* 🍏 Timeline */}
+      <section className="py-16 md:py-24 bg-surface">
+        <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop">
+          <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
+            <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary-light px-3.5 py-1 rounded-full border border-primary/15">
+              Evolution
+            </span>
+            <h2 className="text-[28px] md:text-[38px] font-bold text-on-surface mt-3 tracking-tight font-display">
+              Our Journey
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {milestones.map((m) => (
-              <div key={m.year} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-surface-container-highest group-[.is-active]:bg-brand text-on-surface group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                  <span className="text-sm">{m.icon === "lightbulb" ? "💡" : m.icon === "rocket_launch" ? "🚀" : "🏢"}</span>
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-6 rounded-xl bg-surface border border-outline-variant shadow-sm hover:-translate-y-1 hover:shadow-md hover:border-brand transition-all duration-300">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-[20px] md:text-[24px] font-semibold text-on-surface">{m.title}</h3>
-                    <time className="text-xs font-semibold text-brand">{m.year}</time>
+              <div key={m.year} className="ios-card p-7 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-bold text-primary bg-primary-light px-3 py-1 rounded-full font-display">
+                      {m.year}
+                    </span>
+                    <span className="text-2xl">{m.icon === "lightbulb" ? "💡" : m.icon === "rocket_launch" ? "🚀" : "🏢"}</span>
                   </div>
-                  <p className="text-body-sm md:text-body-md text-on-surface-variant">{m.desc}</p>
+                  <h3 className="text-lg font-bold text-on-surface mb-2 font-display">{m.title}</h3>
+                  <p className="text-body-sm text-on-surface-variant leading-relaxed">{m.desc}</p>
                 </div>
               </div>
             ))}
@@ -132,39 +141,45 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Values */}
-      <section className="py-16 md:py-20 bg-surface">
-        <div className="max-w-container mx-auto px-margin-mobile md:px-margin-desktop">
-          <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-[24px] md:text-[32px] font-semibold tracking-[-0.01em] text-on-surface">Our Values</h2>
+      {/* 🍏 Values */}
+      <section className="py-16 md:py-24 bg-white border-t border-black/[0.05]">
+        <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop">
+          <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
+            <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary-light px-3.5 py-1 rounded-full border border-primary/15">
+              Guiding Principles
+            </span>
+            <h2 className="text-[28px] md:text-[38px] font-bold text-on-surface mt-3 tracking-tight font-display">
+              Our Values
+            </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {values.map((v) => (
-              <div key={v.title} className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant shadow-sm hover:-translate-y-1 hover:shadow-md hover:border-brand transition-all duration-300">
-                <div className="w-12 h-12 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center mb-6">
-                  <span className="text-lg">{v.icon === "touch_app" ? "👆" : v.icon === "diversity_3" ? "🤝" : "🔒"}</span>
+              <div key={v.title} className="ios-card p-8 flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-primary-light text-primary flex items-center justify-center text-2xl mb-5 shadow-xs">
+                    {v.icon === "touch_app" ? "👆" : v.icon === "diversity_3" ? "🤝" : "🔒"}
+                  </div>
+                  <h3 className="text-xl font-bold text-on-surface mb-2 font-display">{v.title}</h3>
+                  <p className="text-body-sm text-on-surface-variant leading-relaxed">{v.desc}</p>
                 </div>
-                <h3 className="text-[20px] md:text-[24px] font-semibold text-on-surface mb-3">{v.title}</h3>
-                <p className="text-body-sm md:text-body-md text-on-surface-variant leading-relaxed">{v.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-16 md:py-24 bg-on-primary-fixed relative overflow-hidden text-center">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand to-[#0f3b2b] opacity-90" />
-        <div className="relative z-10 max-w-3xl mx-auto px-margin-mobile md:px-margin-desktop">
-          <h2 className="text-[28px] md:text-[36px] lg:text-[44px] leading-tight font-bold text-on-primary mb-6">
+      {/* 🍏 CTA */}
+      <section className="py-16 md:py-24 bg-surface text-center">
+        <div className="max-w-3xl mx-auto ios-card p-10 md:p-14 bg-surface-container">
+          <h2 className="text-[26px] md:text-[34px] font-bold text-on-surface mb-3 font-display">
             Join Us in Building Better Communities
           </h2>
-          <p className="text-body-md md:text-body-lg text-inverse-primary mb-8">
-            Whether you're a society admin or a resident, ResidentOne makes your life easier.
+          <p className="text-body-md text-on-surface-variant mb-8 max-w-xl mx-auto leading-relaxed">
+            Whether you're a society admin, treasurer, or resident, ResidentOne simplifies every interaction.
           </p>
           <Link
             to="/register"
-            className="text-brand bg-surface-container-lowest text-label-md font-semibold px-8 py-4 rounded-lg hover:bg-surface-container-low transition-colors shadow-lg no-underline inline-block"
+            className="ios-btn-primary px-8 py-3.5 text-body-sm no-underline shadow-[0_4px_16px_rgba(0,105,72,0.25)]"
           >
             Get Started Free
           </Link>

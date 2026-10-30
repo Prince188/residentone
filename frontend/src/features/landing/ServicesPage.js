@@ -1,168 +1,110 @@
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 
 const services = [
   {
-    icon: "🏘",
-    title: "Society Management",
-    desc: "Complete tools for managing buildings, units, residents, and memberships across one or many societies.",
-    color: "bg-blue-50",
-    features: ["Multi-society support", "Building & unit management", "Resident directory", "Role-based access control"],
+    icon: "apartment",
+    title: "Society Architecture",
+    desc: "Complete hierarchical tools for managing wings, floors, units, homeowners, and tenant directories across communities.",
+    tint: "bg-[#E0F2FE] text-[#0369A1]",
+    features: ["Multi-society administration", "Wing & floor hierarchy", "Masked resident directory", "Granular role permissions"],
   },
   {
-    icon: "💰",
-    title: "Billing & Payments",
-    desc: "Automated maintenance billing, online payment collection via Cashfree, and expense tracking.",
-    color: "bg-green-50",
-    features: ["Auto invoice generation", "Cashfree integration", "Payment tracking", "Expense management"],
+    icon: "payments",
+    title: "Billing & Collections",
+    desc: "Automated recurring maintenance billing, instant UPI collection via Cashfree, and transparent expense ledgers.",
+    tint: "bg-[#E8FDF2] text-[#006948]",
+    features: ["Auto invoice generation", "Cashfree instant UPI", "Real-time payment tracking", "Society expense audits"],
   },
   {
-    icon: "🔧",
-    title: "Complaint Management",
-    desc: "Residents raise complaints, admins assign staff, everyone tracks progress in real-time.",
-    color: "bg-orange-50",
-    features: ["Easy complaint filing", "Auto-assignment", "Status tracking", "Resident notifications"],
+    icon: "support_agent",
+    title: "Helpdesk & Complaints",
+    desc: "Residents raise complaints with photo proof, admins assign staff, and progress updates trigger in real time.",
+    tint: "bg-[#FEF3C7] text-[#B45309]",
+    features: ["Photo complaint filing", "Auto-assignment to staff", "SLA resolution tracking", "Resident feedback ratings"],
   },
   {
-    icon: "🚗",
-    title: "Parking & Visitors",
-    desc: "Slot allocation, vehicle registry, visitor pre-approval, and gate pass management.",
-    color: "bg-violet-50",
-    features: ["Slot allocation", "Vehicle registry", "Visitor pre-approval", "Gate pass system"],
+    icon: "shield_person",
+    title: "Gate Security & Visitors",
+    desc: "Visitor pre-approvals, delivery leave-at-gate logs, vehicle registrations, and guard terminal interface.",
+    tint: "bg-[#EDE9FE] text-[#6D28D9]",
+    features: ["Digital QR entry passes", "Audible guard intercom", "Vehicle number registry", "Overstay gate alerts"],
   },
   {
-    icon: "📋",
-    title: "Notices & Documents",
-    desc: "Publish notices to all or specific residents. Store and share society documents securely.",
-    color: "bg-pink-50",
-    features: ["Targeted notices", "Document library", "Read receipts", "Expiry scheduling"],
+    icon: "campaign",
+    title: "Notices & Official Vault",
+    desc: "Publish targeted circulars to all or specific wings. Store bylaws, audit files, and possession certificates securely.",
+    tint: "bg-[#FFE4E6] text-[#BE123C]",
+    features: ["Audited committee notices", "Unit document safe", "Read-receipt indicators", "Auto-expiry dates"],
   },
   {
-    icon: "📅",
-    title: "Events & Amenities",
-    desc: "Create community events, manage amenity bookings, and keep the social calendar alive.",
-    color: "bg-sky-50",
-    features: ["Event creation", "Amenity booking", "Calendar view", "Reminders"],
-  },
-];
-
-const capabilities = [
-  {
-    title: "For Society Admins",
-    text: "Full control over billing, member management, and operations. Generate invoices, approve expenses, assign complaints, and view reports — all from one dashboard.",
-    items: ["Financial reports & summaries", "Bulk member invitations", "Maintenance config per unit", "Audit log for all actions"],
-  },
-  {
-    title: "For Residents",
-    text: "Pay maintenance bills online, raise complaints, pre-approve visitors, and stay updated with notices — all from your phone or laptop.",
-    items: ["Online bill payment", "Complaint tracking", "Visitor pre-approval", "Document access"],
+    icon: "pool",
+    title: "Amenities & Clubhouse",
+    desc: "Create community events, manage amenity booking slots, and keep your complex's social calendar organized.",
+    tint: "bg-[#CFFAFE] text-[#0E7490]",
+    features: ["Clubhouse slot bookings", "Integrated deposit collection", "Interactive calendar view", "Guest access rules"],
   },
 ];
 
 export default function ServicesPage() {
   return (
-    <div>
-      {/* Hero */}
-      <section className="py-20 px-12 text-center bg-primary-fixed/30">
-        <span className="inline-block px-4 py-1.5 rounded-full bg-blue-50 text-brand text-[13px] font-semibold mb-5">
+    <div className="bg-surface min-h-screen">
+      <SEO
+        title="Comprehensive Society Management Services"
+        description="Explore the full suite of ResidentOne services: maintenance billing, gate security, complaints, amenity bookings, and notices."
+        canonicalPath="/features"
+      />
+
+      {/* 🍏 Hero */}
+      <section className="pt-28 pb-14 md:pt-36 md:pb-20 px-4 sm:px-margin-mobile md:px-margin-desktop text-center max-w-container mx-auto">
+        <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary-light px-3.5 py-1 rounded-full border border-primary/15 inline-block mb-3">
           Our Services
         </span>
-        <h1 className="text-[44px] font-extrabold mb-4 tracking-[-0.5px]">Everything Your Society Needs</h1>
-        <p className="text-lg text-gray-500 max-w-[640px] mx-auto leading-relaxed">
-          A single platform to manage billing, complaints, visitors, notices, and
-          day-to-day operations for any residential community in India.
+        <h1 className="text-[34px] md:text-[46px] lg:text-[54px] font-bold text-on-surface mb-4 tracking-tight font-display">
+          Everything Your Society Needs
+        </h1>
+        <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
+          A unified, Apple-grade platform to manage billing, complaints, visitor gate security, notices, and day-to-day operations for residential communities across India.
         </p>
       </section>
 
-      {/* Core Services */}
-      <section className="py-20 px-12 max-w-[1100px] mx-auto">
-        <h2 className="text-[32px] font-bold text-center mb-3">Core Services</h2>
-        <p className="text-base text-gray-500 text-center leading-relaxed mb-12 max-w-[640px] mx-auto">
-          Six powerful modules that cover every aspect of residential society management.
-        </p>
-        <div className="grid grid-cols-3 gap-7">
+      {/* 🍏 Core Services Grid */}
+      <section className="py-12 md:py-16 px-4 sm:px-margin-mobile md:px-margin-desktop max-w-container mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((svc) => (
-            <div key={svc.title} className="bg-white rounded-[14px] p-9 border border-gray-100">
-              <div className={`w-[52px] h-[52px] rounded-[14px] flex items-center justify-center text-[26px] mb-5 ${svc.color}`}>
-                {svc.icon}
-              </div>
-              <h3 className="text-[19px] font-bold mb-2.5">{svc.title}</h3>
-              <p className="text-sm text-gray-500 leading-relaxed mb-4">{svc.desc}</p>
-              <ul className="list-none p-0 m-0">
-                {svc.features.map((f) => (
-                  <li key={f} className="text-[13px] text-gray-600 py-[5px] flex items-center gap-2">
-                    <span className="text-green-500 font-bold">✓</span> {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Capabilities */}
-      <section className="py-20 px-12 bg-gray-50">
-        <div className="max-w-[1100px] mx-auto">
-          {capabilities.map((cap, i) => (
-            <div
-              key={cap.title}
-              className="grid grid-cols-2 gap-12 items-center"
-              style={{ marginBottom: i === 0 ? 64 : 0 }}
-            >
-              <div style={i % 2 === 1 ? { order: 2 } : {}}>
-                <h2 className="text-[30px] font-bold mb-4">{cap.title}</h2>
-                <p className="text-[15px] text-gray-500 leading-relaxed mb-6">{cap.text}</p>
-                <ul className="list-none p-0 m-0">
-                  {cap.items.map((item) => (
-                    <li key={item} className="flex gap-3 mb-4 text-[15px] text-gray-600 leading-relaxed">
-                      <div className="w-2 h-2 rounded-full bg-brand mt-[7px] shrink-0" />
-                      <span>{item}</span>
+            <div key={svc.title} className="ios-card p-7 flex flex-col justify-between">
+              <div>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-5 ${svc.tint} shadow-xs`}>
+                  <span className="material-symbols-outlined text-[24px]">{svc.icon}</span>
+                </div>
+                <h3 className="text-xl font-bold text-on-surface mb-2 font-display">{svc.title}</h3>
+                <p className="text-body-sm text-on-surface-variant leading-relaxed mb-5">{svc.desc}</p>
+                <ul className="space-y-2 mb-6">
+                  {svc.features.map((f) => (
+                    <li key={f} className="text-xs text-on-surface flex items-center gap-2">
+                      <span className="text-primary font-bold">✓</span> {f}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div
-                className="bg-primary-fixed/20 min-h-[260px] flex items-center justify-center text-[64px] rounded-[14px] border border-outline-variant/30"
-                style={i % 2 === 1 ? { order: 1 } : {}}
-              >
-                {i === 0 ? "🏢" : "📱"}
-              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 px-12 max-w-[1100px] mx-auto">
-        <h2 className="text-[32px] font-bold text-center mb-3">How It Works</h2>
-        <p className="text-base text-gray-500 text-center leading-relaxed mb-12 max-w-[640px] mx-auto">
-          Get started in four simple steps — no technical expertise required.
-        </p>
-        <div className="grid grid-cols-4 gap-8 text-center">
-          {[
-            { n: "1", title: "Create Account", desc: "Sign up for free in under a minute." },
-            { n: "2", title: "Set Up Society", desc: "Add buildings, units, and invite members." },
-            { n: "3", title: "Configure", desc: "Set billing cycles, roles, and permissions." },
-            { n: "4", title: "Go Live", desc: "Residents join, pay bills, and raise complaints." },
-          ].map((step) => (
-            <div key={step.n} className="p-6">
-              <div className="w-12 h-12 rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center mx-auto mb-4">
-                {step.n}
-              </div>
-              <h4 className="text-base font-bold mb-2">{step.title}</h4>
-              <p className="text-[13px] text-gray-400 leading-relaxed">{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-20 px-12">
-        <div className="max-w-[700px] mx-auto p-14 rounded-2xl bg-brand text-center">
-          <h2 className="text-[30px] font-bold text-white mb-3.5">Ready to Simplify Society Management?</h2>
-          <p className="text-base text-white/90 mb-8">
-            Start with our free plan. No credit card required.
+      {/* 🍏 CTA */}
+      <section className="py-16 md:py-24 px-4 sm:px-margin-mobile md:px-margin-desktop">
+        <div className="max-w-3xl mx-auto p-10 md:p-14 rounded-3xl bg-surface-container border border-black/[0.06] text-center">
+          <h2 className="text-[28px] md:text-[36px] font-bold text-on-surface font-display mb-3">
+            Ready to Simplify Society Management?
+          </h2>
+          <p className="text-body-md text-on-surface-variant mb-8 max-w-xl mx-auto leading-relaxed">
+            Start with our starter plan. Transparent setup in under 5 minutes.
           </p>
-          <Link to="/register" className="inline-block px-9 py-3.5 rounded-[10px] bg-white text-brand text-base font-semibold no-underline">
+          <Link
+            to="/register"
+            className="ios-btn-primary px-8 py-3.5 text-body-sm no-underline shadow-[0_4px_16px_rgba(0,105,72,0.25)]"
+          >
             Get Started Free
           </Link>
         </div>
