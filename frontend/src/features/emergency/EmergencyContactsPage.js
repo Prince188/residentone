@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
@@ -83,6 +83,39 @@ export default function EmergencyContactsPage() {
   const [resolvingIncident, setResolvingIncident] = useState(null);
   const [resolutionNote, setResolutionNote] = useState("");
   const [isFalseAlarm, setIsFalseAlarm] = useState(false);
+
+  // 2-Minute (120s) Auto-Cancel Countdown
+  const [sosCountdown, setSosCountdown] = useState(120);
+
+  useEffect(() => {
+    if (!myActiveSos) {
+      setSosCountdown(120);
+      return;
+    }
+
+    const triggeredTime = new Date(
+      myActiveSos.triggeredAt || myActiveSos.createdAt || Date.now()
+    ).getTime();
+
+    const updateTimer = () => {
+      const elapsed = Math.floor((Date.now() - triggeredTime) / 1000);
+      const remaining = Math.max(0, 120 - elapsed);
+      setSosCountdown(remaining);
+
+      if (remaining <= 0) {
+        // Auto-cancel after 2 minutes of inactivity
+        resolveSosMutation.mutate({
+          id: myActiveSos._id || myActiveSos.id,
+          note: "Alarm cancelled automatically after 2 minutes",
+          falseAlarm: false,
+        });
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [myActiveSos]);
 
   // Mutations
   const updateContactsMutation = useMutation({
@@ -291,20 +324,52 @@ export default function EmergencyContactsPage() {
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[36px]">warning</span>
               <div>
-                <h3 className="text-base font-extrabold uppercase tracking-wide">
-                  YOUR EMERGENCY SOS IS CURRENTLY ACTIVE ({myActiveSos.emergencyType?.toUpperCase()})
-                </h3>
-                <p className="text-xs text-red-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-extrabold uppercase tracking-wide">
+                    YOUR EMERGENCY SOS IS CURRENTLY ACTIVE ({myActiveSos.emergencyType?.toUpperCase()})
+                  </h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold text-white backdrop-blur-xs">
+                    <span className="material-symbols-outlined text-[14px]">timer</span>
+                    Auto-cancelling in {Math.floor(sosCountdown / 60)}:{(sosCountdown % 60).toString().padStart(2, "0")}
+                  </span>
+                </div>
+                <p className="text-xs text-red-100 mt-0.5">
                   On-duty security guards and society manager have been alerted. Stand by for assistance.
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setResolvingIncident(myActiveSos)}
-              className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-50 shadow-sm"
-            >
-              Resolve / Cancel Alert
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  resolveSosMutation.mutate({
+                    id: myActiveSos._id || myActiveSos.id,
+                    note: "Emergency resolved safely (I Am Safe)",
+                    falseAlarm: false,
+                  })
+                }
+                disabled={resolveSosMutation.isPending}
+                className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                I AM SAFE
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  resolveSosMutation.mutate({
+                    id: myActiveSos._id || myActiveSos.id,
+                    note: "Marked as false alarm by resident",
+                    falseAlarm: true,
+                  })
+                }
+                disabled={resolveSosMutation.isPending}
+                className="inline-flex items-center gap-1 rounded-xl bg-white px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-50 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[16px]">cancel</span>
+                FALSE ALARM
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -639,40 +704,41 @@ export default function EmergencyContactsPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="falseAlarm"
-                  checked={isFalseAlarm}
-                  onChange={(e) => setIsFalseAlarm(e.target.checked)}
-                  className="rounded text-red-600 focus:ring-red-500"
-                />
-                <label htmlFor="falseAlarm" className="text-xs text-on-surface font-medium cursor-pointer">
-                  Mark as False Alarm / Accidental Trigger
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setResolvingIncident(null)}
-                  className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container"
+                  className="w-full sm:w-auto rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container cursor-pointer"
                 >
-                  Cancel
+                  Cancel / Keep Active
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     resolveSosMutation.mutate({
                       id: resolvingIncident._id || resolvingIncident.id,
-                      note: resolutionNote,
-                      falseAlarm: isFalseAlarm,
+                      note: resolutionNote || "Marked as false alarm by resident",
+                      falseAlarm: true,
                     })
                   }
                   disabled={resolveSosMutation.isPending}
-                  className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="w-full sm:w-auto rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-50 cursor-pointer"
                 >
-                  {resolveSosMutation.isPending ? "Resolving..." : "Confirm Resolved"}
+                  {resolveSosMutation.isPending ? "Updating..." : "FALSE ALARM"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    resolveSosMutation.mutate({
+                      id: resolvingIncident._id || resolvingIncident.id,
+                      note: resolutionNote || "Emergency resolved safely (I Am Safe)",
+                      falseAlarm: false,
+                    })
+                  }
+                  disabled={resolveSosMutation.isPending}
+                  className="w-full sm:w-auto rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {resolveSosMutation.isPending ? "Resolving..." : "I AM SAFE"}
                 </button>
               </div>
             </div>

@@ -94,7 +94,7 @@ const paymentSchema = new mongoose.Schema(
     },
     method: {
       type: String,
-      enum: ["UPI", "Cash", "Bank Transfer", "Other", "Razorpay"],
+      enum: ["UPI", "Cash", "Bank Transfer", "Other", "Razorpay", "Cashfree"],
       default: "UPI",
     },
     receiptNo: {

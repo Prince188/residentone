@@ -9,7 +9,45 @@ const socketHelper = require("../../socket");
 const { AppError } = require("../../shared/utils/errors");
 const logger = require("../../config/logger");
 
+const SOS_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes auto-cancel timeout (120,000 ms)
+
 class SOSService {
+  /**
+   * Automatically cancel an incident after 2 minutes timeout if not cancelled by user
+   */
+  async autoCancelIncident(incidentId) {
+    if (!incidentId) return null;
+    try {
+      const incident = await SOSIncident.findById(incidentId);
+      if (!incident) return null;
+      if (incident.status !== "active" && incident.status !== "acknowledged") {
+        return incident; // Already resolved
+      }
+
+      incident.status = "resolved";
+      incident.resolvedBy = {
+        userId: incident.userId,
+        name: "System (Auto-Timeout)",
+        role: "system",
+        resolvedAt: new Date(),
+        resolutionNote: "Alarm cancelled automatically after 2 minutes",
+        isFalseAlarm: false,
+        isAutoCancelled: true,
+      };
+
+      await incident.save();
+
+      if (incident.societyId && socketHelper.emitToSociety) {
+        socketHelper.emitToSociety(String(incident.societyId), "sos:resolved", incident.toObject());
+      }
+      logger.info(`[SOS] Incident ${incident._id} auto-cancelled after 2 minutes`);
+      return incident;
+    } catch (err) {
+      logger.error("[SOS] Error auto-cancelling incident:", err);
+      return null;
+    }
+  }
+
   /**
    * Trigger an SOS Emergency Alert
    */
@@ -23,10 +61,16 @@ class SOSService {
       societyId,
       userId,
       status: { $in: ["active", "acknowledged"] },
-    }).lean();
+    });
 
     if (existingActive) {
-      return existingActive;
+      const elapsed = Date.now() - new Date(existingActive.triggeredAt || existingActive.createdAt).getTime();
+      if (elapsed >= SOS_TIMEOUT_MS) {
+        // Stale incident from >2 mins ago: auto-cancel it and allow fresh dispatch
+        await this.autoCancelIncident(existingActive._id);
+      } else {
+        return existingActive.toObject ? existingActive.toObject() : existingActive;
+      }
     }
 
     // Get user details
@@ -151,6 +195,11 @@ class SOSService {
       logger.error("Failed to broadcast SOS incident notifications:", broadcastErr);
     }
 
+    // Auto-cancel after 2 minutes timeout if not cancelled by user or guard
+    setTimeout(() => {
+      this.autoCancelIncident(incident._id).catch(() => {});
+    }, SOS_TIMEOUT_MS);
+
     return incident;
   }
 
@@ -158,25 +207,42 @@ class SOSService {
    * Get all active / acknowledged SOS incidents for a society
    */
   async getActiveIncidents(societyId) {
-    return SOSIncident.find({
+    const incidents = await SOSIncident.find({
       societyId,
       status: { $in: ["active", "acknowledged"] },
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    }).sort({ createdAt: -1 });
+
+    const activeList = [];
+    for (const inc of incidents) {
+      const elapsed = Date.now() - new Date(inc.triggeredAt || inc.createdAt).getTime();
+      if (elapsed >= SOS_TIMEOUT_MS) {
+        this.autoCancelIncident(inc._id).catch(() => {});
+      } else {
+        activeList.push(inc.toObject ? inc.toObject() : inc);
+      }
+    }
+    return activeList;
   }
 
   /**
    * Get active SOS triggered by the logged-in user
    */
   async getMyActiveSOS(societyId, userId) {
-    return SOSIncident.findOne({
+    const incident = await SOSIncident.findOne({
       societyId,
       userId,
       status: { $in: ["active", "acknowledged"] },
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    }).sort({ createdAt: -1 });
+
+    if (!incident) return null;
+
+    const elapsed = Date.now() - new Date(incident.triggeredAt || incident.createdAt).getTime();
+    if (elapsed >= SOS_TIMEOUT_MS) {
+      await this.autoCancelIncident(incident._id);
+      return null;
+    }
+
+    return incident.toObject ? incident.toObject() : incident;
   }
 
   /**
@@ -253,41 +319,86 @@ class SOSService {
   }
 
   /**
-   * Resolve an incident or mark it as false alarm
+   * Resolve an incident or mark it as false alarm (I AM SAFE / FALSE ALARM)
    */
-  async resolveSOS(incidentId, resolverUserId, societyId, { resolutionNote = "", isFalseAlarm = false }) {
-    const incident = await SOSIncident.findOne({
-      _id: incidentId,
-      societyId,
-    });
+  async resolveSOS(incidentId, resolverUserId, societyId, body = {}) {
+    const isFalseAlarm = Boolean(
+      body.isFalseAlarm === true ||
+      body.isFalseAlarm === "true" ||
+      body.falseAlarm === true ||
+      body.falseAlarm === "true"
+    );
+    const resolutionNote = body.resolutionNote || body.note || "";
+
+    let incident = null;
+    if (incidentId && mongoose.Types.ObjectId.isValid(incidentId)) {
+      if (societyId) {
+        incident = await SOSIncident.findOne({ _id: incidentId, societyId });
+      }
+      if (!incident) {
+        incident = await SOSIncident.findById(incidentId);
+      }
+    }
+
+    // Fallback: If not found by ID or no ID provided, look up user's active SOS
+    if (!incident && resolverUserId) {
+      incident = await SOSIncident.findOne({
+        userId: resolverUserId,
+        status: { $in: ["active", "acknowledged"] },
+      }).sort({ createdAt: -1 });
+    }
 
     if (!incident) {
-      throw new AppError("SOS Incident not found", 404);
+      throw new AppError("SOS Incident not found or already closed", 404);
+    }
+
+    // If incident is already closed, return it gracefully
+    if (incident.status === "resolved" || incident.status === "false_alarm") {
+      return incident;
     }
 
     const resolver = await User.findById(resolverUserId).select("name").lean();
-    const membership = await Membership.findOne({
-      societyId,
-      userId: resolverUserId,
-      isActive: true,
-    }).select("role").lean();
+    let membership = null;
+    const targetSocietyId = societyId || incident.societyId;
+    if (targetSocietyId) {
+      membership = await Membership.findOne({
+        societyId: targetSocietyId,
+        userId: resolverUserId,
+        isActive: true,
+      }).select("role").lean();
+    }
+
+    const isOwner = String(incident.userId) === String(resolverUserId);
+    const isAdminOrGuard = membership && [
+      "super_admin",
+      "society_admin",
+      "security_guard",
+      "staff",
+      "manager",
+      "wing_admin",
+      "committee_member",
+    ].includes(membership.role);
+
+    if (!isOwner && !isAdminOrGuard) {
+      throw new AppError("Only the resident who triggered SOS or on-duty security/admin can close this alert", 403);
+    }
 
     const newStatus = isFalseAlarm ? "false_alarm" : "resolved";
 
     incident.status = newStatus;
     incident.resolvedBy = {
       userId: resolverUserId,
-      name: resolver?.name || "Resident / Admin",
-      role: membership?.role || "resident",
+      name: resolver?.name || (isOwner ? "Resident" : "Admin"),
+      role: membership?.role || (isOwner ? "resident" : "admin"),
       resolvedAt: new Date(),
-      resolutionNote: resolutionNote?.trim() || (isFalseAlarm ? "Marked as false alarm" : "Issue safely resolved"),
+      resolutionNote: resolutionNote?.trim() || (isFalseAlarm ? "Marked as false alarm by resident" : "Emergency resolved safely (I Am Safe)"),
       isFalseAlarm: Boolean(isFalseAlarm),
     };
 
     await incident.save();
 
-    if (socketHelper.emitToSociety) {
-      socketHelper.emitToSociety(String(societyId), "sos:resolved", incident.toObject());
+    if (targetSocietyId && socketHelper.emitToSociety) {
+      socketHelper.emitToSociety(String(targetSocietyId), "sos:resolved", incident.toObject());
     }
 
     return incident;

@@ -868,6 +868,7 @@ class MaintenanceService {
     const appliedLateCharge = (isLate && !waivePenalty) ? (cycle.lateCharge || 0) : 0;
     const finalAmount = baseAmount + appliedLateCharge;
 
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true }).lean();
     const collector = await resolveCollectorSnapshot(societyId, userId);
     const recordedByHouse = data.recordedByHouse || collector.house;
     const recordedByName = collector.name;
@@ -1080,6 +1081,7 @@ class MaintenanceService {
     const advanceMonths = Math.max(1, Math.min(12, Number(months) || Number(pending.advanceMonths) || 1));
     const receiptNo = `RCPT-${cycle.year}${String(cycle.month).padStart(2, "0")}-${String(unitId).slice(-4).toUpperCase()}`;
 
+    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true }).lean();
     const collector = await resolveCollectorSnapshot(societyId, userId);
 
     const updated = await MaintenancePayment.findOneAndUpdate(
@@ -1114,7 +1116,7 @@ class MaintenanceService {
         advanceMonths: advanceMonths,
         isAdvance: advanceMonths > 1,
       },
-      { new: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
 
     if (!updated) throw new AppError("Failed to record payment", 500);

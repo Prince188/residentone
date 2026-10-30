@@ -9,7 +9,9 @@ const triggerSOSSchema = z.object({
 
 const resolveSOSSchema = z.object({
   resolutionNote: z.string().max(500).optional().default(""),
-  isFalseAlarm: z.boolean().optional().default(false),
+  note: z.string().max(500).optional().default(""),
+  isFalseAlarm: z.union([z.boolean(), z.string()]).optional().default(false),
+  falseAlarm: z.union([z.boolean(), z.string()]).optional().default(false),
 });
 
 module.exports = {
