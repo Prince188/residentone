@@ -171,7 +171,7 @@ export default function LandingPage() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                 </span>
                 <span className="text-xs font-semibold text-on-surface tracking-wide flex items-center gap-1.5">
-                  <span>iOS Design System 2.0</span>
+                  <span>Smart Society Platform</span>
                   <span className="text-on-surface-muted">•</span>
                   <span className="text-primary font-bold">Trusted by 500+ Societies</span>
                 </span>
@@ -197,7 +197,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-xl leading-relaxed">
-                Streamline maintenance billing, approve gate visitors in real time, and foster transparent residential governance with an Apple-grade management platform built for modern societies.
+                Streamline maintenance billing, approve gate visitors in real time, and foster transparent residential governance with an intelligent, high-trust management platform built for modern residential communities.
               </p>
 
               {/* Apple Capsule Buttons with Tactile Spring */}
@@ -350,7 +350,7 @@ export default function LandingPage() {
               Comprehensive Platform
             </span>
             <h2 className="text-[30px] md:text-[40px] font-bold text-on-surface mt-4 tracking-tight font-display">
-              Designed with Apple Precision.
+              Engineered for Peace of Mind.
             </h2>
             <p className="text-body-md text-on-surface-variant mt-3 leading-relaxed">
               Replace chaotic WhatsApp chats and manual registers with intelligent, structured workflows designed for clarity and peace of mind.

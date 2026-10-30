@@ -64,7 +64,7 @@ export default function ServicesPage() {
           Everything Your Society Needs
         </h1>
         <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-          A unified, Apple-grade platform to manage billing, complaints, visitor gate security, notices, and day-to-day operations for residential communities across India.
+          A unified, modern platform to manage billing, complaints, visitor gate security, notices, and day-to-day operations for residential communities across India.
         </p>
       </section>
 

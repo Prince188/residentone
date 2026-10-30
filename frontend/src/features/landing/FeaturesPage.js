@@ -92,7 +92,7 @@ export default function FeaturesPage() {
           Powerful Modules for Modern Societies
         </h1>
         <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-8 leading-relaxed">
-          From the entrance gate to the treasurer's balance sheet, ResidentOne is built with Apple-grade precision to streamline every aspect of residential living.
+          From the entrance gate to the treasurer's balance sheet, ResidentOne is built to streamline every aspect of residential living with effortless precision.
         </p>
         <div className="flex justify-center gap-3.5">
           <Link

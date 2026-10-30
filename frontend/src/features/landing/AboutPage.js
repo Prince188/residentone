@@ -2,13 +2,13 @@ import { Link } from "react-router-dom";
 import SEO from "../../components/SEO";
 
 const values = [
-  { icon: "touch_app", title: "Apple Simplicity", desc: "We believe managing a society shouldn't require complex training. Every screen is intuitive, accessible, and delight to use." },
+  { icon: "touch_app", title: "Intuitive Simplicity", desc: "We believe managing a society shouldn't require complex training. Every screen is intuitive, accessible, and delight to use." },
   { icon: "diversity_3", title: "Community First", desc: "Every tool is designed to eliminate neighborhood friction, build trust, and bring families together in harmonious living." },
   { icon: "security", title: "Bank-Grade Security", desc: "Role-based permissions, 256-bit encrypted visitor records, and strict data masking keep your community safe and private." },
 ];
 
 const milestones = [
-  { icon: "lightbulb", year: "2024", title: "The Vision", desc: "Frustrated by fragmented WhatsApp chats and manual billing books, we set out to build an Apple-grade residential OS." },
+  { icon: "lightbulb", year: "2024", title: "The Vision", desc: "Frustrated by fragmented WhatsApp chats and manual billing books, we set out to build an all-in-one residential society OS." },
   { icon: "rocket_launch", year: "2025", title: "Pilot Launch", desc: "Rolled out core automated billing, gate security passes, and complaint tracking across 50 pilot residential societies." },
   { icon: "domain", year: "2026", title: "Full Platform", desc: "Expanded to amenity bookings, digital ballot polling, society expense ledgers, and multi-society administration." },
 ];
@@ -53,7 +53,7 @@ export default function AboutPage() {
             Elevating Residential Living Across India
           </h1>
           <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-8 leading-relaxed">
-            ResidentOne was created to replace chaotic manual paperwork and fragmented messaging with an Apple-grade, high-trust platform built for homeowners, tenants, and committee managers.
+            ResidentOne was created to replace chaotic manual paperwork and fragmented messaging with an intelligent, high-trust digital platform built for homeowners, tenants, and committee managers.
           </p>
         </div>
       </header>

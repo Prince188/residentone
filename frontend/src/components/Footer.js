@@ -9,13 +9,13 @@ export default function Footer() {
             <img src="/logo-transparent.png" alt="ResidentOne" className="h-8 md:h-9 w-auto object-contain" />
           </Link>
           <p className="text-body-sm text-on-surface-variant max-w-md leading-relaxed">
-            Elevating modern residential societies with Apple-grade design, automated maintenance billing,
+            Elevating modern residential societies with automated maintenance billing,
             instant digital visitor gate security, and seamless resident communication.
           </p>
           <div className="flex items-center gap-2 mt-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold text-primary border border-primary/15">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span>iOS Design System 2.0</span>
+              <span>Smart Society Platform</span>
             </span>
           </div>
           <p className="text-xs text-on-surface-muted mt-3">
