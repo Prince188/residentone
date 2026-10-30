@@ -153,7 +153,7 @@ export default function Navbar() {
                 }`}
               >
                 {item.label}
-                <span className="material-symbols-outlined text-[18px] opacity-60">arrow_forward_ios</span>
+                <span className="material-symbols-outlined text-[18px] opacity-60">chevron_right</span>
               </Link>
             ))}
           </div>
