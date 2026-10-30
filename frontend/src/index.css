@@ -7,20 +7,20 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    background-color: #f8faf9;
+    background-color: #F4F6F5;
   }
   body {
     @apply font-body text-on-surface bg-surface;
     font-optical-sizing: auto;
   }
-  h1, h2, h3, h4 {
-    @apply font-display tracking-tight;
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight text-on-surface;
   }
   ::selection {
     @apply bg-primary text-on-primary;
   }
 
-  /* Slender macOS-style smooth scrollbars */
+  /* Slender Apple-style smooth scrollbars */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -29,38 +29,71 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 33, 22, 0.15);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 33, 22, 0.28);
   }
 }
 
 @layer components {
   .page-title {
-    @apply text-[22px] font-bold leading-snug text-on-surface sm:text-headline-md;
+    @apply text-[22px] font-bold leading-snug text-on-surface sm:text-headline-md font-display tracking-tight;
   }
   .page-subtitle {
     @apply mt-0.5 text-xs text-on-surface-variant sm:mt-1 sm:text-body-sm;
   }
 
-  /* Apple Glass & Card Components */
-  .apple-glass {
-    background: rgba(248, 250, 249, 0.78);
+  /* 🍏 Apple Frosted Glass */
+  .apple-glass, .ios-glass {
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
 
-  .apple-card {
-    @apply rounded-2xl bg-white border border-black/[0.06] shadow-apple transition-all duration-200;
+  .ios-glass-dark {
+    background: rgba(12, 17, 15, 0.82);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
   }
 
-  .apple-card:hover {
+  .ios-glass-header {
+    background: rgba(248, 250, 249, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0, 33, 22, 0.06);
+  }
+
+  /* 🍏 Apple Squircle Card */
+  .apple-card, .ios-card {
+    @apply rounded-2xl bg-white border border-black/[0.05] shadow-apple transition-all duration-200;
+  }
+
+  .apple-card:hover, .ios-card:hover {
     @apply shadow-apple-hover -translate-y-0.5;
   }
 
-  .apple-button-tactile {
+  .ios-card-hero {
+    @apply rounded-3xl bg-white border border-black/[0.05] shadow-apple-hero;
+  }
+
+  /* 🍏 Apple Tactile Interactions */
+  .apple-button-tactile, .ios-tactile {
     @apply transition-transform duration-150 active:scale-[0.97];
+  }
+
+  /* 🍏 Apple Capsule Buttons */
+  .ios-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary text-white font-semibold shadow-[0_2px_10px_rgba(0,105,72,0.22)] hover:bg-primary-hover active:scale-[0.97] transition-all;
+  }
+
+  .ios-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-white text-on-surface font-semibold border border-black/[0.08] shadow-xs hover:bg-surface-container active:scale-[0.97] transition-all;
+  }
+
+  /* 🍏 Apple Form Inputs */
+  .ios-input {
+    @apply w-full rounded-xl bg-white border border-black/[0.10] px-4 py-3 text-on-surface text-body-sm placeholder:text-on-surface-muted transition-all focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10;
   }
 }

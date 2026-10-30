@@ -35,58 +35,64 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="bg-white/80 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-black/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-        <div className="flex justify-between items-center max-w-container-max mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop h-16 md:h-24">
+      <nav className="bg-white/80 backdrop-blur-2xl fixed top-0 w-full z-50 border-b border-black/[0.05] shadow-[0_2px_12px_rgba(0,33,22,0.03)] transition-all">
+        <div className="flex justify-between items-center max-w-container-max mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop h-16 md:h-20">
           <Link
             to="/"
-            className="flex items-center gap-2 tracking-tight no-underline shrink-0"
+            className="flex items-center gap-2 tracking-tight no-underline shrink-0 group active:scale-[0.98] transition-transform"
           >
             <img
               src="/logo-transparent.png"
               alt="ResidentOne"
-              className="h-8 md:h-10 w-auto object-contain"
+              className="h-8 md:h-9 w-auto object-contain"
             />
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex space-x-8 lg:space-x-12">
-            {navItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`font-label-md text-label-md uppercase tracking-widest h-16 md:h-24 flex items-center transition-colors cursor-pointer active:opacity-80 no-underline ${
-                  location.pathname === item.to ? "text-primary" : "text-on-surface hover:text-primary"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
+          <div className="hidden md:flex items-center space-x-1 lg:space-x-2 bg-surface-container/60 p-1 rounded-full border border-black/[0.04]">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`text-body-sm font-medium px-4 py-1.5 rounded-full transition-all duration-150 no-underline ${
+                    isActive
+                      ? "bg-white text-primary font-semibold shadow-xs"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-white/60"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
 
           {/* Desktop actions */}
-          <div className="hidden md:flex items-center gap-4 lg:gap-6">
+          <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <Link
                 to="/dashboard"
-                className="font-label-md text-label-md text-on-surface hover:text-primary transition-colors uppercase tracking-widest no-underline"
+                className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary bg-primary-light px-4 py-2 rounded-full hover:bg-primary-fixed/40 transition-all no-underline active:scale-95"
               >
+                <span className="material-symbols-outlined text-[18px]">dashboard</span>
                 Dashboard
               </Link>
             ) : (
               <Link
                 to="/login"
-                className="font-label-md text-label-md text-on-surface hover:text-primary transition-colors uppercase tracking-widest no-underline"
+                className="text-body-sm font-medium text-on-surface hover:text-primary px-4 py-2 rounded-full hover:bg-black/[0.03] transition-all no-underline"
               >
-                Login
+                Sign In
               </Link>
             )}
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); openSocietyModal(); }}
-              className="bg-primary text-on-primary font-label-md text-label-md px-5 lg:px-6 py-3 rounded-lg hover:bg-inverse-surface transition-colors uppercase tracking-widest flex items-center gap-2 whitespace-nowrap cursor-pointer"
+              className="bg-primary text-white text-body-sm font-semibold px-5 py-2.5 rounded-full shadow-[0_2px_12px_rgba(0,105,72,0.24)] hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">add_business</span>
-              Create Society
+              <span>Create Society</span>
             </button>
           </div>
 
@@ -96,21 +102,19 @@ export default function Navbar() {
               type="button"
               onClick={(e) => { e.preventDefault(); openSocietyModal(); }}
               aria-label="Create Society"
-              className="bg-primary text-on-primary font-label-md px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              className="bg-primary text-white text-xs font-semibold px-3.5 py-2 rounded-full shadow-[0_2px_8px_rgba(0,105,72,0.2)] active:scale-95 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px]">add_business</span>
-              <span className="text-[11px] sm:text-[12px] tracking-widest uppercase font-semibold">
-                Create
-              </span>
+              <span className="material-symbols-outlined text-[16px]">add_business</span>
+              <span>Create</span>
             </button>
             <button
               type="button"
               onClick={() => setOpen(!open)}
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-outline-variant/30 text-on-surface hover:bg-surface-container transition-colors shrink-0"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-black/[0.08] text-on-surface shadow-xs active:scale-95 transition-all shrink-0"
             >
-              <span className="material-symbols-outlined text-[22px]">
+              <span className="material-symbols-outlined text-[20px]">
                 {open ? "close" : "menu"}
               </span>
             </button>
@@ -130,37 +134,37 @@ export default function Navbar() {
 
       {/* Mobile drawer */}
       <div
-        className={`fixed top-16 left-0 w-full bg-surface-container-lowest border-b border-outline-variant/20 shadow-[0_16px_32px_-16px_rgba(0,23,75,0.18)] z-40 md:hidden transition-all duration-300 ease-out overflow-hidden ${
-          open ? "max-h-[480px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+        className={`fixed top-16 left-0 w-full bg-white/95 backdrop-blur-2xl border-b border-black/[0.08] shadow-[0_16px_36px_rgba(0,33,22,0.12)] z-40 md:hidden transition-all duration-300 ease-out overflow-hidden ${
+          open ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
         }`}
         aria-hidden={!open}
       >
-        <div className="px-4 sm:px-6 py-6">
-          <div className="flex flex-col gap-1">
+        <div className="px-5 py-6">
+          <div className="flex flex-col gap-1.5">
             {navItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 onClick={() => setOpen(false)}
-                className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold tracking-widest uppercase transition-colors no-underline ${
+                className={`flex items-center justify-between px-4 py-3 rounded-2xl text-body-sm font-semibold transition-all no-underline ${
                   location.pathname === item.to
-                    ? "bg-primary text-white shadow-sm"
+                    ? "bg-primary text-white shadow-xs"
                     : "text-on-surface hover:bg-surface-container"
                 }`}
               >
                 {item.label}
-                <span className="material-symbols-outlined text-[18px] opacity-60">arrow_forward</span>
+                <span className="material-symbols-outlined text-[18px] opacity-60">arrow_forward_ios</span>
               </Link>
             ))}
           </div>
 
-          <div className="mt-6 pt-6 border-t border-outline-variant/20">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="mt-5 pt-5 border-t border-black/[0.06]">
+            <div className="grid grid-cols-2 gap-2.5">
               {isAuthenticated ? (
                 <Link
                   to="/dashboard"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-center gap-2 bg-inverse-surface text-white rounded-xl py-3.5 text-sm font-semibold no-underline hover:bg-on-surface transition-colors"
+                  className="flex items-center justify-center gap-1.5 bg-primary text-white rounded-full py-3 text-body-sm font-semibold no-underline shadow-xs"
                 >
                   <span className="material-symbols-outlined text-[18px]">dashboard</span>
                   Dashboard
@@ -169,16 +173,16 @@ export default function Navbar() {
                 <Link
                   to="/login"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-center gap-2 bg-white border border-outline-variant/40 text-on-surface rounded-xl py-3.5 text-sm font-semibold no-underline hover:bg-surface-container transition-colors"
+                  className="flex items-center justify-center gap-1.5 bg-surface-container text-on-surface rounded-full py-3 text-body-sm font-semibold no-underline hover:bg-surface-container-high transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">login</span>
-                  Login
+                  Sign In
                 </Link>
               )}
               <Link
                 to="/register"
                 onClick={() => setOpen(false)}
-                className="flex items-center justify-center gap-2 bg-primary text-white rounded-xl py-3.5 text-sm font-semibold no-underline hover:bg-primary-container transition-colors"
+                className="flex items-center justify-center gap-1.5 bg-primary text-white rounded-full py-3 text-body-sm font-semibold no-underline shadow-[0_2px_10px_rgba(0,105,72,0.22)]"
               >
                 <span className="material-symbols-outlined text-[18px]">person_add</span>
                 Join
@@ -187,13 +191,13 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => { setOpen(false); openSocietyModal(); }}
-              className="mt-3 w-full flex items-center justify-center gap-2 bg-surface-container border border-outline-variant/30 text-on-surface rounded-xl py-3.5 text-sm font-bold tracking-widest uppercase hover:bg-surface-container-high transition-colors cursor-pointer"
+              className="mt-3 w-full flex items-center justify-center gap-2 bg-primary-light text-primary border border-primary/20 rounded-full py-3 text-body-sm font-bold hover:bg-primary-fixed/50 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">add_business</span>
               Create Society
             </button>
             <p className="text-center text-xs text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">verified_user</span>
+              <span className="material-symbols-outlined text-[15px] text-primary">verified_user</span>
               Trusted by 500+ societies
             </p>
           </div>
