@@ -29,11 +29,11 @@ function NavItem({ item, isCollapsed, onNavigate, isLocked }) {
       onClick={onNavigate}
       title={isCollapsed ? item.label : undefined}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] transition-all duration-150 active:scale-[0.98] ${
+        `flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[13px] transition-all duration-150 active:scale-[0.98] ${
           isCollapsed ? "md:justify-center md:px-0" : ""
         } ${
           isActive
-            ? "bg-primary text-white font-semibold shadow-[0_2px_8px_rgba(19,74,54,0.22)]"
+            ? "bg-primary text-white font-semibold shadow-[0_2px_10px_rgba(0,105,72,0.24)]"
             : "text-slate-600 font-medium hover:bg-black/[0.04] hover:text-slate-900"
         }`
       }
@@ -183,7 +183,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, isDrawerOpen, o
             to="/"
             onClick={onDrawerClose}
             title={isCollapsed ? "Go to Home" : undefined}
-            className={`flex items-center gap-3 rounded-xl bg-primary px-3 py-2 text-[13px] font-semibold text-white no-underline shadow-[0_2px_8px_rgba(19,74,54,0.20)] transition-all hover:bg-primary/90 active:scale-[0.98] ${
+            className={`flex items-center gap-3 rounded-2xl bg-primary px-3.5 py-2.5 text-[13px] font-semibold text-white no-underline shadow-[0_2px_10px_rgba(0,105,72,0.22)] transition-all hover:bg-primary/90 active:scale-[0.98] ${
               isCollapsed ? "md:justify-center md:px-0" : ""
             }`}
           >

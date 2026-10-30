@@ -53,22 +53,22 @@ export default function ConfirmDialog({
   };
 
   const confirmClasses = danger
-    ? "bg-error text-on-error hover:opacity-90"
-    : "bg-primary text-on-primary hover:bg-inverse-surface";
+    ? "bg-error text-white hover:opacity-90 shadow-xs"
+    : "bg-primary text-white hover:bg-primary-hover shadow-xs";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={busy ? undefined : onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={busy ? undefined : onClose} />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative w-full max-w-md rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xl"
+        className="relative w-full max-w-md rounded-3xl border border-black/[0.08] bg-white p-6 shadow-apple-modal"
       >
-        <h2 className="text-body-lg font-semibold text-on-surface">{title}</h2>
+        <h2 className="text-xl font-bold text-on-surface font-display">{title}</h2>
         {message && (
-          <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface-variant">
+          <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface-variant leading-relaxed">
             {message}
           </p>
         )}
@@ -77,7 +77,7 @@ export default function ConfirmDialog({
           <div className="mt-4 space-y-1.5">
             <label
               htmlFor="confirm-dialog-match"
-              className="block text-label-sm font-semibold text-on-surface"
+              className="block text-xs font-semibold text-on-surface"
             >
               {matchLabel || (
                 <>
@@ -92,7 +92,7 @@ export default function ConfirmDialog({
               onChange={(e) => setInputMatch(e.target.value)}
               placeholder={matchText}
               disabled={busy}
-              className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-sm font-mono text-on-surface focus:outline-none focus:border-error focus:ring-1 focus:ring-error transition-shadow disabled:opacity-60"
+              className="w-full bg-white border border-black/[0.1] rounded-xl px-4 py-2.5 text-body-sm font-mono text-on-surface focus:outline-none focus:border-error focus:ring-4 focus:ring-error/10 transition-all disabled:opacity-60"
             />
           </div>
         )}
@@ -101,7 +101,7 @@ export default function ConfirmDialog({
           <div className="mt-4">
             <label
               htmlFor="confirm-dialog-reason"
-              className="block font-label-sm text-label-sm text-on-surface-variant mb-unit"
+              className="block text-xs font-semibold text-on-surface-variant mb-1"
             >
               {reasonLabel} <span className="text-error">*</span>
             </label>
@@ -112,22 +112,22 @@ export default function ConfirmDialog({
               onChange={(e) => setReason(e.target.value)}
               placeholder={reasonPlaceholder}
               disabled={busy}
-              className="w-full bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow disabled:opacity-60"
+              className="w-full bg-white border border-black/[0.1] rounded-xl px-4 py-2.5 text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all disabled:opacity-60"
             />
             {reasonError && (
-              <p className="mt-1 text-label-sm text-error">{reasonError}</p>
+              <p className="mt-1 text-xs text-error font-medium">{reasonError}</p>
             )}
           </div>
         )}
 
-        {error && <p className="mt-3 text-body-sm text-error">{error}</p>}
+        {error && <p className="mt-3 text-xs text-error font-medium">{error}</p>}
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface transition-colors hover:bg-surface-container-low cursor-pointer disabled:opacity-60"
+            className="rounded-full border border-black/[0.1] bg-surface-container px-5 py-2.5 text-body-sm font-semibold text-on-surface transition-all hover:bg-surface-container-high cursor-pointer active:scale-95 disabled:opacity-60"
           >
             {cancelLabel}
           </button>
@@ -135,7 +135,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={handleConfirm}
             disabled={busy || (matchText && !isMatchValid)}
-            className={`rounded-lg px-4 py-2 text-label-md transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${confirmClasses}`}
+            className={`rounded-full px-5 py-2.5 text-body-sm font-semibold transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${confirmClasses}`}
           >
             {busy ? "Working..." : confirmLabel}
           </button>
