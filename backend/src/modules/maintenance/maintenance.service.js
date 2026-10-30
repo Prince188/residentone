@@ -867,8 +867,6 @@ class MaintenanceService {
     const waivePenalty = data.waivePenalty === true || data.includePenalty === false;
     const appliedLateCharge = (isLate && !waivePenalty) ? (cycle.lateCharge || 0) : 0;
     const finalAmount = baseAmount + appliedLateCharge;
-
-    const unit = await Unit.findOne({ _id: unitId, societyId, isActive: true }).lean();
     const collector = await resolveCollectorSnapshot(societyId, userId);
     const recordedByHouse = data.recordedByHouse || collector.house;
     const recordedByName = collector.name;
