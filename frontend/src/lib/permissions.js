@@ -31,7 +31,8 @@ export const DEFAULT_ROLE_PERMISSIONS = {
   tenant: [],
   resident: [],
   staff: [],
-  security_guard: [],
+  security_guard: ["manage_visitors"],
+  guard: ["manage_visitors"],
 };
 
 export function getPermissionsForRole(role, customPermissions) {

@@ -18,12 +18,51 @@ function generateParcelCode() {
 }
 
 class VisitorService {
-  async canManageVisitors(societyId, membership) {
-    if (!membership) return false;
-    if (["super_admin", "society_admin"].includes(membership.role)) return true;
+  async canManageVisitors(societyId, membership, guardUserId = null) {
+    const targetUserId = guardUserId || membership?.userId;
+    const roles = membership ? [membership.role, ...(membership.additionalRoles || [])].filter(Boolean) : [];
+
+    // 1. Direct role check: Super admin, society admin, security guard, or guard
+    if (roles.some((r) => ["super_admin", "society_admin", "security_guard", "guard"].includes(r))) {
+      return true;
+    }
+
+    // 2. Check if registered as active security guard in Staff collection
+    if (targetUserId) {
+      try {
+        const { Staff } = require("../staff/staff.model");
+        const isStaffGuard = await Staff.exists({
+          societyId,
+          userId: targetUserId,
+          staffType: "security_guard",
+          isActive: true,
+        });
+        if (isStaffGuard) return true;
+      } catch (_) {}
+
+      // 3. Fallback: query membership if not supplied or lacked roles
+      if (!roles.length) {
+        try {
+          const { Membership } = require("../membership/membership.model");
+          const m = await Membership.findOne({ societyId, userId: targetUserId, isActive: true }).lean();
+          if (m) {
+            const mRoles = [m.role, ...(m.additionalRoles || [])].filter(Boolean);
+            if (mRoles.some((r) => ["super_admin", "society_admin", "security_guard", "guard"].includes(r))) {
+              return true;
+            }
+            roles.push(...mRoles);
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 4. Role permissions check
     try {
       const society = await Society.findById(societyId).select("rolePermissions").lean();
-      return hasPermission(membership.role, "manage_visitors", society?.rolePermissions);
+      for (const r of roles) {
+        if (hasPermission(r, "manage_visitors", society?.rolePermissions)) return true;
+      }
+      return false;
     } catch {
       return false;
     }
@@ -136,7 +175,7 @@ class VisitorService {
   }
 
   async createWalkIn(societyId, guardUserId, membership, data) {
-    const canManage = await this.canManageVisitors(societyId, membership);
+    const canManage = await this.canManageVisitors(societyId, membership, guardUserId);
     if (!canManage) {
       throw new AppError("Only security guards or society admins can log walk-in visitors", 403);
     }
@@ -346,7 +385,7 @@ class VisitorService {
   }
 
   async checkIn(societyId, guardUserId, membership, visitorId) {
-    const canManage = await this.canManageVisitors(societyId, membership);
+    const canManage = await this.canManageVisitors(societyId, membership, guardUserId);
     if (!canManage) {
       throw new AppError("Only security guards or society admins can check in visitors", 403);
     }
@@ -402,7 +441,7 @@ class VisitorService {
   }
 
   async checkOut(societyId, guardUserId, membership, visitorId, notes) {
-    const canManage = await this.canManageVisitors(societyId, membership);
+    const canManage = await this.canManageVisitors(societyId, membership, guardUserId);
     if (!canManage) {
       throw new AppError("Only security guards or society admins can check out visitors", 403);
     }
@@ -633,7 +672,7 @@ class VisitorService {
    * Guard directly logs an incoming parcel delivery left at gate
    */
   async logParcel(societyId, guardUserId, membership, data) {
-    const canManage = await this.canManageVisitors(societyId, membership);
+    const canManage = await this.canManageVisitors(societyId, membership, guardUserId);
     if (!canManage) {
       throw new AppError("Only security guards or society admins can log parcels", 403);
     }
@@ -864,7 +903,7 @@ class VisitorService {
    * Mark parcel as collected / handed over
    */
   async collectParcel(societyId, parcelId, guardUserId, membership) {
-    const canManage = await this.canManageVisitors(societyId, membership);
+    const canManage = await this.canManageVisitors(societyId, membership, guardUserId);
     const myUnitIds = await this.getMyUnitIds(membership, guardUserId, societyId);
 
     const parcel = await Visitor.findOne({ _id: parcelId, societyId });
