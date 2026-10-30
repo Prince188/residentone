@@ -43,39 +43,50 @@ export const SOS_TYPES = [
   },
 ];
 
-export const triggerSOS = async ({ emergencyType = "general", locationDescription = "", unitId = null }) => {
+const unwrap = (res) => (res && res.data && "data" in res.data ? res.data.data : res?.data);
+
+export const triggerSOS = async ({
+  emergencyType = "general",
+  locationDescription = "",
+  unitId = null,
+}) => {
   const res = await api.post("/sos/trigger", {
     emergencyType,
     locationDescription,
     unitId,
   });
-  return res.data?.data ?? res.data;
+  return unwrap(res);
 };
 
 export const getMyActiveSOS = async () => {
   const res = await api.get("/sos/my-active");
-  return res.data?.data ?? res.data ?? null;
+  const d = unwrap(res);
+  return d && (d._id || d.id) ? d : null;
 };
 
 export const getActiveSOSList = async () => {
   const res = await api.get("/sos/active");
-  return res.data?.data ?? res.data ?? [];
+  const d = unwrap(res);
+  return Array.isArray(d) ? d : [];
 };
 
 export const acknowledgeSOS = async (id) => {
   const res = await api.post(`/sos/${id}/acknowledge`);
-  return res.data?.data ?? res.data;
+  return unwrap(res);
 };
 
-export const resolveSOS = async (id, { resolutionNote = "", isFalseAlarm = false } = {}) => {
+export const resolveSOS = async (
+  id,
+  { resolutionNote = "", isFalseAlarm = false } = {}
+) => {
   const res = await api.post(`/sos/${id}/resolve`, {
     resolutionNote,
     isFalseAlarm,
   });
-  return res.data?.data ?? res.data;
+  return unwrap(res);
 };
 
 export const getSOSHistory = async (params = {}) => {
   const res = await api.get("/sos/history", { params });
-  return res.data?.data ?? res.data;
+  return unwrap(res);
 };

@@ -88,7 +88,8 @@ export default function EmergencyContactsPage() {
   const [sosCountdown, setSosCountdown] = useState(120);
 
   useEffect(() => {
-    if (!myActiveSos) {
+    const activeId = myActiveSos?._id || myActiveSos?.id;
+    if (!activeId) {
       setSosCountdown(120);
       return;
     }
@@ -105,7 +106,7 @@ export default function EmergencyContactsPage() {
       if (remaining <= 0) {
         // Auto-cancel after 2 minutes of inactivity
         resolveSosMutation.mutate({
-          id: myActiveSos._id || myActiveSos.id,
+          id: activeId,
           note: "Alarm cancelled automatically after 2 minutes",
           falseAlarm: false,
         });
@@ -115,7 +116,7 @@ export default function EmergencyContactsPage() {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [myActiveSos]);
+  }, [myActiveSos?._id || myActiveSos?.id, resolveSosMutation]);
 
   // Mutations
   const updateContactsMutation = useMutation({
