@@ -2,31 +2,42 @@ import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
-    <footer className="bg-surface-container-lowest w-full py-20 border-t border-surface-variant">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-12 max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
-        <div className="md:col-span-2 flex flex-col gap-6">
-          <Link to="/" className="flex items-center gap-2 tracking-tight no-underline">
-            <img src="/logo-transparent.png" alt="ResidentOne" className="h-9 w-auto object-contain" />
+    <footer className="bg-white w-full py-16 md:py-20 border-t border-black/[0.06]">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-12 max-w-container-max mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop">
+        <div className="md:col-span-6 flex flex-col gap-4">
+          <Link to="/" className="flex items-center gap-2 tracking-tight no-underline w-fit">
+            <img src="/logo-transparent.png" alt="ResidentOne" className="h-8 md:h-9 w-auto object-contain" />
           </Link>
-          <p className="font-body-sm text-on-surface-variant max-w-sm">
-            Elevating community management through intelligent, transparent, and beautiful software solutions.
+          <p className="text-body-sm text-on-surface-variant max-w-md leading-relaxed">
+            Elevating modern residential societies with Apple-grade design, automated maintenance billing,
+            instant digital visitor gate security, and seamless resident communication.
           </p>
-          <p className="font-body-sm text-sm text-on-surface-variant opacity-60 mt-4">
-            &copy; {new Date().getFullYear()} ResidentOne Society Management. All rights reserved.
+          <div className="flex items-center gap-2 mt-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold text-primary border border-primary/15">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span>iOS Design System 2.0</span>
+            </span>
+          </div>
+          <p className="text-xs text-on-surface-muted mt-3">
+            &copy; {new Date().getFullYear()} ResidentOne Society Management Platform. All rights reserved.
           </p>
         </div>
-        <div className="flex flex-col gap-4">
-          <h4 className="font-label-md font-bold text-on-surface uppercase tracking-widest mb-4">Platform</h4>
-          <Link to="/features" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Features</Link>
-          <Link to="/pricing" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Pricing</Link>
-          <a href="#security" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Security</a>
-          <a href="#changelog" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Changelog</a>
+        <div className="md:col-span-3 flex flex-col gap-3">
+          <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-2">Platform</h4>
+          <Link to="/features" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Features & Modules</Link>
+          <Link to="/pricing" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Transparent Pricing</Link>
+          <Link to="/about" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">About ResidentOne</Link>
+          <Link to="/contact" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Contact Sales & Support</Link>
         </div>
-        <div className="flex flex-col gap-4">
-          <h4 className="font-label-md font-bold text-on-surface uppercase tracking-widest mb-4">Legal</h4>
-          <Link to="/privacy" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Privacy Policy</Link>
-          <Link to="/terms" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Terms of Service</Link>
-          <Link to="/privacy#rights" className="font-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">DPDP Rights</Link>
+        <div className="md:col-span-3 flex flex-col gap-3">
+          <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-2">Compliance & Trust</h4>
+          <Link to="/privacy" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Privacy Policy</Link>
+          <Link to="/terms" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Terms of Service</Link>
+          <Link to="/privacy#rights" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">DPDP Resident Rights</Link>
+          <span className="text-xs text-on-surface-muted flex items-center gap-1 mt-1">
+            <span className="material-symbols-outlined text-[15px] text-primary">shield</span>
+            256-bit SSL Bank-Grade Encryption
+          </span>
         </div>
       </div>
     </footer>
