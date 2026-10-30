@@ -152,14 +152,14 @@ export default function CreateSocietyModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
-      <button aria-label="Close" onClick={handleOverlayClose} className="absolute inset-0 bg-inverse-surface/60 backdrop-blur-sm" tabIndex={-1} />
-      <div className="relative bg-white rounded-[24px] shadow-[0_24px_64px_-24px_rgba(0,23,75,0.4)] w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-outline-variant/20">
-        <div className="flex items-center justify-between px-6 sm:px-7 py-4 border-b border-outline-variant/20 shrink-0">
+      <button aria-label="Close" onClick={handleOverlayClose} className="absolute inset-0 bg-black/40 backdrop-blur-sm" tabIndex={-1} />
+      <div className="relative bg-white rounded-3xl shadow-apple-modal w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-black/[0.08]">
+        <div className="flex items-center justify-between px-6 sm:px-7 py-4 border-b border-black/[0.06] shrink-0">
           <div>
-            <h2 className="text-title-lg font-bold text-on-surface leading-none">Create Society</h2>
+            <h2 className="text-xl font-bold text-on-surface leading-none font-display">Create Society</h2>
             <p className="text-body-sm text-on-surface-variant mt-1">{step === 3 ? "All done" : isApartmentLike && step === 2 ? "Step 2 of 2 — Wings & Floors" : isApartmentLike ? "Step 1 of 2 — Society Details" : "Society Details"}</p>
           </div>
-          <button onClick={handleOverlayClose} className="w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"><span className="material-symbols-outlined text-[22px]">close</span></button>
+          <button onClick={handleOverlayClose} className="w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors active:scale-95"><span className="material-symbols-outlined text-[20px]">close</span></button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 sm:px-7 py-6" style={{ scrollbarGutter: "stable" }}>
@@ -168,21 +168,21 @@ export default function CreateSocietyModal() {
           ) : step === 2 ? (
             <div className="space-y-4">
               <StructureBuilder wings={wings} globalNumbering={globalNumbering} onChangeWings={setWings} setGlobalNumbering={setGlobalNumbering} />
-              {formError && <div className="rounded-lg border border-error-container bg-error-container/40 px-4 py-3"><p className="text-body-sm text-error">{formError}</p></div>}
+              {formError && <div className="rounded-2xl border border-error-container bg-error-container/40 px-4 py-3"><p className="text-body-sm text-error">{formError}</p></div>}
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setStep(1)} className="flex-1 py-3 rounded-xl border border-outline-variant font-semibold hover:bg-surface-container transition-colors">Back</button>
-                <button type="button" onClick={handleSubmit} disabled={loading} className="flex-1 bg-primary text-on-primary font-semibold py-3 rounded-xl hover:bg-inverse-surface disabled:opacity-60 transition-colors">{loading ? "Submitting..." : `Create ${computedTotal ? `(${computedTotal} units)` : ""}`}</button>
+                <button type="button" onClick={() => setStep(1)} className="flex-1 py-3 rounded-full border border-black/[0.1] font-semibold hover:bg-surface-container active:scale-[0.98] transition-all">Back</button>
+                <button type="button" onClick={handleSubmit} disabled={loading} className="flex-1 bg-primary text-white font-semibold py-3 rounded-full hover:bg-primary-hover active:scale-[0.98] shadow-xs disabled:opacity-60 transition-all">{loading ? "Submitting..." : `Create ${computedTotal ? `(${computedTotal} units)` : ""}`}</button>
               </div>
-              <p className="text-center text-label-sm text-outline">Units will be auto-created as <code>A-G1, A-G2, A-101…</code> or <code>A-1, A-2…</code> based on numbering.</p>
+              <p className="text-center text-xs text-on-surface-muted">Units will be auto-created as <code>A-G1, A-G2, A-101…</code> or <code>A-1, A-2…</code> based on numbering.</p>
             </div>
           ) : (
             <div>
-              {formError && <div className="mb-4 rounded-lg border border-error-container bg-error-container/40 px-4 py-3"><p className="text-body-sm text-error">{formError}</p></div>}
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-outline">Society Information</p>
+              {formError && <div className="mb-4 rounded-2xl border border-error-container bg-error-container/40 px-4 py-3"><p className="text-body-sm text-error">{formError}</p></div>}
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-muted">Society Information</p>
               <SocietyFormFields values={values} errors={errors} onChange={handleChange} disabled={loading} />
               {isApartmentLike && computedTotal !== null && <p className="mt-3 text-body-sm text-on-surface-variant">Wing preview: <b>{computedTotal} units</b> will be created. You can adjust in next step.</p>}
-              <button type="button" onClick={handleNext} disabled={loading} className="mt-6 w-full bg-primary text-on-primary font-semibold py-3 rounded-xl hover:bg-inverse-surface disabled:opacity-60 transition-colors">{isApartmentLike ? "Next — Wings & Floors" : loading ? "Submitting..." : "Submit Registration"}</button>
-              <p className="mt-3 text-center text-label-sm text-outline">Will remain in review until approved by ResidentOne team.</p>
+              <button type="button" onClick={handleNext} disabled={loading} className="mt-6 w-full bg-primary text-white font-semibold py-3.5 rounded-full hover:bg-primary-hover active:scale-[0.98] shadow-[0_2px_12px_rgba(0,105,72,0.22)] disabled:opacity-60 transition-all">{isApartmentLike ? "Next — Wings & Floors" : loading ? "Submitting..." : "Submit Registration"}</button>
+              <p className="mt-3 text-center text-xs text-on-surface-muted">Will remain in review until approved by ResidentOne team.</p>
             </div>
           )}
         </div>
