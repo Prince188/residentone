@@ -228,6 +228,30 @@ class SOSService {
    * Get active SOS triggered by the logged-in user
    */
   async getMyActiveSOS(societyId, userId) {
+    // Auto-cancel any expired (>2 min) active incidents in society for this user
+    await SOSIncident.updateMany(
+      {
+        societyId,
+        userId,
+        status: { $in: ["active", "acknowledged"] },
+        createdAt: { $lt: new Date(Date.now() - SOS_TIMEOUT_MS) },
+      },
+      {
+        $set: {
+          status: "resolved",
+          resolvedBy: {
+            userId,
+            name: "System (Auto-Timeout)",
+            role: "system",
+            resolvedAt: new Date(),
+            resolutionNote: "Alarm cancelled automatically after 2 minutes",
+            isFalseAlarm: false,
+            isAutoCancelled: true,
+          },
+        },
+      }
+    ).catch((e) => logger.warn("[SOS] Error expiring stale incidents:", e));
+
     const incident = await SOSIncident.findOne({
       societyId,
       userId,
@@ -396,6 +420,22 @@ class SOSService {
     };
 
     await incident.save();
+
+    // Clean up any other duplicate/lingering active incidents for this resident in the society
+    await SOSIncident.updateMany(
+      {
+        societyId: targetSocietyId,
+        userId: incident.userId,
+        status: { $in: ["active", "acknowledged"] },
+        _id: { $ne: incident._id },
+      },
+      {
+        $set: {
+          status: newStatus,
+          resolvedBy: incident.resolvedBy,
+        },
+      }
+    ).catch((e) => logger.warn("[SOS] Error resolving duplicate incidents:", e));
 
     if (targetSocietyId && socketHelper.emitToSociety) {
       socketHelper.emitToSociety(String(targetSocietyId), "sos:resolved", incident.toObject());
