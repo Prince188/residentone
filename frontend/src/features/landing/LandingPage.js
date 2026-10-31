@@ -6,7 +6,7 @@ const ROTATING_WORDS = [
   { word: "Living", tag: "Residential Living", icon: "home" },
   { word: "Security", tag: "Gate Intercom & Passes", icon: "shield_person" },
   { word: "Finances", tag: "Zero-Fee UPI Collections", icon: "payments" },
-  { word: "Community", tag: "Transparent Voting", icon: "forum" },
+  { word: "Management", tag: "Transparent Voting & Ops", icon: "forum" },
   { word: "Governance", tag: "Digital Audit Ledgers", icon: "account_balance" },
 ];
 
@@ -177,13 +177,13 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              {/* 🍏 Dynamic Animated Hero Title */}
-              <h1 className="text-[38px] sm:text-[52px] lg:text-[60px] xl:text-[68px] font-bold leading-[1.04] tracking-tight text-on-surface font-display min-h-[120px] sm:min-h-[160px] lg:min-h-[180px]">
-                Community <br />
-                <span className="inline-block relative">
+              {/* 🍏 Dynamic Animated Hero Title — Structured in 3 Lines for Desktop */}
+              <h1 className="text-[38px] sm:text-[50px] lg:text-[58px] xl:text-[66px] font-bold leading-[1.08] tracking-tight text-on-surface font-display min-h-[140px] sm:min-h-[175px] lg:min-h-[200px] xl:min-h-[225px]">
+                <span className="block">Community</span>
+                <span className="block">
                   <span
                     key={currentWord.word}
-                    className={`italic text-gradient-shimmer inline-block transition-all duration-300 transform ${
+                    className={`italic text-gradient-shimmer inline-block pr-2 transition-all duration-300 transform ${
                       animatingWord
                         ? "opacity-0 -translate-y-3 scale-95"
                         : "opacity-100 translate-y-0 scale-100"
@@ -191,9 +191,9 @@ export default function LandingPage() {
                   >
                     {currentWord.word}
                   </span>
-                  <span className="text-on-surface">,</span>
-                </span>{" "}
-                Perfected.
+                  {" "}
+                </span>
+                <span className="block text-on-surface">Perfected.</span>
               </h1>
 
               <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-xl leading-relaxed">
