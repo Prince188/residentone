@@ -277,7 +277,7 @@ export default function TermsOfServicePage() {
                 These Terms are governed by and construed in accordance with the laws of the Republic of India. Any disputes arising out of these Terms shall be subject to the exclusive jurisdiction of the competent courts in Bengaluru, Karnataka, India.
               </p>
               <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-600">
-                For questions regarding these Terms, contact our legal team at <a href="mailto:legal@residentone.app" className="text-emerald-700 font-bold underline">legal@residentone.app</a>.
+                For questions regarding these Terms, contact our legal team at <a href="mailto:residentone188@gmail.com" className="text-emerald-700 font-bold underline">residentone188@gmail.com</a>.
               </div>
             </section>
 

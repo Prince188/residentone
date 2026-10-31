@@ -101,10 +101,10 @@ export default function PrivacyPolicyPage() {
                   </div>
                   <p className="text-xs text-gray-600 mb-2">Have questions about your data or wish to exercise your DPDP rights?</p>
                   <a
-                    href="mailto:grievance@residentone.app"
+                    href="mailto:residentone188@gmail.com"
                     className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline flex items-center gap-1"
                   >
-                    grievance@residentone.app
+                    residentone188@gmail.com
                   </a>
                 </div>
               </div>
@@ -431,8 +431,8 @@ export default function PrivacyPolicyPage() {
                   </div>
                   <div>
                     <span className="text-emerald-300 font-semibold uppercase text-[10px] tracking-wider block mb-1">Direct Privacy Helpline</span>
-                    <a href="mailto:grievance@residentone.app" className="font-bold text-emerald-300 hover:text-white underline block">
-                      grievance@residentone.app
+                    <a href="mailto:residentone188@gmail.com" className="font-bold text-emerald-300 hover:text-white underline block">
+                      residentone188@gmail.com
                     </a>
                     <span className="text-emerald-100/70 text-[11px]">Expected Response: Within 48-72 hours</span>
                   </div>

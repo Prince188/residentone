@@ -28,6 +28,16 @@ export default function Footer() {
           <Link to="/pricing" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Transparent Pricing</Link>
           <Link to="/about" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">About ResidentOne</Link>
           <Link to="/contact" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors no-underline">Contact Sales & Support</Link>
+          <div className="pt-2 flex flex-col gap-1.5 border-t border-black/[0.06] text-xs">
+            <a href="tel:+919106269655" className="text-on-surface font-semibold hover:text-primary transition-colors flex items-center gap-1.5 no-underline">
+              <span className="material-symbols-outlined text-[14px] text-primary">call</span>
+              +91 91062 69655
+            </a>
+            <a href="mailto:residentone188@gmail.com" className="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1.5 no-underline">
+              <span className="material-symbols-outlined text-[14px] text-primary">mail</span>
+              residentone188@gmail.com
+            </a>
+          </div>
         </div>
         <div className="md:col-span-3 flex flex-col gap-3">
           <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-2">Compliance & Trust</h4>

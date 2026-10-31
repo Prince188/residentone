@@ -10,8 +10,8 @@ const contactSchema = {
   mainEntity: {
     "@type": "Organization",
     name: "ResidentOne",
-    email: "hello@residentone.in",
-    telephone: "+91-98765-43210",
+    email: "residentone188@gmail.com",
+    telephone: "+91 91062 69655",
     address: {
       "@type": "PostalAddress",
       addressLocality: "Surat",
@@ -167,7 +167,12 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-xs uppercase tracking-wider text-on-surface-muted font-bold">Email Us</h3>
-                <p className="text-body-sm text-on-surface font-semibold mt-0.5">hello@residentone.in</p>
+                <a
+                  href="mailto:residentone188@gmail.com"
+                  className="text-body-sm text-on-surface font-semibold mt-0.5 hover:text-primary transition-colors block underline decoration-primary/30"
+                >
+                  residentone188@gmail.com
+                </a>
               </div>
             </div>
 
@@ -177,7 +182,12 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-xs uppercase tracking-wider text-on-surface-muted font-bold">Phone Support</h3>
-                <p className="text-body-sm text-on-surface font-semibold mt-0.5">+91 98765 43210</p>
+                <a
+                  href="tel:+919106269655"
+                  className="text-body-sm text-on-surface font-semibold mt-0.5 hover:text-primary transition-colors block underline decoration-primary/30"
+                >
+                  +91 91062 69655
+                </a>
               </div>
             </div>
 
