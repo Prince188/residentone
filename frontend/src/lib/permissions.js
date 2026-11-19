@@ -15,6 +15,7 @@ export const PERMISSIONS = [
   { key: "manage_staff", label: "Manage Staff", desc: "Add / remove guards & staff", icon: "shield_person" },
   { key: "view_financials", label: "View Financials", desc: "Reports, dues & audits", icon: "account_balance" },
   { key: "manage_documents", label: "Manage Documents", desc: "Upload bills & sheets", icon: "folder_open" },
+  { key: "manage_bank_details", label: "Manage Bank Details", desc: "Society bank account & direct settlements", icon: "account_balance" },
 ];
 
 export const DEFAULT_ROLE_PERMISSIONS = {

@@ -5,9 +5,11 @@ import useSocietyStore, {
 } from "../../stores/society.store";
 import {
   paySocietySubscription,
+  createSubscriptionOrder,
   SUBSCRIPTION_PLAN_LABELS,
   extractApiError,
 } from "../../lib/societies";
+import { openCashfreeCheckout } from "../../lib/cashfree";
 import { AVAILABLE_PLANS, getSubscriptionRenewalMeta } from "./SubscriptionStatusCard";
 import toast from "../../lib/toast";
 
@@ -76,36 +78,102 @@ export default function SubscriptionUpgradeModal() {
     setLoading(true);
     setError("");
     try {
-      const res = await paySocietySubscription(activeSociety.id, {
-        plan: selectedPlan,
-        billingCycle: activeSociety.subscriptionBilling || "yearly",
-        isDemoSimulation: isDemo,
-        paymentMethod,
-      });
+      const targetCycle = activeSociety.subscriptionBilling || "yearly";
 
-      const updatedSociety = res.data?.data?.society;
-
-      if (updateActiveSocietySubscription) {
-        updateActiveSocietySubscription({
-          isSubscriptionPaid: true,
-          subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
-          subscriptionBilling: updatedSociety?.subscriptionBilling || activeSociety.subscriptionBilling,
-          subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt || activeSociety.subscriptionExpiresAt,
+      // 1. Instant Demo Simulation
+      if (isDemo) {
+        const res = await paySocietySubscription(activeSociety.id, {
+          plan: selectedPlan,
+          billingCycle: targetCycle,
+          isDemoSimulation: true,
+          paymentMethod,
         });
+
+        const updatedSociety = res.data?.data?.society;
+
+        if (updateActiveSocietySubscription) {
+          updateActiveSocietySubscription({
+            isSubscriptionPaid: true,
+            subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
+            subscriptionBilling: updatedSociety?.subscriptionBilling || targetCycle,
+            subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt || activeSociety.subscriptionExpiresAt,
+          });
+        }
+
+        toast.success(
+          "Demo: Plan Upgraded!",
+          `Upgraded to ${chosenPlanMeta.fullName}. Expiry date preserved (${renewalMeta.formattedDate}).`
+        );
+
+        closeUpgradeModal();
+        setShowCheckoutConfirm(false);
+        await loadMySocieties();
+        queryClient.invalidateQueries();
+        setLoading(false);
+        return;
       }
 
-      toast.success(
-        "Plan Upgraded Successfully!",
-        `Upgraded to ${chosenPlanMeta.fullName}. Expiry date preserved (${renewalMeta.formattedDate}).`
-      );
+      // 2. Real Payment via Cashfree
+      const orderRes = await createSubscriptionOrder(activeSociety.id, {
+        plan: selectedPlan,
+        billingCycle: targetCycle,
+        units: activeSociety.totalUnits,
+      });
 
-      closeUpgradeModal();
-      setShowCheckoutConfirm(false);
-      await loadMySocieties();
-      queryClient.invalidateQueries();
+      const order = orderRes.data?.data || orderRes.data;
+      if (!order?.paymentSessionId) {
+        throw new Error("Failed to generate Cashfree payment session");
+      }
+
+      await openCashfreeCheckout({
+        paymentSessionId: order.paymentSessionId,
+        mode: order.env || "sandbox",
+        onSuccess: async () => {
+          try {
+            setLoading(true);
+            const res = await paySocietySubscription(activeSociety.id, {
+              plan: selectedPlan,
+              billingCycle: targetCycle,
+              isDemoSimulation: false,
+              paymentMethod,
+              orderId: order.orderId || order.id,
+              cfOrderId: order.cfOrderId,
+              transactionId: order.orderId || order.id,
+            });
+
+            const updatedSociety = res.data?.data?.society;
+
+            if (updateActiveSocietySubscription) {
+              updateActiveSocietySubscription({
+                isSubscriptionPaid: true,
+                subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
+                subscriptionBilling: updatedSociety?.subscriptionBilling || targetCycle,
+                subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt || activeSociety.subscriptionExpiresAt,
+              });
+            }
+
+            toast.success(
+              "Plan Upgraded Successfully!",
+              `Upgraded to ${chosenPlanMeta.fullName}. Expiry date preserved (${renewalMeta.formattedDate}).`
+            );
+
+            closeUpgradeModal();
+            setShowCheckoutConfirm(false);
+            await loadMySocieties();
+            queryClient.invalidateQueries();
+          } catch (verifyErr) {
+            setError(extractApiError(verifyErr, "Payment was cancelled or could not be verified by Cashfree."));
+          } finally {
+            setLoading(false);
+          }
+        },
+        onFailure: (err) => {
+          setError(err?.message || "Payment window closed or cancelled.");
+          setLoading(false);
+        },
+      });
     } catch (err) {
       setError(extractApiError(err, "Plan upgrade failed. Please try again."));
-    } finally {
       setLoading(false);
     }
   };

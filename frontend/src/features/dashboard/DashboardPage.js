@@ -19,6 +19,7 @@ import SubscriptionStatusCard, { getSubscriptionRenewalMeta } from "./Subscripti
 const adminCards = [
   { icon: "apartment", label: "Manage Houses", to: "/houses" },
   { icon: "domain", label: "Manage Society", to: "/society/manage", perm: "manage_society" },
+  { icon: "account_balance", label: "Bank Details", to: "/society/bank-details", perm: "manage_bank_details" },
   { icon: "meeting_room", label: "Manage Wing", to: "/wing/manage" },
   { icon: "request_quote", label: "Manage Maintenance", to: "/dues" },
   { icon: "volunteer_activism", label: "Manage Collections", to: "/collections/manage" },
@@ -542,6 +543,17 @@ function SuperAdminDashboardView({ user }) {
 
   const recentActivity = stats.recentActivity || [];
 
+  const maintenanceOverview = stats.maintenanceOverview || {
+    totalCollected: 0,
+    totalCount: 0,
+    onlineCollected: 0,
+    onlineCount: 0,
+    offlineCollected: 0,
+    offlineCount: 0,
+    onlinePercent: 0,
+    offlinePercent: 0,
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 pb-16 animate-in fade-in duration-200">
       {/* Platform Header & Hero Banner */}
@@ -687,6 +699,131 @@ function SuperAdminDashboardView({ user }) {
               </span>
             </div>
           </Link>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* PLATFORM MAINTENANCE COLLECTIONS OVERVIEW                                */}
+      {/* ========================================================================= */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle subtitle="Aggregated maintenance dues collected across all societies on ResidentOne">
+            Platform Maintenance Collections
+          </SectionTitle>
+          <Link
+            to="/admin/maintenance-analytics"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-1.5 text-label-md font-bold text-primary no-underline transition-all hover:bg-primary/10 hover:border-primary/40 active:scale-95"
+          >
+            <span>View Full Breakdown</span>
+            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Card 1: Total Maintenance Collected */}
+          <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-500/20 bg-gradient-to-br from-surface-container-lowest via-surface-container-lowest to-emerald-500/5 p-6 shadow-sm transition-all hover:border-emerald-500/50 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                Total Maintenance Collected
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800 shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">payments</span>
+              </span>
+            </div>
+            <p className="mt-4 text-[38px] font-extrabold leading-none text-emerald-800 tracking-tight">
+              {statsQuery.isLoading ? "..." : `₹${(maintenanceOverview.totalCollected || 0).toLocaleString("en-IN")}`}
+            </p>
+            <div className="mt-3 flex items-center justify-between text-label-sm text-on-surface-variant">
+              <span>{maintenanceOverview.totalCount || 0} Transactions across all societies</span>
+              <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Settled
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: Online Collections (Cashfree Gateway) */}
+          <div className="relative overflow-hidden rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                  Online (Cashfree / UPI)
+                </span>
+                <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
+                  Gateway
+                </span>
+              </div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[24px]">account_balance</span>
+              </span>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <p className="text-[32px] font-extrabold leading-none text-on-surface tracking-tight">
+                {statsQuery.isLoading ? "..." : `₹${(maintenanceOverview.onlineCollected || 0).toLocaleString("en-IN")}`}
+              </p>
+              <span className="text-label-sm font-bold text-primary">
+                ({maintenanceOverview.onlinePercent || 0}%)
+              </span>
+            </div>
+            <p className="mt-3 text-label-sm text-on-surface-variant">
+              {maintenanceOverview.onlineCount || 0} online payments auto-split to society accounts
+            </p>
+          </div>
+
+          {/* Card 3: Offline Collections (Cash / Cheque) */}
+          <div className="relative overflow-hidden rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-amber-500/40 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                  Offline Handover
+                </span>
+                <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 uppercase">
+                  Cash
+                </span>
+              </div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
+                <span className="material-symbols-outlined text-[24px]">attach_money</span>
+              </span>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <p className="text-[32px] font-extrabold leading-none text-on-surface tracking-tight">
+                {statsQuery.isLoading ? "..." : `₹${(maintenanceOverview.offlineCollected || 0).toLocaleString("en-IN")}`}
+              </p>
+              <span className="text-label-sm font-bold text-amber-800">
+                ({maintenanceOverview.offlinePercent || 0}%)
+              </span>
+            </div>
+            <p className="mt-3 text-label-sm text-on-surface-variant">
+              {maintenanceOverview.offlineCount || 0} cash entries recorded by society treasurers
+            </p>
+          </div>
+        </div>
+
+        {/* Visual Distribution Ratio Bar */}
+        <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 shadow-xs">
+          <div className="flex items-center justify-between text-label-sm font-bold">
+            <span className="flex items-center gap-1.5 text-primary">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+              Online Gateway: ₹{(maintenanceOverview.onlineCollected || 0).toLocaleString("en-IN")} ({maintenanceOverview.onlinePercent || 0}%)
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-800">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+              Offline Cash: ₹{(maintenanceOverview.offlineCollected || 0).toLocaleString("en-IN")} ({maintenanceOverview.offlinePercent || 0}%)
+            </span>
+          </div>
+          <div className="mt-2.5 flex h-3 w-full overflow-hidden rounded-full bg-surface-container-highest">
+            <div
+              style={{ width: `${Math.max(maintenanceOverview.onlinePercent || 0, 2)}%` }}
+              className="bg-primary transition-all duration-500"
+              title={`Online: ${maintenanceOverview.onlinePercent}%`}
+            />
+            <div
+              style={{ width: `${Math.max(maintenanceOverview.offlinePercent || 0, 2)}%` }}
+              className="bg-amber-500 transition-all duration-500"
+              title={`Offline: ${maintenanceOverview.offlinePercent}%`}
+            />
+          </div>
         </div>
       </section>
 
@@ -1841,6 +1978,7 @@ export default function DashboardPage() {
   const cardPermissionMap = {
     "Manage Houses": "manage_houses",
     "Manage Society": "manage_society",
+    "Bank Details": "manage_bank_details",
     "Manage Maintenance": "manage_maintenance",
     "Manage Collections": "manage_collections",
     "Create Collection": "manage_collections",

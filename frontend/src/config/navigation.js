@@ -22,6 +22,7 @@ export const RESIDENT_NAV_SECTIONS = [
       { label: "Expenses & Ledgers", to: "/expenses", icon: "payments" },
       { label: "Transfer Fees", to: "/transfer-fees", icon: "real_estate_agent" },
       { label: "Society Wallet", to: "/wallet", icon: "account_balance_wallet" },
+      { label: "Bank & Settlement", to: "/society/bank-details", icon: "account_balance" },
       { label: "Verify Receipt", to: "/verify", icon: "verified" },
     ],
   },
@@ -49,6 +50,11 @@ export const ADMIN_NAV_SECTIONS = [
     label: "Platform",
     items: [
       { label: "Societies", to: "/admin/societies", icon: "apartment" },
+      {
+        label: "Maintenance Collections",
+        to: "/admin/maintenance-analytics",
+        icon: "payments",
+      },
       {
         label: "Pending Approvals",
         to: "/admin/societies/pending",

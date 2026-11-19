@@ -147,6 +147,9 @@ router.get("/", authenticate, requirePlatformAdmin, (req, res, next) =>
 router.get("/stats", authenticate, requirePlatformAdmin, (req, res, next) =>
   societyController.stats(req, res, next)
 );
+router.get("/maintenance-analytics", authenticate, requirePlatformAdmin, (req, res, next) =>
+  societyController.getMaintenanceAnalytics(req, res, next)
+);
 router.get("/analytics", authenticate, requirePlatformAdmin, (req, res, next) =>
   societyController.historicalAnalytics(req, res, next)
 );
@@ -198,6 +201,11 @@ router.patch(
 
 router.get("/:id", authenticate, (req, res, next) =>
   societyController.getById(req, res, next)
+);
+router.post(
+  "/:id/subscription/order",
+  authenticate,
+  (req, res, next) => societyController.createSubscriptionOrder(req, res, next)
 );
 router.post(
   "/:id/pay-subscription",

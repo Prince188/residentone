@@ -54,7 +54,7 @@ async function resolveSocietyContext(req, _res, next) {
     const targetSociety =
       typeof membership.societyId === "object" && membership.societyId?.status
         ? membership.societyId
-        : await Society.findById(requestedSocietyId).select("status isActive name isSubscriptionPaid");
+        : await Society.findById(requestedSocietyId).select("status isActive name isSubscriptionPaid subscriptionExpiresAt");
 
     if (!isSuperAdmin) {
       if (targetSociety?.status === "suspended") {
@@ -66,16 +66,25 @@ async function resolveSocietyContext(req, _res, next) {
             )
           );
         }
-      } else if (!targetSociety?.isSubscriptionPaid) {
-        // Exclude society metadata and payment endpoints
-        const isExempt = req.baseUrl?.includes("/societies") || req.path?.includes("/pay-subscription");
-        if (!isExempt && req.method !== "GET") {
-          return next(
-            new AppError(
-              "Subscription payment required. Please complete subscription payment on the dashboard to unlock platform features.",
-              402
-            )
-          );
+      } else {
+        const isExpired =
+          Boolean(targetSociety?.isSubscriptionPaid) &&
+          targetSociety?.subscriptionExpiresAt &&
+          new Date(targetSociety.subscriptionExpiresAt) < new Date();
+
+        if (!targetSociety?.isSubscriptionPaid || isExpired) {
+          // Exclude society metadata and payment endpoints
+          const isExempt = req.baseUrl?.includes("/societies") || req.path?.includes("/pay-subscription");
+          if (!isExempt && req.method !== "GET") {
+            return next(
+              new AppError(
+                isExpired
+                  ? "Society subscription has expired. Please renew the subscription on the dashboard to unlock platform features."
+                  : "Subscription payment required. Please complete subscription payment on the dashboard to unlock platform features.",
+                402
+              )
+            );
+          }
         }
       }
     }

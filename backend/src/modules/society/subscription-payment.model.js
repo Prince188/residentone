@@ -47,6 +47,21 @@ const subscriptionPaymentSchema = new mongoose.Schema(
     transactionId: {
       type: String,
       trim: true,
+      index: true,
+    },
+    orderId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    cfOrderId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    cashfreePaymentId: {
+      type: String,
+      trim: true,
     },
     paidAt: {
       type: Date,

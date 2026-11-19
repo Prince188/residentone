@@ -57,6 +57,15 @@ class SocietyController {
     }
   }
 
+  async getMaintenanceAnalytics(req, res, next) {
+    try {
+      const data = await societyService.getMaintenanceAnalytics(req.query);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async stats(req, res, next) {
     try {
       const stats = await societyService.stats();
@@ -206,10 +215,20 @@ class SocietyController {
       if (!req.societyId) {
         return res.status(400).json({ success: false, error: { code: "NO_SOCIETY", message: "Society context required (x-society-id header)" } });
       }
-      if (!["society_admin", "super_admin"].includes(req.membership?.role) && req.accountRole !== "super_admin") {
-        return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Only Society Admin can update society info" } });
+      const isSocietyAdmin = ["society_admin", "super_admin"].includes(req.membership?.role) || req.accountRole === "super_admin";
+      
+      let hasBankPerm = false;
+      if (!isSocietyAdmin && req.body.bankDetails !== undefined) {
+        const { hasPermissionForMembership } = require("../../shared/permissions");
+        const { Society } = require("./society.model");
+        const soc = await Society.findById(req.societyId).select("rolePermissions").lean();
+        hasBankPerm = hasPermissionForMembership(req.membership, "manage_bank_details", soc?.rolePermissions);
       }
-      const allowed = [
+
+      if (!isSocietyAdmin && !hasBankPerm) {
+        return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Insufficient permissions to update society info" } });
+      }
+      let allowed = [
         "name",
         "logoUrl",
         "totalUnits",
@@ -227,6 +246,9 @@ class SocietyController {
         "emergencyContacts",
         "bankDetails",
       ];
+      if (!isSocietyAdmin && hasBankPerm) {
+        allowed = ["bankDetails"];
+      }
       const payload = {};
       for (const k of allowed) if (req.body[k] !== undefined) payload[k] = req.body[k];
       payload.updatedBy = req.userId;
@@ -277,6 +299,37 @@ class SocietyController {
     try {
       const perms = await societyService.updateRolePermissions(req.societyId, req.body.permissions, req.userId);
       res.json({ success: true, data: perms });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createSubscriptionOrder(req, res, next) {
+    try {
+      const societyId = req.params.id || req.societyId;
+      if (!societyId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "BAD_REQUEST", message: "Society ID is required" },
+        });
+      }
+
+      // Check permission: super admin or society admin of this society
+      if (req.accountRole !== "super_admin") {
+        const membership = await membershipService.findByUserAndSociety(
+          req.userId,
+          societyId
+        );
+        if (!membership || (membership.role !== "society_admin" && !membership.additionalRoles?.includes("society_admin"))) {
+          return res.status(403).json({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Only Society Admin or Super Admin can renew subscription" },
+          });
+        }
+      }
+
+      const result = await societyService.createSubscriptionOrder(societyId, req.body, req.userId);
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

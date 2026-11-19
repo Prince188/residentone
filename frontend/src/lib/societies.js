@@ -15,7 +15,11 @@ export const unarchiveSociety = (id) => api.patch(`/societies/${id}/unarchive`);
 export const deleteSocietyPermanently = (id) => api.delete(`/societies/${id}/permanent`);
 
 export const getHistoricalAnalytics = (params) => api.get("/societies/analytics", { params });
+export const getPlatformMaintenanceAnalytics = (params) =>
+  api.get("/societies/maintenance-analytics", { params });
 export const updateSociety = (id, payload) => api.patch(`/societies/${id}`, payload);
+export const createSubscriptionOrder = (id, payload) =>
+  api.post(`/societies/${id}/subscription/order`, payload);
 export const paySocietySubscription = (id, payload) =>
   api.post(`/societies/${id}/pay-subscription`, payload);
 export const uploadSocietyLogo = (payload) => {

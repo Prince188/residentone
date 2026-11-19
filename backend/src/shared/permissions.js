@@ -16,6 +16,7 @@ const PERMISSIONS = [
   { key: "collect_donations", label: "Collect Donations", desc: "Cash festival donations (Navratri, Ganpati etc)" },
   { key: "manage_documents", label: "Manage Documents", desc: "Upload bills & sheets" },
   { key: "manage_staff", label: "Manage Staff", desc: "Add / remove guards & staff" },
+  { key: "manage_bank_details", label: "Manage Bank Details", desc: "Society bank account & direct settlements" },
 ];
 
 const DEFAULT_ROLE_PERMISSIONS = {

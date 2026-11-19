@@ -61,7 +61,7 @@ export default function PrivacyPolicyPage() {
             <span>&bull;</span>
             <span>Applicable Law: DPDP Act 2023 (India)</span>
             <span>&bull;</span>
-            <span>Version: 2.1.0</span>
+            <span>Version: 1.0.0</span>
           </div>
         </div>
       </header>

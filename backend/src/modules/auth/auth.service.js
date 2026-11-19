@@ -387,34 +387,13 @@ class AuthService {
   }
 
   /**
-   * 4. Legacy single-call forgot password (kept for backward compatibility)
+   * 4. Legacy single-call forgot password (disabled for security until OTP system is enabled)
    */
   async forgotPassword(identifier, newPassword) {
-    const value = String(identifier || "").trim();
-    if (!value) throw new AppError("Phone number or email is required", 400);
-    if (!newPassword || newPassword.length < 8) {
-      throw new AppError("Password must be at least 8 characters", 400);
-    }
-
-    const isEmail = value.includes("@");
-    const user = isEmail
-      ? await userService.findByEmailWithPassword(value.toLowerCase())
-      : await userService.findByPhoneWithPassword(value);
-
-    if (!user) throw new AppError("No account found with this registered details", 404);
-    if (!user.isActive) throw new AppError("This account is inactive or disabled", 403);
-
-    user.passwordHash = newPassword;
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
-    user.requiresPasswordChange = false;
-    user.failedLoginAttempts = 0;
-    user.lockUntil = null;
-    await user.save();
-
-    const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
-    invalidateUserSecurityCache(user._id);
-
-    return { message: "Password reset successfully. Please log in with your new password." };
+    throw new AppError(
+      "Direct password reset without verification has been disabled for security. Please contact your society administrator.",
+      403
+    );
   }
 
   /**

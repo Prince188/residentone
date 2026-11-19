@@ -1,5 +1,6 @@
 const { MaintenancePayment, MaintenanceCycle } = require("../maintenance/maintenance.model");
 const { CollectionUnitPayment, Collection } = require("../collections/collection.model");
+const { SubscriptionPayment } = require("../society/subscription-payment.model");
 const { Society } = require("../society/society.model");
 const logger = require("../../config/logger");
 const socketHelper = require("../../socket");
@@ -95,6 +96,37 @@ class PaymentService {
       logger.info(`Collection payment marked paid via Cashfree webhook: ${colPayment._id}`);
 
       return { handled: true, type: "collection", paymentId: colPayment._id };
+    }
+
+    // 3. Check if order matches a Society Subscription payment
+    const subPayment = await SubscriptionPayment.findOne({
+      $or: [
+        { cfOrderId: orderId },
+        { orderId: orderId },
+        { transactionId: orderId },
+      ],
+    });
+
+    if (subPayment) {
+      if (subPayment.status === "paid") {
+        return { handled: true, type: "subscription", alreadyPaid: true };
+      }
+
+      subPayment.status = "paid";
+      subPayment.gateway = "Cashfree";
+      subPayment.cashfreePaymentId = cfPaymentId;
+      subPayment.paidAt = payment?.payment_time ? new Date(payment.payment_time) : new Date();
+      await subPayment.save();
+
+      await Society.findByIdAndUpdate(subPayment.societyId, {
+        isSubscriptionPaid: true,
+        subscriptionPlan: subPayment.plan,
+        subscriptionBilling: subPayment.billingCycle,
+        subscriptionExpiresAt: subPayment.periodEnd,
+      });
+
+      logger.info(`Society subscription marked paid via Cashfree webhook for society ${subPayment.societyId}`);
+      return { handled: true, type: "subscription", paymentId: subPayment._id };
     }
 
     logger.warn(`No pending payment found matching Cashfree orderId ${orderId}`);

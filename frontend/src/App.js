@@ -21,6 +21,7 @@ import PendingApprovalsPage from "./features/admin/PendingApprovalsPage";
 import AdminCreateSocietyPage from "./features/admin/AdminCreateSocietyPage";
 import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
 import AdminAnalyticsPage from "./features/admin/AdminAnalyticsPage";
+import AdminMaintenanceAnalyticsPage from "./features/admin/AdminMaintenanceAnalyticsPage";
 import AdminUsersPage from "./features/admin/AdminUsersPage";
 import AdminReferralsPage from "./features/admin/AdminReferralsPage";
 import AdminCouponsPage from "./features/admin/AdminCouponsPage";
@@ -73,6 +74,7 @@ import ManageCollectionsPage from "./features/collections/ManageCollectionsPage"
 import CollectionsHistoryPage from "./features/collections/CollectionsHistoryPage";
 import PayCollectionsPage from "./features/collections/PayCollectionsPage";
 import ManageSocietyPage from "./features/society/ManageSocietyPage";
+import SocietyBankDetailsPage from "./features/society/SocietyBankDetailsPage";
 import ManageWingPage from "./features/wing/ManageWingPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
 import ManageExpensesPage from "./features/expenses/ManageExpensesPage";
@@ -165,6 +167,7 @@ function App() {
               <Route path="/collections/history" element={<CollectionsHistoryPage />} />
               <Route path="/collections/pay" element={<PayCollectionsPage />} />
               <Route path="/society/manage" element={<ManageSocietyPage />} />
+              <Route path="/society/bank-details" element={<SocietyBankDetailsPage />} />
               <Route path="/wing/manage" element={<ManageWingPage />} />
               <Route path="/collections/new" element={<CreateCollectionPage />} />
               <Route path="/collections/:id" element={<CollectionDetailPage />} />
@@ -201,6 +204,10 @@ function App() {
               <Route
                 path="/admin/analytics"
                 element={<SuperAdminRoute><AdminAnalyticsPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/maintenance-analytics"
+                element={<SuperAdminRoute><AdminMaintenanceAnalyticsPage /></SuperAdminRoute>}
               />
               <Route
                 path="/admin/users"

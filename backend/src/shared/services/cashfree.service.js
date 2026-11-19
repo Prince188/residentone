@@ -52,23 +52,30 @@ async function createOrUpdateVendor(society) {
   if (phone.length < 10) phone = "9999999999";
   if (phone.length > 10) phone = phone.slice(-10);
 
+  const cleanPan = (bank.pan || "AAATG1234F").trim().toUpperCase();
+  // 4th character 'P' indicates an Individual/Personal PAN; otherwise Corporate/Trust/Society
+  const isIndividual = cleanPan.length >= 4 && cleanPan[3] === "P";
+  const vendorName = (bank.accountHolderName || society.name).trim().slice(0, 50);
+
+  const kycDetails = {
+    account_type: isIndividual ? "INDIVIDUAL" : "BUSINESS",
+    business_type: "Miscellaneous",
+    pan: cleanPan,
+  };
+
   const payload = {
     vendor_id: vendorId,
     status: "ACTIVE",
-    name: society.name.slice(0, 50),
+    name: vendorName,
     email: society.contactEmail || "admin@residentone.com",
     phone: phone,
     verify_account: false, // Set to true in production if penny drop verification is required
     bank: {
       account_number: String(bank.accountNumber).trim(),
-      account_holder: bank.accountHolderName || society.name.slice(0, 50),
+      account_holder: bank.accountHolderName || vendorName,
       ifsc: String(bank.ifsc).trim().toUpperCase(),
     },
-    kyc_details: {
-      account_type: "Trust",
-      business_type: "Society/Trust/Club/Association",
-      pan: (bank.pan || "AAATG1234F").trim().toUpperCase(),
-    },
+    kyc_details: kycDetails,
   };
 
   try {
@@ -81,9 +88,35 @@ async function createOrUpdateVendor(society) {
     const data = await res.json();
 
     if (!res.ok) {
-      // If vendor already exists, that is fine - return existing vendor_id
+      // If vendor already exists, sync updated bank details & KYC via PATCH
       if (data.code === "vendor_already_exists" || (data.message && data.message.includes("already exists"))) {
-        logger.info(`Cashfree vendor ${vendorId} already exists`);
+        logger.info(`Cashfree vendor ${vendorId} already exists, updating vendor details via PATCH...`);
+        try {
+          const patchPayload = {
+            name: vendorName,
+            email: society.contactEmail || "admin@residentone.com",
+            phone: phone,
+            bank: {
+              account_number: String(bank.accountNumber).trim(),
+              account_holder: bank.accountHolderName || vendorName,
+              ifsc: String(bank.ifsc).trim().toUpperCase(),
+            },
+            kyc_details: kycDetails,
+          };
+          const patchRes = await fetch(`${config.cashfree.baseUrl}/easy-split/vendors/${vendorId}`, {
+            method: "PATCH",
+            headers: getHeaders(),
+            body: JSON.stringify(patchPayload),
+          });
+          const patchData = await patchRes.json();
+          if (patchRes.ok) {
+            logger.info(`Cashfree vendor ${vendorId} updated successfully`);
+          } else {
+            logger.warn(`Cashfree vendor ${vendorId} update returned: ${JSON.stringify(patchData)}`);
+          }
+        } catch (patchErr) {
+          logger.warn(`Error updating Cashfree vendor ${vendorId}:`, patchErr);
+        }
         return vendorId;
       }
       logger.error(`Cashfree vendor creation failed: ${JSON.stringify(data)}`);

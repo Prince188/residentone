@@ -4,9 +4,11 @@ import useSocietyStore, { selectActiveSociety } from "../../stores/society.store
 import api from "../../lib/api";
 import {
   paySocietySubscription,
+  createSubscriptionOrder,
   SUBSCRIPTION_PLAN_LABELS,
   extractApiError,
 } from "../../lib/societies";
+import { openCashfreeCheckout } from "../../lib/cashfree";
 
 export const AVAILABLE_PLANS = [
   {
@@ -235,39 +237,110 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     setError("");
     setSuccessMsg("");
     try {
-      const res = await paySocietySubscription(activeSociety.id, {
-        plan: selectedPlan,
-        billingCycle: isMidCycleActive ? activeSociety.subscriptionBilling : selectedCycle,
-        isDemoSimulation: isDemo,
-        paymentMethod,
-        couponCode: appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code || couponInput.trim().toUpperCase()) : undefined,
-      });
+      const couponCode = appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code || couponInput.trim().toUpperCase()) : undefined;
+      const targetCycle = isMidCycleActive ? activeSociety.subscriptionBilling : selectedCycle;
 
-      const updatedSociety = res.data?.data?.society;
-      const paymentType = res.data?.data?.paymentType;
-
-      if (updateActiveSocietySubscription) {
-        updateActiveSocietySubscription({
-          isSubscriptionPaid: true,
-          subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
-          subscriptionBilling: updatedSociety?.subscriptionBilling || selectedCycle,
-          subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt,
+      // 1. Instant Demo Simulation: Fast activation for testing without gateway
+      if (isDemo) {
+        const res = await paySocietySubscription(activeSociety.id, {
+          plan: selectedPlan,
+          billingCycle: targetCycle,
+          isDemoSimulation: true,
+          paymentMethod,
+          couponCode,
         });
+
+        const updatedSociety = res.data?.data?.society;
+        const paymentType = res.data?.data?.paymentType;
+
+        if (updateActiveSocietySubscription) {
+          updateActiveSocietySubscription({
+            isSubscriptionPaid: true,
+            subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
+            subscriptionBilling: updatedSociety?.subscriptionBilling || selectedCycle,
+            subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt,
+          });
+        }
+
+        setSuccessMsg(
+          paymentType === "upgrade"
+            ? `Plan successfully upgraded to ${chosenPlanMeta.fullName}! Your expiry date remains ${renewalMeta.formattedDate}.`
+            : `Demo Simulation: Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
+        );
+        setShowPayModal(false);
+        setShowRenewalSelector(false);
+
+        await loadMySocieties();
+        queryClient.invalidateQueries();
+        setLoading(false);
+        return;
       }
 
-      setSuccessMsg(
-        paymentType === "upgrade"
-          ? `Plan successfully upgraded to ${chosenPlanMeta.fullName}! Your expiry date remains ${renewalMeta.formattedDate}.`
-          : `Payment successful! Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
-      );
-      setShowPayModal(false);
-      setShowRenewalSelector(false);
+      // 2. Real Payment via Cashfree Gateway (UPI, Card, Netbanking)
+      const orderRes = await createSubscriptionOrder(activeSociety.id, {
+        plan: selectedPlan,
+        billingCycle: targetCycle,
+        units: activeSociety.totalUnits,
+        couponCode,
+      });
 
-      await loadMySocieties();
-      queryClient.invalidateQueries();
+      const order = orderRes.data?.data || orderRes.data;
+      if (!order?.paymentSessionId) {
+        throw new Error("Failed to generate Cashfree payment session");
+      }
+
+      await openCashfreeCheckout({
+        paymentSessionId: order.paymentSessionId,
+        mode: order.env || "sandbox",
+        onSuccess: async () => {
+          try {
+            setLoading(true);
+            const res = await paySocietySubscription(activeSociety.id, {
+              plan: selectedPlan,
+              billingCycle: targetCycle,
+              isDemoSimulation: false,
+              paymentMethod,
+              orderId: order.orderId || order.id,
+              cfOrderId: order.cfOrderId,
+              transactionId: order.orderId || order.id,
+              couponCode,
+            });
+
+            const updatedSociety = res.data?.data?.society;
+            const paymentType = res.data?.data?.paymentType;
+
+            if (updateActiveSocietySubscription) {
+              updateActiveSocietySubscription({
+                isSubscriptionPaid: true,
+                subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
+                subscriptionBilling: updatedSociety?.subscriptionBilling || selectedCycle,
+                subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt,
+              });
+            }
+
+            setSuccessMsg(
+              paymentType === "upgrade"
+                ? `Plan successfully upgraded to ${chosenPlanMeta.fullName}! Your expiry date remains ${renewalMeta.formattedDate}.`
+                : `Payment successful! Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
+            );
+            setShowPayModal(false);
+            setShowRenewalSelector(false);
+
+            await loadMySocieties();
+            queryClient.invalidateQueries();
+          } catch (verifyErr) {
+            setError(extractApiError(verifyErr, "Payment was cancelled or could not be verified by Cashfree."));
+          } finally {
+            setLoading(false);
+          }
+        },
+        onFailure: (err) => {
+          setError(err?.message || "Payment window closed or cancelled.");
+          setLoading(false);
+        },
+      });
     } catch (err) {
       setError(extractApiError(err, "Payment failed. Please try again."));
-    } finally {
       setLoading(false);
     }
   };
