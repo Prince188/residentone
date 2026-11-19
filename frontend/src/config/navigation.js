@@ -56,6 +56,11 @@ export const ADMIN_NAV_SECTIONS = [
         icon: "payments",
       },
       {
+        label: "Fund Collections",
+        to: "/admin/collections-analytics",
+        icon: "volunteer_activism",
+      },
+      {
         label: "Pending Approvals",
         to: "/admin/societies/pending",
         icon: "pending_actions",

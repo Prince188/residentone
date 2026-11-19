@@ -554,6 +554,18 @@ function SuperAdminDashboardView({ user }) {
     offlinePercent: 0,
   };
 
+  const collectionsOverview = stats.collectionsOverview || {
+    totalCollected: 0,
+    totalCount: 0,
+    onlineCollected: 0,
+    onlineCount: 0,
+    offlineCollected: 0,
+    offlineCount: 0,
+    onlinePercent: 0,
+    offlinePercent: 0,
+    activeDrivesCount: 0,
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 pb-16 animate-in fade-in duration-200">
       {/* Platform Header & Hero Banner */}
@@ -822,6 +834,130 @@ function SuperAdminDashboardView({ user }) {
               style={{ width: `${Math.max(maintenanceOverview.offlinePercent || 0, 2)}%` }}
               className="bg-amber-500 transition-all duration-500"
               title={`Offline: ${maintenanceOverview.offlinePercent}%`}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 1B. PLATFORM FUND COLLECTIONS OVERVIEW (Campaigns, Drives, Festivals)     */}
+      {/* ========================================================================= */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle subtitle="Aggregated festival, event, and welfare funds collected across all societies">
+            Platform Fund Collections
+          </SectionTitle>
+          <Link
+            to="/admin/collections-analytics"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-1.5 text-label-md font-bold text-indigo-700 no-underline transition-all hover:bg-indigo-500/10 hover:border-indigo-500/40 active:scale-95"
+          >
+            <span>View Full Breakdown</span>
+            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Card 1: Total Collections Raised */}
+          <div className="relative overflow-hidden rounded-3xl border-2 border-indigo-500/20 bg-gradient-to-br from-surface-container-lowest via-surface-container-lowest to-indigo-500/5 p-6 shadow-sm transition-all hover:border-indigo-500/50 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                Total Funds Raised
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">volunteer_activism</span>
+              </span>
+            </div>
+            <p className="mt-4 text-[38px] font-extrabold leading-none text-indigo-900 tracking-tight">
+              {statsQuery.isLoading ? "..." : `₹${(collectionsOverview.totalCollected || 0).toLocaleString("en-IN")}`}
+            </p>
+            <div className="mt-3 flex items-center justify-between text-label-sm text-on-surface-variant">
+              <span>{collectionsOverview.totalCount || 0} Receipts · {collectionsOverview.activeDrivesCount || 0} Active Drives</span>
+              <span className="inline-flex items-center gap-1 font-bold text-indigo-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                Live Campaigns
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: Online Collections (Cashfree Gateway) */}
+          <div className="relative overflow-hidden rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                  Online (Cashfree / UPI)
+                </span>
+                <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
+                  Gateway
+                </span>
+              </div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[24px]">account_balance</span>
+              </span>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <p className="text-[32px] font-extrabold leading-none text-on-surface tracking-tight">
+                {statsQuery.isLoading ? "..." : `₹${(collectionsOverview.onlineCollected || 0).toLocaleString("en-IN")}`}
+              </p>
+              <span className="text-label-sm font-bold text-primary">
+                ({collectionsOverview.onlinePercent || 0}%)
+              </span>
+            </div>
+            <p className="mt-3 text-label-sm text-on-surface-variant">
+              {collectionsOverview.onlineCount || 0} online payments auto-split to society accounts
+            </p>
+          </div>
+
+          {/* Card 3: Offline Collections (Cash / Handover) */}
+          <div className="relative overflow-hidden rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-all hover:border-amber-500/40 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-label-md font-bold uppercase tracking-wider text-on-surface-variant">
+                  Offline Handover
+                </span>
+                <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 uppercase">
+                  Cash
+                </span>
+              </div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
+                <span className="material-symbols-outlined text-[24px]">attach_money</span>
+              </span>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <p className="text-[32px] font-extrabold leading-none text-on-surface tracking-tight">
+                {statsQuery.isLoading ? "..." : `₹${(collectionsOverview.offlineCollected || 0).toLocaleString("en-IN")}`}
+              </p>
+              <span className="text-label-sm font-bold text-amber-800">
+                ({collectionsOverview.offlinePercent || 0}%)
+              </span>
+            </div>
+            <p className="mt-3 text-label-sm text-on-surface-variant">
+              {collectionsOverview.offlineCount || 0} cash entries recorded by campaign leads
+            </p>
+          </div>
+        </div>
+
+        {/* Visual Distribution Ratio Bar */}
+        <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 shadow-xs">
+          <div className="flex items-center justify-between text-label-sm font-bold">
+            <span className="flex items-center gap-1.5 text-primary">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+              Online Gateway: ₹{(collectionsOverview.onlineCollected || 0).toLocaleString("en-IN")} ({collectionsOverview.onlinePercent || 0}%)
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-800">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+              Offline Cash: ₹{(collectionsOverview.offlineCollected || 0).toLocaleString("en-IN")} ({collectionsOverview.offlinePercent || 0}%)
+            </span>
+          </div>
+          <div className="mt-2.5 flex h-3 w-full overflow-hidden rounded-full bg-surface-container-highest">
+            <div
+              style={{ width: `${Math.max(collectionsOverview.onlinePercent || 0, 2)}%` }}
+              className="bg-primary transition-all duration-500"
+              title={`Online: ${collectionsOverview.onlinePercent}%`}
+            />
+            <div
+              style={{ width: `${Math.max(collectionsOverview.offlinePercent || 0, 2)}%` }}
+              className="bg-amber-500 transition-all duration-500"
+              title={`Offline: ${collectionsOverview.offlinePercent}%`}
             />
           </div>
         </div>

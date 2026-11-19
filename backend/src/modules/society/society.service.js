@@ -66,6 +66,7 @@ class SocietyService {
     const { Complaint } = require("../complaint/complaint.model");
     const { Notification } = require("../notification/notification.model");
     const { MaintenancePayment } = require("../maintenance/maintenance.model");
+    const { Collection, CollectionPayment } = require("../collections/collection.model");
     const { OtpLog } = require("../otp/otp.model");
     const { SubscriptionPayment } = require("./subscription-payment.model");
 
@@ -120,6 +121,8 @@ class SocietyService {
       subscriptionTotalsAgg,
       monthlySubscriptionPaymentsRaw,
       paidSocietiesRaw,
+      collectionTotalsAgg,
+      activeCollectionDrivesCount,
     ] = await Promise.all([
       Society.countDocuments({}),
       Society.countDocuments({ status: "active" }),
@@ -293,6 +296,53 @@ class SocietyService {
         },
       ]).catch(() => []),
       SubscriptionPayment.distinct("societyId", { status: "paid" }).catch(() => []),
+      CollectionPayment.aggregate([
+        { $match: { gatewayStatus: { $in: ["paid", "cash"] }, isActive: { $ne: false }, isReversed: { $ne: true } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+            count: { $sum: 1 },
+            onlineTotal: {
+              $sum: {
+                $cond: [
+                  { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                  "$amount",
+                  0,
+                ],
+              },
+            },
+            onlineCount: {
+              $sum: {
+                $cond: [
+                  { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            offlineTotal: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                  "$amount",
+                  0,
+                ],
+              },
+            },
+            offlineCount: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]).catch(() => []),
+      Collection.countDocuments({ status: "active", isActive: true }).catch(() => 0),
     ]);
 
     const totalResidents = residentMemberships.length;
@@ -486,6 +536,16 @@ class SocietyService {
     const maintenanceOnlinePercent = totalMaintenancePayments > 0 ? Math.round((maintenanceOnlineAmount / totalMaintenancePayments) * 100) : 0;
     const maintenanceOfflinePercent = totalMaintenancePayments > 0 ? Math.round((maintenanceOfflineAmount / totalMaintenancePayments) * 100) : 0;
 
+    const collStats = collectionTotalsAgg?.[0] || {};
+    const totalCollectionsAmount = collStats.total || 0;
+    const collectionsOnlineAmount = collStats.onlineTotal || 0;
+    const collectionsOnlineCount = collStats.onlineCount || 0;
+    const collectionsOfflineAmount = collStats.offlineTotal || 0;
+    const collectionsOfflineCount = collStats.offlineCount || 0;
+    const collectionsTotalCount = collStats.count || 0;
+    const collectionsOnlinePercent = totalCollectionsAmount > 0 ? Math.round((collectionsOnlineAmount / totalCollectionsAmount) * 100) : 0;
+    const collectionsOfflinePercent = totalCollectionsAmount > 0 ? Math.round((collectionsOfflineAmount / totalCollectionsAmount) * 100) : 0;
+
     // Build Combined Recent Platform Activity Feed
     const recentActivity = [];
 
@@ -540,6 +600,18 @@ class SocietyService {
         offlineCount: maintenanceOfflineCount,
         onlinePercent: maintenanceOnlinePercent,
         offlinePercent: maintenanceOfflinePercent,
+      },
+
+      collectionsOverview: {
+        totalCollected: totalCollectionsAmount,
+        totalCount: collectionsTotalCount,
+        onlineCollected: collectionsOnlineAmount,
+        onlineCount: collectionsOnlineCount,
+        offlineCollected: collectionsOfflineAmount,
+        offlineCount: collectionsOfflineCount,
+        onlinePercent: collectionsOnlinePercent,
+        offlinePercent: collectionsOfflinePercent,
+        activeDrivesCount: activeCollectionDrivesCount || 0,
       },
 
       overview: {
@@ -2110,6 +2182,411 @@ class SocietyService {
       bySociety,
       monthlyTrend,
       transactions,
+      pagination: {
+        page,
+        limit,
+        total: txTotal,
+        totalPages: Math.ceil(txTotal / limit),
+      },
+    };
+  }
+  async getCollectionsAnalytics(query = {}) {
+    const { Collection, CollectionPayment } = require("../collections/collection.model");
+    const { Society } = require("./society.model");
+
+    const match = {
+      gatewayStatus: { $in: ["paid", "cash"] },
+      isActive: { $ne: false },
+      isReversed: { $ne: true },
+    };
+
+    if (query.societyId) {
+      const mongoose = require("mongoose");
+      match.societyId = new mongoose.Types.ObjectId(query.societyId);
+    }
+
+    if (query.collectionId) {
+      const mongoose = require("mongoose");
+      match.collectionId = new mongoose.Types.ObjectId(query.collectionId);
+    }
+
+    if (query.method === "online") {
+      match.$or = [
+        { gatewayStatus: "paid" },
+        { paymentGateway: { $in: ["cashfree", "razorpay"] } },
+      ];
+    } else if (query.method === "offline" || query.method === "cash") {
+      match.gatewayStatus = { $ne: "paid" };
+      match.paymentGateway = { $nin: ["cashfree", "razorpay"] };
+    }
+
+    if (query.year) {
+      const year = Number(query.year);
+      const startOfYear = new Date(year, 0, 1);
+      const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+      match.paidOn = { $gte: startOfYear, $lte: endOfYear };
+    }
+
+    if (query.month && query.year) {
+      const year = Number(query.year);
+      const month = Number(query.month) - 1;
+      const startOfMonth = new Date(year, month, 1);
+      const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      match.paidOn = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+
+    // 1. Overall Summary
+    const summaryAgg = await CollectionPayment.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amount" },
+          totalCount: { $sum: 1 },
+          onlineAmount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          onlineCount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                1,
+                0,
+              ],
+            },
+          },
+          offlineAmount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          offlineCount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const activeDrivesCount = await Collection.countDocuments({
+      status: "active",
+      isActive: true,
+      ...(query.societyId ? { societyId: query.societyId } : {}),
+    }).catch(() => 0);
+
+    const s = summaryAgg[0] || {
+      totalAmount: 0,
+      totalCount: 0,
+      onlineAmount: 0,
+      onlineCount: 0,
+      offlineAmount: 0,
+      offlineCount: 0,
+    };
+
+    const summary = {
+      totalAmount: s.totalAmount || 0,
+      totalCount: s.totalCount || 0,
+      onlineAmount: s.onlineAmount || 0,
+      onlineCount: s.onlineCount || 0,
+      offlineAmount: s.offlineAmount || 0,
+      offlineCount: s.offlineCount || 0,
+      onlinePercent: s.totalAmount > 0 ? Math.round((s.onlineAmount / s.totalAmount) * 100) : 0,
+      offlinePercent: s.totalAmount > 0 ? Math.round((s.offlineAmount / s.totalAmount) * 100) : 0,
+      avgAmount: s.totalCount > 0 ? Math.round(s.totalAmount / s.totalCount) : 0,
+      activeDrivesCount,
+    };
+
+    // 2. Collection Campaigns Breakdown
+    const byCollectionAgg = await CollectionPayment.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: "$collectionId",
+          societyId: { $first: "$societyId" },
+          totalAmount: { $sum: "$amount" },
+          totalCount: { $sum: 1 },
+          onlineAmount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          onlineCount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                1,
+                0,
+              ],
+            },
+          },
+          offlineAmount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          offlineCount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                1,
+                0,
+              ],
+            },
+          },
+          lastPaymentDate: { $max: "$paidOn" },
+        },
+      },
+      { $sort: { totalAmount: -1 } },
+    ]);
+
+    const collectionIds = byCollectionAgg.map((b) => b._id).filter(Boolean);
+    const collectionsList = await Collection.find(
+      { _id: { $in: collectionIds } }
+    ).populate("societyId", "name city").lean();
+    const colMap = new Map(collectionsList.map((col) => [String(col._id), col]));
+
+    const byCollection = byCollectionAgg.map((b) => {
+      const col = colMap.get(String(b._id)) || {};
+      const targetAmount = col.targetAmount || 0;
+      const percentTarget = targetAmount > 0 ? Math.min(100, Math.round((b.totalAmount / targetAmount) * 100)) : 100;
+      return {
+        collectionId: b._id,
+        title: col.title || "Collection Drive",
+        category: col.category || "festival",
+        targetAmount: col.targetAmount || 0,
+        amountPerUnit: col.amount || 0,
+        dueDate: col.dueDate,
+        status: col.status || "active",
+        societyId: b.societyId || col.societyId?._id,
+        societyName: col.societyId?.name || "Society",
+        societyCity: col.societyId?.city || "",
+        totalAmount: b.totalAmount,
+        totalCount: b.totalCount,
+        onlineAmount: b.onlineAmount,
+        onlineCount: b.onlineCount,
+        offlineAmount: b.offlineAmount,
+        offlineCount: b.offlineCount,
+        onlinePercent: b.totalAmount > 0 ? Math.round((b.onlineAmount / b.totalAmount) * 100) : 0,
+        percentTarget,
+        lastPaymentDate: b.lastPaymentDate,
+      };
+    });
+
+    // 3. Society-wise Breakdown
+    const bySocietyAgg = await CollectionPayment.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: "$societyId",
+          totalAmount: { $sum: "$amount" },
+          totalCount: { $sum: 1 },
+          onlineAmount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          onlineCount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                1,
+                0,
+              ],
+            },
+          },
+          offlineAmount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          offlineCount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                1,
+                0,
+              ],
+            },
+          },
+          lastPaymentDate: { $max: "$paidOn" },
+        },
+      },
+      { $sort: { totalAmount: -1 } },
+    ]);
+
+    const societyIds = bySocietyAgg.map((b) => b._id).filter(Boolean);
+    const societiesList = await Society.find(
+      { _id: { $in: societyIds } },
+      "name city state totalUnits status"
+    ).lean();
+    const socMap = new Map(societiesList.map((soc) => [String(soc._id), soc]));
+
+    const bySociety = bySocietyAgg.map((b) => {
+      const soc = socMap.get(String(b._id)) || {};
+      return {
+        societyId: b._id,
+        name: soc.name || "Unknown Society",
+        city: soc.city || "N/A",
+        state: soc.state || "",
+        totalUnits: soc.totalUnits || 0,
+        status: soc.status || "active",
+        totalAmount: b.totalAmount,
+        totalCount: b.totalCount,
+        onlineAmount: b.onlineAmount,
+        onlineCount: b.onlineCount,
+        offlineAmount: b.offlineAmount,
+        offlineCount: b.offlineCount,
+        onlinePercent: b.totalAmount > 0 ? Math.round((b.onlineAmount / b.totalAmount) * 100) : 0,
+        lastPaymentDate: b.lastPaymentDate,
+      };
+    });
+
+    // 4. Monthly Trend (last 12 months)
+    const now = new Date();
+    const monthlyTrend = [];
+    const monthlyAgg = await CollectionPayment.aggregate([
+      { $match: { gatewayStatus: { $in: ["paid", "cash"] }, isActive: { $ne: false }, isReversed: { $ne: true } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: { $ifNull: ["$paidOn", "$createdAt"] } },
+            month: { $month: { $ifNull: ["$paidOn", "$createdAt"] } },
+          },
+          total: { $sum: "$amount" },
+          online: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$gatewayStatus", "paid"] }, { $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          offline: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$gatewayStatus", "paid"] }, { $not: [{ $in: ["$paymentGateway", ["cashfree", "razorpay"]] }] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const monthMap = new Map(
+      monthlyAgg.map((m) => [`${m._id.year}-${m._id.month}`, m])
+    );
+
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yr = d.getFullYear();
+      const mo = d.getMonth() + 1;
+      const key = `${yr}-${mo}`;
+      const rec = monthMap.get(key) || { total: 0, online: 0, offline: 0, count: 0 };
+      const label = d.toLocaleDateString("en-US", { month: "short" }) + " '" + String(yr).slice(-2);
+      monthlyTrend.push({
+        year: yr,
+        month: mo,
+        label,
+        total: rec.total || 0,
+        online: rec.online || 0,
+        offline: rec.offline || 0,
+        count: rec.count || 0,
+      });
+    }
+
+    // 5. Paginated Transactions Log
+    const page = Math.max(1, parseInt(query.page, 10) || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    let txQuery = CollectionPayment.find(match)
+      .populate("societyId", "name city state")
+      .populate("collectionId", "title category targetAmount status")
+      .populate("unitId", "label block ownerName ownerPhone")
+      .populate("recordedBy", "name phone")
+      .sort({ paidOn: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const [transactionsRaw, txTotal, allCollectionsList] = await Promise.all([
+      txQuery,
+      CollectionPayment.countDocuments(match),
+      Collection.find({ isActive: true }, "title category status societyId").lean().catch(() => []),
+    ]);
+
+    const transactions = transactionsRaw.map((tx) => {
+      const isOnline =
+        tx.gatewayStatus === "paid" ||
+        ["cashfree", "razorpay"].includes(tx.paymentGateway);
+      return {
+        _id: tx._id,
+        receiptNo: tx.receiptNo || "N/A",
+        collectionId: tx.collectionId?._id,
+        collectionTitle: tx.collectionId?.title || "Fund Collection",
+        collectionCategory: tx.collectionId?.category || "other",
+        societyId: tx.societyId?._id,
+        societyName: tx.societyId?.name || "Society",
+        societyCity: tx.societyId?.city || "",
+        unitId: tx.unitId?._id,
+        unitLabel: tx.unitId?.label || "Unit",
+        unitBlock: tx.unitId?.block || "",
+        residentName: tx.unitId?.ownerName || "Resident",
+        residentPhone: tx.unitId?.ownerPhone || "",
+        amount: tx.amount,
+        fee: tx.fee || 0,
+        totalAmount: tx.totalAmount || tx.amount,
+        isOnline,
+        paymentGateway: isOnline ? (tx.paymentGateway === "cashfree" ? "Cashfree" : "Online Gateway") : "Cash",
+        method: tx.method || (isOnline ? "Online" : "Cash"),
+        paidOn: tx.paidOn || tx.createdAt,
+        gatewayStatus: tx.gatewayStatus,
+        recordedByName: tx.recordedByName || tx.recordedBy?.name || "Admin",
+      };
+    });
+
+    return {
+      summary,
+      byCollection,
+      bySociety,
+      monthlyTrend,
+      transactions,
+      allCollections: allCollectionsList,
       pagination: {
         page,
         limit,

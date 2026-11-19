@@ -150,6 +150,9 @@ router.get("/stats", authenticate, requirePlatformAdmin, (req, res, next) =>
 router.get("/maintenance-analytics", authenticate, requirePlatformAdmin, (req, res, next) =>
   societyController.getMaintenanceAnalytics(req, res, next)
 );
+router.get("/collections-analytics", authenticate, requirePlatformAdmin, (req, res, next) =>
+  societyController.getCollectionsAnalytics(req, res, next)
+);
 router.get("/analytics", authenticate, requirePlatformAdmin, (req, res, next) =>
   societyController.historicalAnalytics(req, res, next)
 );

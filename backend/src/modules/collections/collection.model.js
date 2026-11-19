@@ -227,4 +227,10 @@ tenantPlugin(collectionPaymentSchema);
 const Collection = mongoose.model("Collection", collectionSchema);
 const CollectionPayment = mongoose.model("CollectionPayment", collectionPaymentSchema);
 
-module.exports = { Collection, CollectionPayment, COLLECTION_CATEGORIES, COLLECTION_STATUSES };
+module.exports = {
+  Collection,
+  CollectionPayment,
+  CollectionUnitPayment: CollectionPayment,
+  COLLECTION_CATEGORIES,
+  COLLECTION_STATUSES,
+};

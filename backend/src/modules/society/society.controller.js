@@ -66,6 +66,15 @@ class SocietyController {
     }
   }
 
+  async getCollectionsAnalytics(req, res, next) {
+    try {
+      const data = await societyService.getCollectionsAnalytics(req.query);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async stats(req, res, next) {
     try {
       const stats = await societyService.stats();

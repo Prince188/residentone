@@ -22,6 +22,7 @@ import AdminCreateSocietyPage from "./features/admin/AdminCreateSocietyPage";
 import AdminSocietyDetailPage from "./features/admin/AdminSocietyDetailPage";
 import AdminAnalyticsPage from "./features/admin/AdminAnalyticsPage";
 import AdminMaintenanceAnalyticsPage from "./features/admin/AdminMaintenanceAnalyticsPage";
+import AdminCollectionsAnalyticsPage from "./features/admin/AdminCollectionsAnalyticsPage";
 import AdminUsersPage from "./features/admin/AdminUsersPage";
 import AdminReferralsPage from "./features/admin/AdminReferralsPage";
 import AdminCouponsPage from "./features/admin/AdminCouponsPage";
@@ -208,6 +209,10 @@ function App() {
               <Route
                 path="/admin/maintenance-analytics"
                 element={<SuperAdminRoute><AdminMaintenanceAnalyticsPage /></SuperAdminRoute>}
+              />
+              <Route
+                path="/admin/collections-analytics"
+                element={<SuperAdminRoute><AdminCollectionsAnalyticsPage /></SuperAdminRoute>}
               />
               <Route
                 path="/admin/users"
