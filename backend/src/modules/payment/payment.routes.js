@@ -11,6 +11,11 @@ router.all("/cashfree-webhook", (req, res, next) => {
   return paymentController.handleCashfreeWebhook(req, res, next);
 });
 
+// Render Cashfree checkout for mobile in-app browsers
+router.get("/cashfree-checkout", (req, res, next) =>
+  paymentController.renderCashfreeCheckout(req, res, next)
+);
+
 // Check order status
 router.get("/orders/:orderId/status", authenticate, (req, res, next) =>
   paymentController.checkOrderStatus(req, res, next)

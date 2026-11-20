@@ -51,6 +51,85 @@ class PaymentController {
       next(error);
     }
   }
+
+  /**
+   * Render HTML form redirect for Mobile in-app browser checkout (v3 API)
+   */
+  renderCashfreeCheckout(req, res) {
+    const sessionId = req.query.sessionId || req.query.session_id;
+    const env = req.query.env || "sandbox";
+
+    if (!sessionId) {
+      return res.status(400).send("<h3>Missing payment session ID</h3>");
+    }
+
+    const targetUrl =
+      env === "production"
+        ? "https://api.cashfree.com/pg/view/sessions/checkout"
+        : "https://sandbox.cashfree.com/pg/view/sessions/checkout";
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResidentOne - Secure Checkout</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .card {
+      text-align: center;
+      padding: 32px 24px;
+      max-width: 380px;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3.5px solid #e2e8f0;
+      border-top-color: #006948;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 18px auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .title {
+      color: #0f172a;
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .desc {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body onload="document.getElementById('cf_form').submit()">
+  <form id="cf_form" method="POST" action="${targetUrl}">
+    <input type="hidden" name="payment_session_id" value="${sessionId}">
+  </form>
+  <div class="card">
+    <div class="spinner"></div>
+    <div class="title">Securing Payment Gateway...</div>
+    <div class="desc">Connecting you to Cashfree checkout. Please wait a moment.</div>
+  </div>
+</body>
+</html>`;
+
+    res.removeHeader("Content-Security-Policy");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(html);
+  }
 }
 
 module.exports = new PaymentController();
