@@ -1,7 +1,7 @@
 import { useState } from "react";
 import FormField from "../../components/form/FormField";
 import PhoneInput from "../../components/ui/PhoneInput";
-import { uploadSocietyLogo } from "../../lib/societies";
+import { uploadSocietyLogo, calculateSocietySubscriptionAmount } from "../../lib/societies";
 import { validateCouponCode } from "../../lib/coupons";
 import { validateReferralCode } from "../../lib/referrals";
 
@@ -13,26 +13,19 @@ export const SOCIETY_TYPE_OPTIONS = [
 
 export const PLAN_OPTIONS = [
   {
-    id: "starter",
-    name: "Basic (Starter)",
-    rate: 6,
-    badge: "Cost Effective",
-    features: ["Gate & visitor passes", "Resident directory", "Complaints ticketing"],
-  },
-  {
-    id: "professional",
-    name: "Standard (Professional)",
-    rate: 10,
+    id: "standard",
+    name: "ResidentOne All-in-One",
+    rate: 2,
     popular: true,
-    badge: "Most Popular",
-    features: ["Automated maintenance dues", "Online payments", "Amenity booking", "Full financials"],
-  },
-  {
-    id: "enterprise",
-    name: "Premium (Enterprise)",
-    rate: 15,
-    badge: "Full Automation",
-    features: ["Multi-wing hierarchies", "Granular role matrix", "Priority SLA support", "Custom workflows"],
+    badge: "All Features Included",
+    features: [
+      "Gate & visitor passes",
+      "Automated maintenance billing & dues",
+      "Online UPI & card payment collection",
+      "Resident directories & role hierarchy",
+      "Complaints helpdesk & notice board",
+      "Amenity booking & opinion polls",
+    ],
   },
 ];
 
@@ -126,8 +119,8 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
     }
   };
 
-  const selectedPlan = values.subscriptionPlan || "starter";
-  const selectedBilling = values.subscriptionBilling || "monthly";
+  const selectedPlan = values.subscriptionPlan || "standard";
+  const selectedBilling = ["semi_annual", "half_yearly", "6months"].includes(values.subscriptionBilling) ? "semi_annual" : "yearly";
   const rawUnits = Number(values.totalUnits) || 0;
   const activePlanMeta = PLAN_OPTIONS.find((p) => p.id === selectedPlan) || PLAN_OPTIONS[0];
   const multiplier = selectedBilling === "yearly" ? 12 : 1;
@@ -306,105 +299,112 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
       )}
 
       {/* Subscription Plan Selection */}
-      <div className="pt-2 border-t border-outline-variant/30">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+      <div className="pt-2 border-t border-outline-variant/30 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1">
           <div>
             <p className="text-[12px] font-bold uppercase tracking-wider text-primary">
-              Choose Subscription Plan
+              Choose Subscription Duration
             </p>
             <p className="text-body-xs text-on-surface-variant">
-              Pricing scales transparently with your total units
+              ResidentOne All-in-One: Up to 200 units included · ₹2/unit/mo overage above 200 units
             </p>
           </div>
-          <div className="inline-flex rounded-lg bg-surface-container p-0.5 border border-outline-variant/40">
-            <button
-              type="button"
-              onClick={() => onChange("subscriptionBilling", "monthly")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                selectedBilling === "monthly"
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => onChange("subscriptionBilling", "yearly")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                selectedBilling === "yearly"
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              Yearly (12 mo)
-            </button>
-          </div>
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+            <span className="material-symbols-outlined text-[14px]">verified</span>
+            All Features Unlocked
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {PLAN_OPTIONS.map((plan) => {
-            const isSelected = selectedPlan === plan.id;
-            const cost = rawUnits * plan.rate * multiplier;
+        {/* 2 Duration Options: 6 Months & 12 Months */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* 6 Months */}
+          {(() => {
+            const isSel = selectedBilling === "semi_annual";
+            const calc = calculateSocietySubscriptionAmount(rawUnits, "semi_annual");
             return (
               <div
-                key={plan.id}
-                onClick={() => !disabled && onChange("subscriptionPlan", plan.id)}
+                onClick={() => !disabled && onChange("subscriptionBilling", "semi_annual")}
                 className={`relative rounded-xl p-3.5 cursor-pointer border-2 transition-all flex flex-col justify-between ${
-                  isSelected
+                  isSel
                     ? "border-primary bg-primary/5 shadow-sm"
                     : "border-outline-variant/50 bg-surface-container-low hover:border-outline hover:bg-surface-container"
                 }`}
               >
-                {plan.popular && (
-                  <span className="absolute -top-2.5 right-3 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                    POPULAR
-                  </span>
-                )}
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-body-sm text-on-surface">
-                      {plan.name}
+                    <span className={`font-bold text-body-sm ${isSel ? "text-primary" : "text-on-surface"}`}>
+                      6 Months (Semi-Annual)
                     </span>
                     <input
                       type="radio"
-                      name="subscriptionPlanRadio"
-                      checked={isSelected}
-                      onChange={() => onChange("subscriptionPlan", plan.id)}
+                      name="subscriptionBillingRadio"
+                      checked={isSel}
+                      onChange={() => onChange("subscriptionBilling", "semi_annual")}
                       className="accent-primary h-4 w-4"
                     />
                   </div>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="text-title-lg font-black text-on-surface">
-                      ₹{plan.rate}
+                      ₹{calc.totalBase.toLocaleString("en-IN")}
                     </span>
-                    <span className="text-[11px] text-on-surface-variant">
-                      / unit / mo
-                    </span>
+                    <span className="text-[11px] text-on-surface-variant">/ 6 mos</span>
                   </div>
-                  <ul className="mt-2.5 space-y-1 text-[11px] text-on-surface-variant">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[14px] text-emerald-600 font-bold shrink-0">
-                          check
-                        </span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-[11px] text-on-surface-variant mt-1">₹350/mo effective base rate</p>
                 </div>
-
-                {rawUnits > 0 && (
-                  <div className="mt-3 pt-2 border-t border-outline-variant/30 text-[11px] text-on-surface-variant flex justify-between items-center font-medium">
-                    <span>Est. {selectedBilling}:</span>
-                    <span className="font-bold text-on-surface">
-                      ₹{cost.toLocaleString("en-IN")}
-                    </span>
+                {rawUnits > 200 && (
+                  <div className="mt-2 pt-2 border-t border-outline-variant/30 text-[11px] text-amber-800 font-medium">
+                    +{calc.extraUnits} extra units @ ₹2/unit/mo (+₹{calc.overageAmount.toLocaleString("en-IN")})
                   </div>
                 )}
               </div>
             );
-          })}
+          })()}
+
+          {/* 12 Months */}
+          {(() => {
+            const isSel = selectedBilling === "yearly";
+            const calc = calculateSocietySubscriptionAmount(rawUnits, "yearly");
+            return (
+              <div
+                onClick={() => !disabled && onChange("subscriptionBilling", "yearly")}
+                className={`relative rounded-xl p-3.5 cursor-pointer border-2 transition-all flex flex-col justify-between ${
+                  isSel
+                    ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                    : "border-outline-variant/50 bg-surface-container-low hover:border-outline hover:bg-surface-container"
+                }`}
+              >
+                <span className="absolute -top-2.5 right-3 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                  SAVE ₹200 · BEST VALUE
+                </span>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-body-sm text-primary">
+                      12 Months (Annual)
+                    </span>
+                    <input
+                      type="radio"
+                      name="subscriptionBillingRadio"
+                      checked={isSel}
+                      onChange={() => onChange("subscriptionBilling", "yearly")}
+                      className="accent-primary h-4 w-4"
+                    />
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-title-lg font-black text-primary">
+                      ₹{calc.totalBase.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[11px] text-on-surface-variant">/ 12 mos</span>
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant mt-1">₹333/mo effective base rate</p>
+                </div>
+                {rawUnits > 200 && (
+                  <div className="mt-2 pt-2 border-t border-outline-variant/30 text-[11px] text-amber-800 font-medium">
+                    +{calc.extraUnits} extra units @ ₹2/unit/mo (+₹{calc.overageAmount.toLocaleString("en-IN")})
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Live calculated cost preview */}
@@ -415,17 +415,24 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
                 calculate
               </span>
               <span className="text-body-xs text-on-surface">
-                Selected: <strong className="capitalize">{activePlanMeta.name}</strong> ({rawUnits} units × ₹{activePlanMeta.rate})
+                {rawUnits <= 200 ? (
+                  <>Base plan includes up to 200 units (Your society: <strong>{rawUnits} units</strong>)</>
+                ) : (
+                  <><strong>{rawUnits} units</strong>: 200 base + {rawUnits - 200} extra units @ ₹2/unit/month</>
+                )}
               </span>
             </div>
             <div className="text-right">
-              <span className="text-body-xs text-on-surface-variant block">Total ({selectedBilling}):</span>
-              <span className="text-title-sm font-bold text-primary">
-                ₹{estimatedCost.toLocaleString("en-IN")}
+              <span className="text-body-sm font-bold text-primary">
+                Payable: ₹{calculateSocietySubscriptionAmount(rawUnits, selectedBilling).totalBase.toLocaleString("en-IN")}
+              </span>
+              <span className="text-[11px] text-on-surface-variant ml-1 font-medium">
+                ({selectedBilling === "semi_annual" ? "6 Months" : "12 Months"})
               </span>
             </div>
           </div>
         )}
+      </div>
 
         {/* Pay After Approval Trust Banner */}
         <div className="mt-3 p-3 rounded-xl bg-blue-50/80 border border-blue-200/80 flex items-start gap-2.5">
@@ -590,8 +597,8 @@ export function toApiPayload(values) {
     city: values.city.trim(),
     state: values.state.trim(),
     pincode: values.pincode,
-    subscriptionPlan: values.subscriptionPlan || "starter",
-    subscriptionBilling: values.subscriptionBilling || "monthly",
+    subscriptionPlan: values.subscriptionPlan || "standard",
+    subscriptionBilling: values.subscriptionBilling || "yearly",
     contactName: values.contactName.trim(),
     contactMobile: values.contactMobile.trim(),
     contactEmail: values.contactEmail.trim().toLowerCase(),
@@ -616,8 +623,8 @@ export const EMPTY_SOCIETY_FORM = {
   state: "",
   pincode: "",
   totalUnits: "",
-  subscriptionPlan: "starter",
-  subscriptionBilling: "monthly",
+  subscriptionPlan: "standard",
+  subscriptionBilling: "yearly",
   contactName: "",
   contactMobile: "",
   contactEmail: "",

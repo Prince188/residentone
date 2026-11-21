@@ -357,13 +357,35 @@ class SocietyService {
         ? 100
         : 0;
 
-    // 3 Subscription Plans Breakdown (Starter/Basic, Professional/Standard, Enterprise/Premium)
+    // Subscription Plans & Billing Breakdown
     const plansBreakdown = {
       standard: {
         plan: "standard",
         label: "Society All-In-One",
         rate: "₹2,100 / 6m · ₹4,000 / 12m",
-        description: "Complete society management, automated billing, gates, notices & accounts",
+        description: "Complete society management, automated billing, gates, notices & accounts (up to 200 units, ₹2/unit/mo overage)",
+        societiesCount: 0,
+        activeSocietiesCount: 0,
+        totalUnits: 0,
+        estimatedMRR: 0,
+        societies: [],
+      },
+      standard_semi_annual: {
+        plan: "standard_semi_annual",
+        label: "6 Months Plan",
+        rate: "₹2,100 / 6 mos",
+        description: "Semi-annual billing cycle (₹350/mo up to 200 units + ₹2/unit/mo overage)",
+        societiesCount: 0,
+        activeSocietiesCount: 0,
+        totalUnits: 0,
+        estimatedMRR: 0,
+        societies: [],
+      },
+      standard_yearly: {
+        plan: "standard_yearly",
+        label: "12 Months (Annual)",
+        rate: "₹4,000 / 12 mos",
+        description: "Annual billing cycle (₹333/mo up to 200 units + ₹2/unit/mo overage)",
         societiesCount: 0,
         activeSocietiesCount: 0,
         totalUnits: 0,
@@ -372,9 +394,9 @@ class SocietyService {
       },
       starter: {
         plan: "starter",
-        label: "Basic",
+        label: "Basic (Legacy)",
         rate: PLAN_RATES.starter || 6,
-        description: "Essential billing & resident directories",
+        description: "Legacy tier - Essential billing & resident directories",
         societiesCount: 0,
         activeSocietiesCount: 0,
         totalUnits: 0,
@@ -383,9 +405,9 @@ class SocietyService {
       },
       professional: {
         plan: "professional",
-        label: "Standard",
+        label: "Standard (Legacy)",
         rate: PLAN_RATES.professional || 10,
-        description: "Automated gate security & amenity booking",
+        description: "Legacy tier - Automated gate security & amenity booking",
         societiesCount: 0,
         activeSocietiesCount: 0,
         totalUnits: 0,
@@ -394,9 +416,9 @@ class SocietyService {
       },
       enterprise: {
         plan: "enterprise",
-        label: "Premium",
+        label: "Premium (Legacy)",
         rate: PLAN_RATES.enterprise || 15,
-        description: "Deep compliance, ballots, vaults & dedicated manager",
+        description: "Legacy tier - Deep compliance, ballots, vaults & dedicated manager",
         societiesCount: 0,
         activeSocietiesCount: 0,
         totalUnits: 0,
@@ -416,11 +438,47 @@ class SocietyService {
 
     // Only populate plansBreakdown and calculate subscription MRR for paid societies
     paidSocietiesOnly.forEach((soc) => {
-      const planKey = plansBreakdown[soc.subscriptionPlan] ? soc.subscriptionPlan : "starter";
+      const rawPlan = soc.subscriptionPlan || "standard";
+      const planKey = plansBreakdown[rawPlan] ? rawPlan : "standard";
       const planInfo = plansBreakdown[planKey];
       const units = soc.totalUnits || 0;
-      const rate = planInfo.rate;
-      const monthlyFee = units * rate;
+      const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(soc.subscriptionBilling);
+
+      let monthlyFee = 0;
+      if (planKey === "standard") {
+        const months = isSemiAnnual ? 6 : 12;
+        const basePrice = isSemiAnnual ? 2100 : 4000;
+        const extraUnits = Math.max(0, units - 200);
+        const overage = extraUnits * 2 * months;
+        monthlyFee = Math.round((basePrice + overage) / months);
+
+        // Also track into specific duration breakdown
+        const durationKey = isSemiAnnual ? "standard_semi_annual" : "standard_yearly";
+        const durationInfo = plansBreakdown[durationKey];
+        if (durationInfo) {
+          durationInfo.societiesCount += 1;
+          durationInfo.totalUnits += units;
+          if (soc.status === "active") {
+            durationInfo.activeSocietiesCount += 1;
+            durationInfo.estimatedMRR += monthlyFee;
+          }
+          durationInfo.societies.push({
+            _id: soc._id,
+            name: soc.name,
+            city: soc.city,
+            status: soc.status,
+            totalUnits: units,
+            monthlyFee,
+            subscriptionBilling: isSemiAnnual ? "semi_annual" : "yearly",
+            subscriptionStartedAt: soc.subscriptionStartedAt,
+            subscriptionExpiresAt: soc.subscriptionExpiresAt,
+            createdAt: soc.createdAt,
+          });
+        }
+      } else {
+        const rate = typeof planInfo.rate === "number" ? planInfo.rate : (PLAN_RATES[planKey] || 6);
+        monthlyFee = units * rate;
+      }
 
       planInfo.societiesCount += 1;
       planInfo.totalUnits += units;
@@ -430,19 +488,19 @@ class SocietyService {
         calculatedMRR += monthlyFee;
       }
 
-        planInfo.societies.push({
-          _id: soc._id,
-          name: soc.name,
-          city: soc.city,
-          status: soc.status,
-          totalUnits: units,
-          monthlyFee,
-          subscriptionBilling: soc.subscriptionBilling || "monthly",
-          subscriptionStartedAt: soc.subscriptionStartedAt,
-          subscriptionExpiresAt: soc.subscriptionExpiresAt,
-          createdAt: soc.createdAt,
-        });
+      planInfo.societies.push({
+        _id: soc._id,
+        name: soc.name,
+        city: soc.city,
+        status: soc.status,
+        totalUnits: units,
+        monthlyFee,
+        subscriptionBilling: soc.subscriptionBilling || (isSemiAnnual ? "semi_annual" : "yearly"),
+        subscriptionStartedAt: soc.subscriptionStartedAt,
+        subscriptionExpiresAt: soc.subscriptionExpiresAt,
+        createdAt: soc.createdAt,
       });
+    });
 
     // Real dynamic calculation of expiring subscriptions within 14 days (only for active paid societies)
     const expiringSubscriptions = paidSocietiesOnly.filter((soc) => {
@@ -452,16 +510,11 @@ class SocietyService {
         renewalDate = new Date(soc.subscriptionExpiresAt);
       } else {
         const started = soc.subscriptionStartedAt ? new Date(soc.subscriptionStartedAt) : new Date(soc.createdAt);
-        const isYearly = soc.subscriptionBilling === "yearly";
+        const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(soc.subscriptionBilling);
+        const months = isSemiAnnual ? 6 : 12;
         renewalDate = new Date(started);
-        if (isYearly) {
-          while (renewalDate <= now) {
-            renewalDate.setFullYear(renewalDate.getFullYear() + 1);
-          }
-        } else {
-          while (renewalDate <= now) {
-            renewalDate.setMonth(renewalDate.getMonth() + 1);
-          }
+        while (renewalDate <= now) {
+          renewalDate.setMonth(renewalDate.getMonth() + months);
         }
       }
       const daysToRenewal = (renewalDate - now) / (1000 * 60 * 60 * 24);

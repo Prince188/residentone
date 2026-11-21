@@ -44,16 +44,67 @@ export const SOCIETY_STATUS_LABELS = {
 };
 
 export const SUBSCRIPTION_PLAN_LABELS = {
+  standard: "All-in-One",
+  standard_semi_annual: "6 Months Plan",
+  standard_yearly: "12 Months Plan",
   starter: "Basic",
   professional: "Standard",
   enterprise: "Premium",
 };
 
 export const SUBSCRIPTION_PLAN_RATES = {
+  standard: 2,
   starter: 6,
   professional: 10,
   enterprise: 15,
 };
+
+export const BILLING_DURATIONS = [
+  {
+    id: "semi_annual",
+    name: "6 Months",
+    subTitle: "Semi-Annual access",
+    months: 6,
+    basePrice: 2100,
+    perMonthRate: 350,
+    badge: null,
+  },
+  {
+    id: "yearly",
+    name: "12 Months",
+    subTitle: "Annual uninterrupted",
+    months: 12,
+    basePrice: 4000,
+    perMonthRate: 333,
+    badge: "SAVE ₹200",
+    popular: true,
+  },
+];
+
+export function calculateSocietySubscriptionAmount(unitsCount = 1, billingCycle = "yearly") {
+  const units = Math.max(1, Number(unitsCount) || 1);
+  const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(billingCycle);
+  const months = isSemiAnnual ? 6 : 12;
+  const basePrice = isSemiAnnual ? 2100 : 4000;
+  const baseUnitsIncluded = 200;
+  const extraUnits = Math.max(0, units - baseUnitsIncluded);
+  const overageRatePerUnitMonth = 2;
+  const overageAmount = extraUnits * overageRatePerUnitMonth * months;
+  const totalBase = basePrice + overageAmount;
+
+  return {
+    isSemiAnnual,
+    months,
+    basePrice,
+    baseUnitsIncluded,
+    units,
+    extraUnits,
+    overageRatePerUnitMonth,
+    overageAmount,
+    totalBase,
+    monthlyRateEffective: Math.round(totalBase / months),
+  };
+}
 
 export const SOCIETY_TYPE_LABELS = {
   apartment: "Apartment",

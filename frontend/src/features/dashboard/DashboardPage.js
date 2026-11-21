@@ -1380,7 +1380,7 @@ function SuperAdminDashboardView({ user }) {
           </div>
         </div>
 
-        {/* 3 Subscription Plans Breakdown: Starter/Basic, Professional/Standard, Enterprise/Premium */}
+        {/* Subscription Plans & Billing Duration Breakdown */}
         <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant/60 pb-3">
             <div>
@@ -1389,7 +1389,7 @@ function SuperAdminDashboardView({ user }) {
                 <h3 className="text-body-md font-bold text-on-surface">Subscription Plans & Society Footprint</h3>
               </div>
               <p className="text-label-sm text-on-surface-variant mt-0.5">
-                Distribution of paid societies across 3 SaaS tiers (Click any plan to view enrolled paid societies)
+                Active paid societies across billing cycles (Base includes up to 200 units · ₹2/unit/mo overage)
               </p>
             </div>
             <span className="text-[12px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
@@ -1398,22 +1398,24 @@ function SuperAdminDashboardView({ user }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 1. Starter / Basic */}
+            {/* 1. 6 Months Duration */}
             {(() => {
-              const p = plansBreakdown.starter || { label: "Basic", rate: 6, societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
+              const p = plansBreakdown.standard_semi_annual || { label: "6 Months Plan", rate: "₹2,100 / 6 mos", societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
               return (
                 <div
-                  onClick={() => setActivePlanModal("starter")}
+                  onClick={() => setActivePlanModal("standard_semi_annual")}
                   className="group rounded-2xl border border-outline-variant bg-surface-container-low/40 hover:bg-surface-container-low p-4 transition-all hover:border-primary cursor-pointer shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                      <span className="text-body-sm font-bold text-on-surface">Starter (Basic)</span>
+                      <span className="text-body-sm font-bold text-on-surface">6 Months (Semi-Annual)</span>
                     </div>
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">₹{p.rate}/unit/mo</span>
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                      ₹2,100 / 6 mos
+                    </span>
                   </div>
-                  <p className="mt-1 text-[12px] text-on-surface-variant">Essential billing & resident directories</p>
+                  <p className="mt-1 text-[12px] text-on-surface-variant">₹350/mo base (up to 200 units) + ₹2/unit/mo extra</p>
                   
                   <div className="mt-4 flex items-baseline justify-between border-t border-outline-variant/60 pt-3">
                     <div>
@@ -1431,22 +1433,24 @@ function SuperAdminDashboardView({ user }) {
               );
             })()}
 
-            {/* 2. Professional / Standard */}
+            {/* 2. 12 Months Duration */}
             {(() => {
-              const p = plansBreakdown.professional || { label: "Standard", rate: 10, societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
+              const p = plansBreakdown.standard_yearly || { label: "12 Months Plan", rate: "₹4,000 / 12 mos", societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
               return (
                 <div
-                  onClick={() => setActivePlanModal("professional")}
+                  onClick={() => setActivePlanModal("standard_yearly")}
                   className="group rounded-2xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 p-4 transition-all hover:border-primary cursor-pointer shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-                      <span className="text-body-sm font-bold text-primary">Professional (Standard)</span>
+                      <span className="text-body-sm font-bold text-primary">12 Months (Annual)</span>
                     </div>
-                    <span className="text-[11px] font-bold text-primary uppercase tracking-wider">₹{p.rate}/unit/mo</span>
+                    <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                      ₹4,000 / 12 mos
+                    </span>
                   </div>
-                  <p className="mt-1 text-[12px] text-on-surface-variant">Gate security, guard app & amenity bookings</p>
+                  <p className="mt-1 text-[12px] text-on-surface-variant">₹333/mo base (SAVE ₹200) + ₹2/unit/mo extra</p>
                   
                   <div className="mt-4 flex items-baseline justify-between border-t border-primary/20 pt-3">
                     <div>
@@ -1464,22 +1468,24 @@ function SuperAdminDashboardView({ user }) {
               );
             })()}
 
-            {/* 3. Enterprise / Premium */}
+            {/* 3. Combined Total All-In-One Footprint */}
             {(() => {
-              const p = plansBreakdown.enterprise || { label: "Premium", rate: 15, societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
+              const p = plansBreakdown.standard || { label: "ResidentOne All-In-One", rate: "Flat 200 + ₹2/mo", societiesCount: 0, totalUnits: 0, estimatedMRR: 0, societies: [] };
               return (
                 <div
-                  onClick={() => setActivePlanModal("enterprise")}
+                  onClick={() => setActivePlanModal("standard")}
                   className="group rounded-2xl border border-outline-variant bg-surface-container-low/40 hover:bg-surface-container-low p-4 transition-all hover:border-violet-600 cursor-pointer shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-violet-600" />
-                      <span className="text-body-sm font-bold text-on-surface">Enterprise (Premium)</span>
+                      <span className="text-body-sm font-bold text-on-surface">Total All-In-One Suite</span>
                     </div>
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">₹{p.rate}/unit/mo</span>
+                    <span className="text-[11px] font-bold text-violet-800 bg-violet-50 px-2 py-0.5 rounded-md">
+                      All Features
+                    </span>
                   </div>
-                  <p className="mt-1 text-[12px] text-on-surface-variant">Full ledgers, elections, vault & dedicated manager</p>
+                  <p className="mt-1 text-[12px] text-on-surface-variant">Gatekeeper, maintenance, accounting & voting</p>
                   
                   <div className="mt-4 flex items-baseline justify-between border-t border-outline-variant/60 pt-3">
                     <div>
@@ -1770,7 +1776,7 @@ function SuperAdminDashboardView({ user }) {
                   </h3>
                 </div>
                 <p className="text-label-sm text-on-surface-variant mt-0.5">
-                  Societies with active, paid subscriptions in the {plansBreakdown[activePlanModal]?.label} tier (₹{plansBreakdown[activePlanModal]?.rate}/unit/mo)
+                  Societies with active, paid subscriptions in the {plansBreakdown[activePlanModal]?.label} tier ({typeof plansBreakdown[activePlanModal]?.rate === "number" ? `₹${plansBreakdown[activePlanModal]?.rate}/unit/mo` : plansBreakdown[activePlanModal]?.rate})
                 </p>
               </div>
               <button

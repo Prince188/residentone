@@ -14,7 +14,7 @@ import {
   updateSociety,
   SOCIETY_TYPE_LABELS,
   SUBSCRIPTION_PLAN_LABELS,
-  SUBSCRIPTION_PLAN_RATES,
+  calculateSocietySubscriptionAmount,
   extractApiError,
 } from "../../lib/societies";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -406,20 +406,21 @@ export default function AdminSocietyDetailPage() {
             <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Assigned Plan</span>
             <div className="mt-1.5 flex items-center justify-between">
               <select
-                value={society.subscriptionPlan || "starter"}
+                value={society.subscriptionPlan || "standard"}
                 onChange={(e) =>
                   planMutation.mutate({
                     sid: society._id,
                     subscriptionPlan: e.target.value,
-                    subscriptionBilling: society.subscriptionBilling || "monthly",
+                    subscriptionBilling: society.subscriptionBilling || "yearly",
                   })
                 }
                 disabled={planMutation.isPending}
                 className="w-full rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-body-sm font-bold text-on-surface focus:border-primary focus:outline-none cursor-pointer disabled:opacity-60"
               >
-                <option value="starter">Starter / Basic (₹6/unit)</option>
-                <option value="professional">Professional / Standard (₹10/unit)</option>
-                <option value="enterprise">Enterprise / Premium (₹15/unit)</option>
+                <option value="standard">ResidentOne All-in-One (Standard)</option>
+                <option value="starter">Starter / Basic (Legacy)</option>
+                <option value="professional">Professional / Standard (Legacy)</option>
+                <option value="enterprise">Enterprise / Premium (Legacy)</option>
               </select>
             </div>
           </div>
@@ -428,29 +429,40 @@ export default function AdminSocietyDetailPage() {
             <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Billing Frequency</span>
             <div className="mt-1.5">
               <select
-                value={society.subscriptionBilling || "monthly"}
+                value={society.subscriptionBilling || "yearly"}
                 onChange={(e) =>
                   planMutation.mutate({
                     sid: society._id,
-                    subscriptionPlan: society.subscriptionPlan || "starter",
+                    subscriptionPlan: society.subscriptionPlan || "standard",
                     subscriptionBilling: e.target.value,
                   })
                 }
                 disabled={planMutation.isPending}
                 className="w-full rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-body-sm font-bold text-on-surface focus:border-primary focus:outline-none cursor-pointer disabled:opacity-60"
               >
-                <option value="monthly">Monthly Recurring</option>
-                <option value="yearly">Yearly Prepaid (10 mo)</option>
+                <option value="yearly">12 Months (₹4,000 base • Annual)</option>
+                <option value="semi_annual">6 Months (₹2,100 base • Semi-Annual)</option>
+                <option value="monthly">Monthly Recurring (Legacy)</option>
               </select>
             </div>
           </div>
 
           <div className="rounded-xl border border-outline-variant bg-surface-container-low/50 p-3.5">
-            <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Estimated Monthly SaaS Dues</span>
-            <p className="mt-1.5 text-headline-sm font-black text-primary">
-              ₹{((society.totalUnits || 0) * (SUBSCRIPTION_PLAN_RATES[society.subscriptionPlan || "starter"] || 6)).toLocaleString("en-IN")}
-              <span className="text-label-sm font-normal text-on-surface-variant">/mo</span>
-            </p>
+            <span className="text-[11px] font-semibold text-outline uppercase tracking-wider">Estimated SaaS Dues</span>
+            {(() => {
+              const calc = calculateSocietySubscriptionAmount(society.totalUnits, society.subscriptionBilling);
+              return (
+                <div>
+                  <p className="mt-1.5 text-headline-sm font-black text-primary">
+                    ₹{calc.totalBase.toLocaleString("en-IN")}
+                    <span className="text-label-sm font-normal text-on-surface-variant"> / {calc.months} mos</span>
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    Effective: ₹{calc.monthlyRateEffective.toLocaleString("en-IN")}/mo {calc.extraUnits > 0 ? `(${calc.extraUnits} units > 200 @ ₹2/mo)` : "(Up to 200 units included)"}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </section>

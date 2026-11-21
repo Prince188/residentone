@@ -5,58 +5,78 @@ import api from "../../lib/api";
 import {
   paySocietySubscription,
   createSubscriptionOrder,
-  SUBSCRIPTION_PLAN_LABELS,
   extractApiError,
 } from "../../lib/societies";
 import { openCashfreeCheckout } from "../../lib/cashfree";
 
-export const AVAILABLE_PLANS = [
+export const BILLING_DURATIONS = [
   {
-    id: "starter",
-    tier: 1,
-    name: "Basic",
-    fullName: "Basic (Starter)",
-    rate: 6,
-    badge: "Cost Effective",
-    features: [
-      "Gatekeeper & visitor passes",
-      "Resident & flat directory",
-      "Complaints & ticketing helpdesk",
-      "Notice board & broadcasts",
-    ],
+    id: "semi_annual",
+    name: "6 Months",
+    subTitle: "Semi-Annual access",
+    months: 6,
+    basePrice: 2100,
+    perMonthRate: 350,
+    badge: null,
   },
   {
-    id: "professional",
-    tier: 2,
-    name: "Standard",
-    fullName: "Standard (Professional)",
-    rate: 10,
+    id: "yearly",
+    name: "12 Months (Annual)",
+    subTitle: "Full year uninterrupted",
+    months: 12,
+    basePrice: 4000,
+    perMonthRate: 333,
+    badge: "SAVE ₹200",
     popular: true,
-    badge: "Most Popular",
-    features: [
-      "All Basic features included",
-      "Automated maintenance billing & dues",
-      "Online UPI & card payment collection",
-      "Amenity booking & clubhouse access",
-      "Resident opinion polls & voting",
-    ],
-  },
-  {
-    id: "enterprise",
-    tier: 3,
-    name: "Premium",
-    fullName: "Premium (Enterprise)",
-    rate: 15,
-    badge: "Full Automation",
-    features: [
-      "All Standard features included",
-      "Multi-wing hierarchies & wing admins",
-      "Granular role & permission matrix",
-      "Emergency broadcast & SOS logging",
-      "Priority SLA platform support",
-    ],
   },
 ];
+
+export const INCLUDED_FEATURES = [
+  "Full Society Management & Admin Portal",
+  "Gatekeeper & Instant Visitor Passes",
+  "Automated Maintenance Invoicing & Ledger",
+  "Cashfree UPI, Card & Netbanking Collection",
+  "Complaints & Ticketing Helpdesk",
+  "Amenity Booking & Notice Broadcasts",
+  "Multi-Wing Directory & Role Permissions",
+  "Emergency SOS & Guard Patrol Logging",
+];
+
+export const AVAILABLE_PLANS = [
+  {
+    id: "standard",
+    tier: 1,
+    name: "All-in-One",
+    fullName: "ResidentOne All-in-One Suite",
+    rate: 2,
+    features: INCLUDED_FEATURES,
+  },
+];
+
+export function calculateSubscriptionAmount(unitsCount = 1, billingCycle = "yearly") {
+  const units = Math.max(1, Number(unitsCount) || 1);
+  const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(billingCycle);
+  const months = isSemiAnnual ? 6 : 12;
+  const basePrice = isSemiAnnual ? 2100 : 4000;
+  const baseUnitsIncluded = 200;
+  const extraUnits = Math.max(0, units - baseUnitsIncluded);
+  const overageRatePerUnitMonth = 2;
+  const overageAmount = extraUnits * overageRatePerUnitMonth * months;
+  const totalBase = basePrice + overageAmount;
+
+  return {
+    isSemiAnnual,
+    months,
+    basePrice,
+    baseUnitsIncluded,
+    units,
+    extraUnits,
+    overageRatePerUnitMonth,
+    overageAmount,
+    totalBase,
+    monthlyRateEffective: Math.round(totalBase / months),
+  };
+}
 
 export function getSubscriptionRenewalMeta(society) {
   if (!society) {
@@ -76,13 +96,10 @@ export function getSubscriptionRenewalMeta(society) {
     const started = society.subscriptionStartedAt
       ? new Date(society.subscriptionStartedAt)
       : new Date(society.createdAt || Date.now());
-    const isYearly = society.subscriptionBilling === "yearly";
+    const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(society.subscriptionBilling);
+    const months = isSemiAnnual ? 6 : 12;
     renewalDate = new Date(started);
-    if (isYearly) {
-      renewalDate.setFullYear(renewalDate.getFullYear() + 1);
-    } else {
-      renewalDate.setMonth(renewalDate.getMonth() + 1);
-    }
+    renewalDate.setMonth(renewalDate.getMonth() + months);
   }
 
   const now = new Date();
@@ -115,92 +132,54 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState(
-    activeSociety?.subscriptionPlan || "starter"
-  );
-  const [selectedCycle, setSelectedCycle] = useState(
-    activeSociety?.subscriptionBilling || "monthly"
-  );
+  const [selectedCycle, setSelectedCycle] = useState("yearly");
   const [showPayModal, setShowPayModal] = useState(false);
-  const [showRenewalSelector, setShowRenewalSelector] = useState(false);
   const [editingUnits, setEditingUnits] = useState(false);
   const [tempUnits, setTempUnits] = useState(1);
   const [unitSaveLoading, setUnitSaveLoading] = useState(false);
   const [unitSaveError, setUnitSaveError] = useState("");
 
-  // Coupon state for renewals & payments (only coupon code is allowed on renewal)
+  // Coupon state
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState("");
 
   useEffect(() => {
-    if (activeSociety?.subscriptionPlan) {
-      setSelectedPlan(activeSociety.subscriptionPlan);
-    }
     if (activeSociety?.subscriptionBilling) {
-      setSelectedCycle(activeSociety.subscriptionBilling);
+      const cycle = ["semi_annual", "half_yearly", "6months"].includes(activeSociety.subscriptionBilling)
+        ? "semi_annual"
+        : "yearly";
+      setSelectedCycle(cycle);
     }
     if (activeSociety?.totalUnits) {
       setTempUnits(activeSociety.totalUnits);
     }
-  }, [activeSociety?.id, activeSociety?.subscriptionPlan, activeSociety?.subscriptionBilling, activeSociety?.totalUnits]);
+  }, [activeSociety?.id, activeSociety?.subscriptionBilling, activeSociety?.totalUnits]);
 
-  // Reset applied coupon when user changes plan or billing cycle to ensure calculation accuracy
   useEffect(() => {
     if (appliedCoupon) {
       setAppliedCoupon(null);
       setCouponError("");
     }
-  }, [selectedPlan, selectedCycle]);
+  }, [selectedCycle]);
 
   if (!isAdmin || !activeSociety) {
     return null;
   }
 
-  const registeredPlanId = activeSociety.subscriptionPlan || "starter";
-  const registeredPlanMeta =
-    AVAILABLE_PLANS.find((p) => p.id === registeredPlanId) || AVAILABLE_PLANS[0];
-
-  const chosenPlanMeta =
-    AVAILABLE_PLANS.find((p) => p.id === selectedPlan) || AVAILABLE_PLANS[0];
-
-  const rate = chosenPlanMeta.rate || 6;
-  const units = Number(activeSociety.totalUnits) || 1;
+  const units = Math.max(1, Number(activeSociety.totalUnits) || 1);
   const isPaid = Boolean(activeSociety.isSubscriptionPaid);
-
   const renewalMeta = getSubscriptionRenewalMeta(activeSociety);
-  const paidPlanName = SUBSCRIPTION_PLAN_LABELS[activeSociety.subscriptionPlan] || "Basic";
 
-  const isWarning = renewalMeta.isExpiringSoon || renewalMeta.isExpired;
-  const isMidCycleActive = isPaid && !isWarning && renewalMeta.daysRemaining > 15;
-
-  // Proration Calculation for Mid-Cycle Upgrades
-  const currentRate = registeredPlanMeta.rate || 6;
-  const isUpgrade = chosenPlanMeta.tier > registeredPlanMeta.tier;
-  const isDowngrade = chosenPlanMeta.tier < registeredPlanMeta.tier;
-
-  let unusedCredit = 0;
-  let newPeriodCost = 0;
-  let proratedPayable = 0;
-
-  if (isMidCycleActive && isUpgrade) {
-    const currentDailyBurn = (units * currentRate) / 30;
-    const newDailyBurn = (units * chosenPlanMeta.rate) / 30;
-    unusedCredit = Math.round(currentDailyBurn * renewalMeta.daysRemaining);
-    newPeriodCost = Math.round(newDailyBurn * renewalMeta.daysRemaining);
-    proratedPayable = Math.max(1, newPeriodCost - unusedCredit);
+  // If already paid and active with more than 15 days, don't show intrusive banner
+  if (isPaid && !renewalMeta.isExpiringSoon && !renewalMeta.isExpired) {
+    return null;
   }
 
-  const multiplier = selectedCycle === "yearly" ? 12 : 1;
-  const fullCycleAmount = units * rate * multiplier;
-
-  // Amount due calculation including coupons or registration promo discounts
-  const baseAmount = (isMidCycleActive && isUpgrade) ? proratedPayable : fullCycleAmount;
+  const calc = calculateSubscriptionAmount(units, selectedCycle);
   const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount || 0 : 0;
-  const registrationDiscount = (!activeSociety?.isSubscriptionPaid && activeSociety?.discountAppliedAmount) ? Number(activeSociety.discountAppliedAmount) : 0;
-  const effectiveDiscount = couponDiscount > 0 ? couponDiscount : registrationDiscount;
-  const totalAmount = Math.max(0, baseAmount - effectiveDiscount);
+  const totalAmount = Math.max(0, calc.totalBase - couponDiscount);
 
   const handleApplyCoupon = async () => {
     const cleanCode = couponInput.trim().toUpperCase();
@@ -210,7 +189,7 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     try {
       const res = await api.post("/coupons/validate", {
         code: cleanCode,
-        orderAmount: baseAmount,
+        orderAmount: calc.totalBase,
         societyId: activeSociety.id,
       });
       if (res.data?.success && res.data?.data) {
@@ -232,43 +211,61 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     setCouponError("");
   };
 
-  const handlePay = async (isDemo = false, paymentMethod = "demo_upi") => {
-    setLoading(true);
-    setError("");
-    setSuccessMsg("");
+  const handleSaveUnits = async () => {
+    const val = parseInt(tempUnits, 10);
+    if (!val || val < 1) {
+      setUnitSaveError("Please enter a valid unit count (min 1).");
+      return;
+    }
+    setUnitSaveLoading(true);
+    setUnitSaveError("");
     try {
-      const couponCode = appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code || couponInput.trim().toUpperCase()) : undefined;
-      const targetCycle = isMidCycleActive ? activeSociety.subscriptionBilling : selectedCycle;
+      await api.patch("/societies/me", { totalUnits: val });
+      await loadMySocieties();
+      queryClient.invalidateQueries();
+      setEditingUnits(false);
+    } catch (err) {
+      setUnitSaveError(extractApiError(err, "Failed to update total units"));
+    } finally {
+      setUnitSaveLoading(false);
+    }
+  };
+
+  const handlePay = async (paymentMethod = "upi") => {
+    try {
+      setLoading(true);
+      setError("");
+      setSuccessMsg("");
+
+      const isDemo = paymentMethod === "demo_upi";
+      const couponCode = appliedCoupon
+        ? appliedCoupon.coupon?.code || appliedCoupon.code || couponInput.trim().toUpperCase()
+        : undefined;
 
       // 1. Instant Demo Simulation: Fast activation for testing without gateway
       if (isDemo) {
         const res = await paySocietySubscription(activeSociety.id, {
-          plan: selectedPlan,
-          billingCycle: targetCycle,
+          plan: "standard",
+          billingCycle: selectedCycle,
           isDemoSimulation: true,
-          paymentMethod,
+          paymentMethod: "demo_upi",
           couponCode,
         });
 
-        const updatedSociety = res.data?.data?.society;
-        const paymentType = res.data?.data?.paymentType;
-
+        const updatedSociety = res.data?.data?.society || res.data?.society;
         if (updateActiveSocietySubscription) {
           updateActiveSocietySubscription({
             isSubscriptionPaid: true,
-            subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
+            subscriptionPlan: "standard",
             subscriptionBilling: updatedSociety?.subscriptionBilling || selectedCycle,
             subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt,
           });
         }
 
         setSuccessMsg(
-          paymentType === "upgrade"
-            ? `Plan successfully upgraded to ${chosenPlanMeta.fullName}! Your expiry date remains ${renewalMeta.formattedDate}.`
-            : `Demo Simulation: Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
+          `Demo Simulation: Subscription ${isPaid ? "renewed" : "activated"} on ResidentOne All-in-One (${calc.months} months).`
         );
         setShowPayModal(false);
-        setShowRenewalSelector(false);
 
         await loadMySocieties();
         queryClient.invalidateQueries();
@@ -278,9 +275,9 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
 
       // 2. Real Payment via Cashfree Gateway (UPI, Card, Netbanking)
       const orderRes = await createSubscriptionOrder(activeSociety.id, {
-        plan: selectedPlan,
-        billingCycle: targetCycle,
-        units: activeSociety.totalUnits,
+        plan: "standard",
+        billingCycle: selectedCycle,
+        units,
         couponCode,
       });
 
@@ -296,8 +293,8 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
           try {
             setLoading(true);
             const res = await paySocietySubscription(activeSociety.id, {
-              plan: selectedPlan,
-              billingCycle: targetCycle,
+              plan: "standard",
+              billingCycle: selectedCycle,
               isDemoSimulation: false,
               paymentMethod,
               orderId: order.orderId || order.id,
@@ -307,24 +304,20 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
             });
 
             const updatedSociety = res.data?.data?.society;
-            const paymentType = res.data?.data?.paymentType;
 
             if (updateActiveSocietySubscription) {
               updateActiveSocietySubscription({
                 isSubscriptionPaid: true,
-                subscriptionPlan: updatedSociety?.subscriptionPlan || selectedPlan,
+                subscriptionPlan: "standard",
                 subscriptionBilling: updatedSociety?.subscriptionBilling || selectedCycle,
                 subscriptionExpiresAt: updatedSociety?.subscriptionExpiresAt,
               });
             }
 
             setSuccessMsg(
-              paymentType === "upgrade"
-                ? `Plan successfully upgraded to ${chosenPlanMeta.fullName}! Your expiry date remains ${renewalMeta.formattedDate}.`
-                : `Payment successful! Subscription ${isPaid ? "renewed" : "activated"} on the ${chosenPlanMeta.fullName} plan.`
+              `Payment successful! Subscription ${isPaid ? "renewed" : "activated"} on ResidentOne All-in-One (${calc.months} months).`
             );
             setShowPayModal(false);
-            setShowRenewalSelector(false);
 
             await loadMySocieties();
             queryClient.invalidateQueries();
@@ -345,688 +338,323 @@ export default function SubscriptionStatusCard({ isAdmin = false }) {
     }
   };
 
-  const renderPlanSelectorAndActions = (isRenewalOrUpgrade = false) => (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[18px] text-primary">
-                {isMidCycleActive ? "upgrade" : "tune"}
+  return (
+    <>
+      {/* Dashboard Warning / Action Banner */}
+      <div
+        className={`rounded-2xl border-2 p-5 sm:p-6 shadow-sm transition-all ${
+          isPaid
+            ? renewalMeta.isExpired
+              ? "border-red-500/50 bg-gradient-to-r from-red-500/10 via-surface-container-lowest to-surface-container-lowest"
+              : "border-amber-500/50 bg-gradient-to-r from-amber-500/10 via-surface-container-lowest to-surface-container-lowest"
+            : "border-amber-500/50 bg-gradient-to-r from-amber-500/10 via-surface-container-lowest to-surface-container-lowest"
+        }`}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm ${
+                isPaid && renewalMeta.isExpired ? "bg-red-600" : "bg-amber-600"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[26px]">
+                {isPaid && renewalMeta.isExpired ? "error" : "lock_open"}
               </span>
-              {isMidCycleActive
-                ? "Upgrade Plan (Prorated Mid-Cycle Upgrade)"
-                : isRenewalOrUpgrade
-                ? "Choose Plan for Renewal (Upgrade or Degrade Available)"
-                : "Select or Change Plan"}
-            </h4>
-            <p className="text-[12px] text-on-surface-variant">
-              {isMidCycleActive ? (
-                <>
-                  Current Plan: <strong>{paidPlanName}</strong> ({renewalMeta.daysRemaining} days remaining until {renewalMeta.formattedDate}). Upgrading applies an instant prorated credit from your current plan.
-                </>
-              ) : isRenewalOrUpgrade ? (
-                <>Current plan: <strong>{paidPlanName}</strong> (expires <strong>{renewalMeta.formattedDate}</strong>). Select any plan for your next cycle.</>
-              ) : (
-                <>Originally registered on <strong>{registeredPlanMeta.name}</strong>. Choose any plan that suits your community.</>
-              )}
-            </p>
-          </div>
-
-          {/* Billing Cycle Toggle (only relevant for fresh activation or renewal) */}
-          {!isMidCycleActive && (
-            <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant/50 p-1 rounded-xl">
-              <span className="text-[11px] font-bold text-outline uppercase px-1">Billing:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedCycle("monthly")}
-                className={`px-3 py-1 rounded-lg text-label-sm font-bold transition-all cursor-pointer ${
-                  selectedCycle === "monthly"
-                    ? "bg-white text-primary shadow-xs"
-                    : "text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedCycle("yearly")}
-                className={`px-3 py-1 rounded-lg text-label-sm font-bold transition-all cursor-pointer ${
-                  selectedCycle === "yearly"
-                    ? "bg-white text-primary shadow-xs"
-                    : "text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                Yearly (12 Mo)
-              </button>
             </div>
-          )}
-        </div>
-
-        {/* 3 Plan Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-          {AVAILABLE_PLANS.map((plan) => {
-            const isSelected = selectedPlan === plan.id;
-            const isCurrentPlan = registeredPlanId === plan.id;
-            const isPlanUpgrade = plan.tier > registeredPlanMeta.tier;
-            const isPlanDowngrade = plan.tier < registeredPlanMeta.tier;
-            const monthlyPlanCost = units * plan.rate;
-            const cyclePlanCost = monthlyPlanCost * multiplier;
-
-            // In mid-cycle, downgrades or same plan extensions are disabled
-            const isBlockedMidCycle = isMidCycleActive && (isPlanDowngrade || isCurrentPlan);
-
-            return (
-              <div
-                key={plan.id}
-                onClick={() => {
-                  if (!isBlockedMidCycle) setSelectedPlan(plan.id);
-                }}
-                className={`relative rounded-2xl p-4 transition-all flex flex-col justify-between ${
-                  isBlockedMidCycle
-                    ? "opacity-60 bg-surface-container/60 border border-outline-variant/40 cursor-not-allowed"
-                    : isSelected
-                    ? "border-2 border-primary bg-primary/5 shadow-md ring-2 ring-primary/20 cursor-pointer"
-                    : "border-2 border-outline-variant/60 bg-surface-container-lowest hover:border-outline hover:bg-surface-container-low cursor-pointer"
-                }`}
-              >
-                {/* Popular or Status Tag */}
-                <div className="flex items-center justify-between gap-1.5 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name={`subscriptionPlanChoice_${isRenewalOrUpgrade ? "renewal" : "new"}`}
-                      checked={isSelected}
-                      disabled={isBlockedMidCycle}
-                      onChange={() => {
-                        if (!isBlockedMidCycle) setSelectedPlan(plan.id);
-                      }}
-                      className="accent-primary h-4 w-4 cursor-pointer"
-                    />
-                    <span className="font-extrabold text-title-sm text-on-surface">
-                      {plan.name}
-                    </span>
-                  </div>
-
-                  {/* Tier Change Indicator */}
-                  {isPlanUpgrade && (
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 text-[10px] font-black uppercase">
-                      <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
-                      Upgrade
-                    </span>
-                  )}
-                  {isPlanDowngrade && (
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 text-[10px] font-black uppercase">
-                      <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-                      Degrade
-                    </span>
-                  )}
-                  {isCurrentPlan && (
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                      Current Active
-                    </span>
-                  )}
-                </div>
-
-                {/* Rate & Units Calculation */}
-                <div className="mt-1 py-2 border-y border-outline-variant/30">
-                  <div className="flex items-baseline justify-between">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[26px] font-black text-on-surface leading-none">
-                        ₹{plan.rate}
-                      </span>
-                      <span className="text-[11px] font-semibold text-on-surface-variant">
-                        / unit / mo
-                      </span>
-                    </div>
-                    <span className="text-[12px] font-bold text-primary">
-                      ₹{monthlyPlanCost.toLocaleString("en-IN")}/mo
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-on-surface-variant mt-1">
-                    {units} unit{units > 1 ? "s" : ""} · ₹{cyclePlanCost.toLocaleString("en-IN")} / {selectedCycle === "yearly" ? "year" : "month"}
-                  </p>
-                </div>
-
-                {/* Features List */}
-                <ul className="mt-3 space-y-1.5 text-[11px] text-on-surface-variant grow">
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="material-symbols-outlined text-[15px] text-emerald-600 font-bold shrink-0 mt-0.5">
-                        check_circle
-                      </span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Bottom Selection Button / Indicator */}
-                <div className="mt-3.5 pt-2 border-t border-outline-variant/30 text-center">
-                  {isCurrentPlan && isMidCycleActive ? (
-                    <span className="inline-flex items-center justify-center w-full py-1 rounded-lg bg-surface-container text-on-surface-variant text-[11px] font-semibold">
-                      Your Current Plan
-                    </span>
-                  ) : isPlanDowngrade && isMidCycleActive ? (
-                    <span className="inline-flex items-center justify-center w-full py-1 rounded-lg bg-surface-container-high text-on-surface-variant text-[10px] font-semibold">
-                      Available at Renewal
-                    </span>
-                  ) : isSelected ? (
-                    <span className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-lg bg-primary text-on-primary text-[11px] font-bold shadow-xs">
-                      <span className="material-symbols-outlined text-[14px]">check</span>
-                      Selected Plan
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center justify-center w-full py-1 rounded-lg bg-surface-container text-on-surface-variant text-[11px] font-semibold hover:bg-surface-container-high transition-colors">
-                      {isPlanUpgrade ? "Select to Upgrade" : isPlanDowngrade ? "Select to Degrade" : "Select Plan"}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Coupon Code Section (Only Coupon Code allowed on renewal, no referral code) */}
-      <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <span className="material-symbols-outlined text-[22px]">local_offer</span>
-          </div>
-          <div>
-            <p className="text-label-md font-bold text-on-surface">Have a Coupon Code?</p>
-            <p className="text-[12px] text-on-surface-variant">
-              Apply a promo coupon code to receive an instant discount on your renewal.
-            </p>
-          </div>
-        </div>
-
-        {appliedCoupon ? (
-          <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-300 px-3.5 py-2 rounded-xl">
-            <span className="material-symbols-outlined text-[18px] text-emerald-700 font-bold">check_circle</span>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-label-sm font-black text-emerald-950 tracking-wider">
-                  {appliedCoupon.coupon?.code || appliedCoupon.code}
-                </span>
-                <span className="text-[10px] font-bold bg-emerald-200 text-emerald-800 px-1.5 py-0.2 rounded uppercase">
-                  Applied
+              <div className="flex items-center gap-2">
+                <h3 className="text-body-lg font-black text-on-surface">
+                  {isPaid
+                    ? renewalMeta.isExpired
+                      ? "Society Subscription Expired"
+                      : `Renewal Due: ${renewalMeta.daysRemaining} Days Left`
+                    : "Subscription Payment Required"}
+                </h3>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                    isPaid && renewalMeta.isExpired
+                      ? "bg-red-100 text-red-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {isPaid ? (renewalMeta.isExpired ? "EXPIRED" : "EXPIRING SOON") : "ACTION REQUIRED"}
                 </span>
               </div>
-              <span className="text-[11px] font-bold text-emerald-700">
-                You save ₹{appliedCoupon.discountAmount}
-              </span>
+              <p className="text-body-sm text-on-surface-variant mt-1 max-w-2xl leading-relaxed">
+                {isPaid
+                  ? `Your society subscription expires on ${renewalMeta.formattedDate}. Renew now to keep all administrative tools, maintenance billing, and gatekeeper passes active.`
+                  : `Complete your society subscription payment to unlock full management privileges, automated maintenance invoices, visitor logs, and resident directories.`}
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-3 text-label-sm font-semibold text-on-surface-variant">
+                <span className="text-on-surface font-bold">ResidentOne All-in-One</span>
+                <span>·</span>
+                <span>{units} Units ({units <= 200 ? "within 200 base" : `${units - 200} extra @ ₹2/mo`})</span>
+                <span>·</span>
+                <span className="text-primary font-bold">₹{totalAmount.toLocaleString("en-IN")} / {calc.months} mos</span>
+              </div>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={handleRemoveCoupon}
-              className="ml-2 inline-flex items-center gap-0.5 text-red-600 hover:text-red-800 text-[11px] font-bold underline cursor-pointer"
+              onClick={() => setShowPayModal(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-label-md font-bold text-white shadow-sm hover:bg-inverse-surface transition-all active:scale-95 cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[14px]">cancel</span>
-              Remove
+              <span className="material-symbols-outlined text-[20px]">credit_card</span>
+              <span>{isPaid ? "Renew Plan" : `Pay ₹${totalAmount.toLocaleString("en-IN")} & Activate`}</span>
             </button>
           </div>
-        ) : (
-          <div className="flex flex-col sm:items-end gap-1">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={couponInput}
-                onChange={(e) => {
-                  setCouponInput(e.target.value.toUpperCase());
-                  if (couponError) setCouponError("");
-                }}
-                placeholder="ENTER COUPON"
-                className="w-40 rounded-xl border border-outline-variant bg-white px-3 py-2 text-label-sm font-bold uppercase tracking-wider text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-              />
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                disabled={!couponInput.trim() || couponLoading}
-                className="rounded-xl bg-primary px-4 py-2 text-label-sm font-bold text-on-primary hover:bg-inverse-surface transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
-              >
-                {couponLoading ? "Applying..." : "Apply"}
-              </button>
-            </div>
-            {couponError && (
-              <p className="text-[11px] font-semibold text-error text-left sm:text-right">{couponError}</p>
-            )}
+        </div>
+
+        {successMsg && (
+          <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-body-sm font-semibold text-emerald-800">
+            {successMsg}
           </div>
         )}
       </div>
 
-      {/* Summary Box & Checkout Actions */}
-      <div className="rounded-2xl bg-surface-container border border-outline-variant/60 p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-outline">
-              {isMidCycleActive ? "Upgrade Summary:" : isRenewalOrUpgrade ? "Renewal Summary:" : "Checkout Summary:"}
-            </span>
-            <span className="font-extrabold text-on-surface text-body-md">
-              {chosenPlanMeta.fullName}
-            </span>
-            {isUpgrade && (
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                Upgrading from {registeredPlanMeta.name}
-              </span>
-            )}
-            {isDowngrade && (
-              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                Degrading from {registeredPlanMeta.name}
-              </span>
-            )}
-          </div>
-
-          {/* Prorated Breakdown Display */}
-          {isMidCycleActive && isUpgrade ? (
-            <div className="text-body-xs text-on-surface-variant pt-1 space-y-0.5">
-              <p>
-                Period: <strong>Remaining {renewalMeta.daysRemaining} days</strong> (until {renewalMeta.formattedDate})
-              </p>
-              <div className="flex flex-wrap items-center gap-3 text-[11px]">
-                <span>New Plan Cost: <strong>₹{newPeriodCost.toLocaleString("en-IN")}</strong></span>
-                <span>•</span>
-                <span className="text-emerald-700">Less Unused {registeredPlanMeta.name} Credit: <strong>-₹{unusedCredit.toLocaleString("en-IN")}</strong></span>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-body-xs text-on-surface-variant flex flex-wrap items-center gap-2">
-                <span>{units} Units × ₹{rate}/unit/mo · {selectedCycle === "yearly" ? "12 Months (Yearly)" : "1 Month (Monthly)"}</span>
-                {effectiveDiscount > 0 && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                    <span className="material-symbols-outlined text-[13px]">local_offer</span>
-                    {appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code) : (activeSociety?.appliedCouponCode || activeSociety?.appliedReferralCode || "Coupon")} (-₹{effectiveDiscount})
+      {/* Payment & Duration Selection Modal */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-xl rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+              <div>
+                <h3 className="text-headline-sm font-black text-on-surface">
+                  {isPaid ? "Renew Society Subscription" : "Activate Society Subscription"}
+                </h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-label-sm text-on-surface-variant font-medium">
+                    {activeSociety.name} · {units} Units Total
                   </span>
-                )}
-                {!isPaid && !editingUnits && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempUnits(units);
-                      setEditingUnits(true);
-                      setUnitSaveError("");
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer bg-primary/10 px-2 py-0.5 rounded-md"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">edit</span>
-                    Edit Units
-                  </button>
-                )}
-              </p>
-              {!isPaid && editingUnits && (
-                <div className="mt-2 flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-surface-container-high border border-outline-variant/60">
-                  <span className="text-[11px] font-semibold text-on-surface">Total Units:</span>
+                  {!editingUnits && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingUnits(true)}
+                      className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                    >
+                      (Edit Units)
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPayModal(false)}
+                disabled={loading}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {editingUnits && (
+              <div className="p-3 rounded-xl bg-surface-container-low border border-outline-variant/60 space-y-2">
+                <span className="text-[11px] font-bold text-on-surface">Change Total Units (Pre-Payment):</span>
+                <div className="flex gap-2">
                   <input
                     type="number"
                     min="1"
                     value={tempUnits}
                     onChange={(e) => setTempUnits(e.target.value)}
-                    className="w-20 rounded border border-primary bg-white px-2 py-0.5 text-body-xs font-bold text-on-surface"
+                    className="w-28 rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-body-sm font-bold text-on-surface focus:border-primary focus:outline-none"
                   />
                   <button
                     type="button"
+                    onClick={handleSaveUnits}
                     disabled={unitSaveLoading}
-                    onClick={async () => {
-                      const val = parseInt(tempUnits, 10);
-                      if (!val || val < 1) {
-                        setUnitSaveError("Enter a valid unit count (min 1)");
-                        return;
-                      }
-                      setUnitSaveLoading(true);
-                      setUnitSaveError("");
-                      try {
-                        await api.patch("/societies/me", { totalUnits: val });
-                        await loadMySocieties();
-                        queryClient.invalidateQueries();
-                        setEditingUnits(false);
-                      } catch (err) {
-                        setUnitSaveError(extractApiError(err, "Failed to update units"));
-                      } finally {
-                        setUnitSaveLoading(false);
-                      }
-                    }}
-                    className="rounded bg-primary text-on-primary px-2.5 py-0.5 text-[11px] font-bold hover:bg-inverse-surface cursor-pointer disabled:opacity-50"
+                    className="rounded-lg bg-primary px-3 py-1.5 text-label-sm font-bold text-white hover:bg-inverse-surface cursor-pointer disabled:opacity-50"
                   >
-                    {unitSaveLoading ? "Saving..." : "Save"}
+                    {unitSaveLoading ? "..." : "Save"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingUnits(false);
-                      setTempUnits(units);
-                      setUnitSaveError("");
-                    }}
-                    className="rounded border border-outline px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant hover:bg-surface-container cursor-pointer"
+                    onClick={() => setEditingUnits(false)}
+                    className="rounded-lg bg-surface-container-high px-3 py-1.5 text-label-sm font-semibold text-on-surface cursor-pointer"
                   >
                     Cancel
                   </button>
-                  {unitSaveError && (
-                    <p className="w-full text-[11px] text-error font-medium">{unitSaveError}</p>
-                  )}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="text-left sm:text-right pr-2">
-            <span className="text-[11px] font-bold uppercase text-outline block">
-              {isMidCycleActive && isUpgrade ? "Net Payable Today" : "Total Due Now"}
-            </span>
-            {effectiveDiscount > 0 && (
-              <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
-                🎁 Coupon Discount: -₹{effectiveDiscount}
-              </span>
+                {unitSaveError && <p className="text-[11px] font-semibold text-red-600">{unitSaveError}</p>}
+              </div>
             )}
-            <span className="text-[28px] font-black text-primary leading-none">
-              ₹{totalAmount.toLocaleString("en-IN")}
-            </span>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handlePay(true, "instant_simulation")}
-              disabled={loading || (isMidCycleActive && !isUpgrade)}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-2.5 rounded-xl font-bold text-label-md shadow-xs hover:from-emerald-700 hover:to-teal-700 transition-all disabled:opacity-60 cursor-pointer"
-            >
-              {loading ? (
-                <>
-                  <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[18px]">bolt</span>
-                  <span>
-                    {isMidCycleActive && isUpgrade
-                      ? "Quick Upgrade Now"
-                      : isRenewalOrUpgrade
-                      ? "Quick Pay & Renew"
-                      : "Quick Pay & Unlock"}
-                  </span>
-                </>
-              )}
-            </button>
+            {error && (
+              <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-body-sm font-semibold text-red-800">
+                {error}
+              </div>
+            )}
 
-            <button
-              type="button"
-              onClick={() => setShowPayModal(true)}
-              disabled={loading || (isMidCycleActive && !isUpgrade)}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-primary text-on-primary px-4 py-2.5 rounded-xl font-bold text-label-md shadow-xs hover:bg-inverse-surface transition-all disabled:opacity-60 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">credit_card</span>
-              <span>{isMidCycleActive && isUpgrade ? "Upgrade Online" : "Pay Online"}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+            {/* 1. Duration Options */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-outline">
+                1. Select Billing Duration
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {BILLING_DURATIONS.map((d) => {
+                  const isSel = selectedCycle === d.id;
+                  const durCalc = calculateSubscriptionAmount(units, d.id);
+                  return (
+                    <div
+                      key={d.id}
+                      onClick={() => setSelectedCycle(d.id)}
+                      className={`relative rounded-2xl p-4 cursor-pointer border-2 transition-all flex flex-col justify-between ${
+                        isSel
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-outline-variant/60 bg-surface-container-low hover:border-outline"
+                      }`}
+                    >
+                      {d.badge && (
+                        <span className="absolute -top-2.5 right-3 bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                          {d.badge}
+                        </span>
+                      )}
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold text-body-sm ${isSel ? "text-primary" : "text-on-surface"}`}>
+                            {d.name}
+                          </span>
+                          <span className={`h-4 w-4 rounded-full border flex items-center justify-center ${isSel ? "border-primary" : "border-outline"}`}>
+                            {isSel && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-baseline gap-1">
+                          <span className={`text-title-lg font-black ${isSel ? "text-primary" : "text-on-surface"}`}>
+                            ₹{durCalc.totalBase.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[11px] text-on-surface-variant">/ {d.months} mos</span>
+                        </div>
+                        <p className="text-[11px] text-on-surface-variant mt-1">₹{d.perMonthRate}/mo base up to 200 units</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-  // Flow A: Paid Subscription
-  if (isPaid) {
-    const isWarning = renewalMeta.isExpiringSoon || renewalMeta.isExpired;
-
-    // When the active plan is healthy (> 7 days remaining), do not render floating pill/button on dashboard.
-    // Plan indicator and Upgrade button are placed in the Header next to society switcher (Option B).
-    if (!isWarning) {
-      return null;
-    }
-
-    return (
-      <div className="space-y-4">
-        {/* Warning Line (shown when plan is about to end before 7 days of end, or expired) */}
-        <div className="rounded-2xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-amber-50 to-surface-container-lowest p-4 sm:p-5 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${
-                renewalMeta.daysRemaining <= 0 ? "bg-red-600" : "bg-amber-600"
-              }`}>
-                <span className="material-symbols-outlined text-[24px]">
-                  {renewalMeta.daysRemaining <= 0 ? "error" : "warning"}
+            {/* 2. Included Features & Unit Allowance */}
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-body-sm text-primary">ResidentOne All-in-One Suite</span>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full uppercase">
+                  All Features Unlocked
                 </span>
               </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="font-bold text-on-surface text-body-md">
-                    Subscription Expiry Warning
-                  </h4>
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white ${
-                    renewalMeta.daysRemaining <= 0 ? "bg-red-600" : "bg-amber-600"
-                  }`}>
-                    {renewalMeta.daysRemaining < 0
-                      ? "Expired"
-                      : renewalMeta.daysRemaining === 0
-                      ? "Expires Today"
-                      : `Expires in ${renewalMeta.daysRemaining} Day${renewalMeta.daysRemaining > 1 ? "s" : ""}`}
-                  </span>
-                </div>
-                <p className="text-body-xs text-on-surface-variant mt-0.5">
-                  {renewalMeta.daysRemaining < 0 ? (
-                    <>Your <strong>{paidPlanName}</strong> subscription expired on <strong>{renewalMeta.formattedDate}</strong>. Renew now to avoid feature interruptions.</>
-                  ) : (
-                    <>Your <strong>{paidPlanName}</strong> subscription will end on <strong>{renewalMeta.formattedDate}</strong> ({renewalMeta.daysRemaining} days remaining). Click pay below to renew or change your plan.</>
-                  )}
-                </p>
+              <p className="text-[12px] text-on-surface-variant">
+                {calc.extraUnits > 0 ? (
+                  <><strong>{units} Units:</strong> 200 units included base + {calc.extraUnits} extra units @ ₹2/unit/mo (+₹{calc.overageAmount.toLocaleString("en-IN")})</>
+                ) : (
+                  <><strong>{units} Units:</strong> Fully covered under standard flat allowance (up to 200 units included).</>
+                )}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-primary/10">
+                {INCLUDED_FEATURES.slice(0, 6).map((f, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+                    <span className="material-symbols-outlined text-primary text-[14px]">check_circle</span>
+                    <span className="truncate">{f}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
+            {/* 3. Coupon Code */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-outline">
+                2. Coupon Code (Optional)
+              </span>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-700 text-[18px]">local_offer</span>
+                    <span className="text-body-sm font-bold text-emerald-800">
+                      {appliedCoupon.coupon?.code || couponInput.toUpperCase()}
+                    </span>
+                    <span className="text-[11px] font-semibold text-emerald-700">
+                      (-₹{appliedCoupon.discountAmount} applied)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-[11px] font-bold text-red-700 hover:underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Enter Coupon Code"
+                    className="flex-1 rounded-xl border border-outline-variant bg-white px-3.5 py-2 text-body-sm font-bold uppercase tracking-wider text-on-surface focus:border-primary focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponInput.trim()}
+                    className="rounded-xl bg-primary px-4 py-2 text-label-sm font-bold text-white hover:bg-inverse-surface disabled:opacity-50 cursor-pointer"
+                  >
+                    {couponLoading ? "..." : "Apply"}
+                  </button>
+                </div>
+              )}
+              {couponError && <p className="text-[11px] font-semibold text-red-600">{couponError}</p>}
+            </div>
+
+            {/* 4. Order Summary & Payment CTAs */}
+            <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-4 space-y-3">
+              <div className="flex justify-between text-body-sm">
+                <span className="text-on-surface-variant">Base Plan ({calc.months} mos · up to 200 units)</span>
+                <span className="font-bold text-on-surface">₹{calc.basePrice.toLocaleString("en-IN")}</span>
+              </div>
+              {calc.extraUnits > 0 && (
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Extra Units ({calc.extraUnits} units × ₹2 × {calc.months}m)</span>
+                  <span className="font-bold text-on-surface">+₹{calc.overageAmount.toLocaleString("en-IN")}</span>
+                </div>
+              )}
+              {appliedCoupon && couponDiscount > 0 && (
+                <div className="flex justify-between text-body-sm text-emerald-700 font-semibold">
+                  <span>Coupon Discount</span>
+                  <span>-₹{couponDiscount.toLocaleString("en-IN")}</span>
+                </div>
+              )}
+              <div className="border-t border-outline-variant/60 pt-2.5 flex justify-between items-baseline">
+                <span className="text-body-md font-bold text-on-surface">Total Payable</span>
+                <span className="text-title-lg font-black text-primary">₹{totalAmount.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            {/* CTAs: Cashfree and Demo Simulation */}
+            <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => setShowRenewalSelector((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl font-bold text-label-md shadow-xs transition-all cursor-pointer"
+                onClick={() => handlePay("upi")}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-label-md font-bold text-white shadow-sm hover:bg-inverse-surface disabled:opacity-50 cursor-pointer transition-all"
               >
-                <span className="material-symbols-outlined text-[18px]">payments</span>
-                <span>{showRenewalSelector ? "Hide Plans" : "Pay / Renew Plan"}</span>
+                <span className="material-symbols-outlined text-[20px]">lock</span>
+                <span>
+                  {loading ? "Processing..." : `Pay ₹${totalAmount.toLocaleString("en-IN")} via Cashfree (UPI / Cards)`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handlePay("demo_upi")}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low py-2.5 text-label-sm font-bold text-on-surface hover:bg-surface-container-high disabled:opacity-50 cursor-pointer transition-all"
+              >
+                <span className="material-symbols-outlined text-[18px]">bolt</span>
+                <span>Instant Demo Activation (Test Simulation)</span>
               </button>
             </div>
           </div>
-
-          {/* When user clicks on Pay, show again 3 plans in case he wants to change the plan */}
-          {showRenewalSelector && (
-            <div className="pt-3 border-t border-amber-500/20">
-              {renderPlanSelectorAndActions(true)}
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-body-sm text-red-700 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">error</span>
-            <span>{error}</span>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-body-sm text-emerald-700 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-            <span>{successMsg}</span>
-          </div>
-        )}
-
-        {/* Modal for checkout confirmation */}
-        {showPayModal && renderCheckoutModal(true)}
-      </div>
-    );
-  }
-
-  // Flow B: Unpaid Subscription
-  return (
-    <div className="rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-surface-container-lowest to-surface-container-low p-4 sm:p-6 shadow-sm space-y-5">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-outline-variant/40">
-        <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-on-primary shadow-sm mt-0.5">
-            <span className="material-symbols-outlined text-[28px]">payments</span>
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-title-md font-extrabold text-on-surface">
-                Activate Subscription to Unlock Features
-              </h3>
-              <span className="inline-flex items-center rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold">
-                Pending Activation
-              </span>
-            </div>
-            <p className="text-body-xs text-on-surface-variant mt-1">
-              Your society registration is approved. Choose your plan below to complete payment and unlock the dashboard.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-on-surface-variant bg-surface-container px-3 py-1.5 rounded-lg border border-outline-variant/40">
-            <span className="material-symbols-outlined text-[15px] text-primary">apartment</span>
-            {units} Total Billable Units
-          </span>
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-body-sm text-red-700 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px]">error</span>
-          <span>{error}</span>
         </div>
       )}
-
-      {successMsg && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-body-sm text-emerald-700 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px]">check_circle</span>
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      {/* Plan Selector & Actions */}
-      {renderPlanSelectorAndActions(false)}
-
-      {/* Modal for checkout confirmation */}
-      {showPayModal && renderCheckoutModal(false)}
-    </div>
+    </>
   );
-
-  function renderCheckoutModal(isRenewalOrUpgradeFlow = false) {
-    const isProratedUpgrade = isMidCycleActive && isUpgrade;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-xs">
-        <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-outline-variant space-y-4">
-          <div className="flex items-center justify-between border-b border-outline-variant/40 pb-3">
-            <h4 className="text-title-sm font-bold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[22px]">
-                {isProratedUpgrade ? "upgrade" : "account_balance_wallet"}
-              </span>
-              {isProratedUpgrade
-                ? "Plan Upgrade Invoice"
-                : isRenewalOrUpgradeFlow
-                ? "Subscription Renewal Checkout"
-                : "Subscription Checkout"}
-            </h4>
-            <button
-              type="button"
-              onClick={() => setShowPayModal(false)}
-              className="text-on-surface-variant hover:text-on-surface cursor-pointer"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-
-          <div className="space-y-3 bg-surface-container-low p-4 rounded-xl border border-outline-variant/40">
-            <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Society</span>
-              <span className="font-semibold text-on-surface">{activeSociety.name}</span>
-            </div>
-            <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Target Plan</span>
-              <span className="font-semibold text-on-surface">{chosenPlanMeta.fullName}</span>
-            </div>
-            <div className="flex justify-between text-body-sm">
-              <span className="text-on-surface-variant">Transaction Type</span>
-              <span className="font-semibold text-on-surface">
-                {isProratedUpgrade
-                  ? "▲ Prorated Upgrade"
-                  : isRenewalOrUpgradeFlow
-                  ? isUpgrade
-                    ? "▲ Upgrade at Renewal"
-                    : isDowngrade
-                    ? "▼ Degrade at Renewal"
-                    : "Renewal (Same Plan)"
-                  : "Initial Activation"}
-              </span>
-            </div>
-
-            {isProratedUpgrade ? (
-              <>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">Remaining Duration</span>
-                  <span className="font-semibold text-on-surface">{renewalMeta.daysRemaining} days (until {renewalMeta.formattedDate})</span>
-                </div>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">New Plan Charge</span>
-                  <span className="font-semibold text-on-surface">₹{newPeriodCost.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex justify-between text-body-sm text-emerald-700 font-medium">
-                  <span>Less Unused {registeredPlanMeta.name} Credit</span>
-                  <span>-₹{unusedCredit.toLocaleString("en-IN")}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">Units / Rate</span>
-                  <span className="font-semibold text-on-surface">{units} units × ₹{rate}/mo</span>
-                </div>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">Billing Cycle</span>
-                  <span className="font-semibold capitalize text-on-surface">{selectedCycle}</span>
-                </div>
-              </>
-            )}
-
-            {effectiveDiscount > 0 && (
-              <div className="flex justify-between text-body-sm text-emerald-700 font-medium">
-                <span>Coupon / Promo Discount ({appliedCoupon ? (appliedCoupon.coupon?.code || appliedCoupon.code) : (activeSociety?.appliedCouponCode || activeSociety?.appliedReferralCode || "Coupon")})</span>
-                <span>-₹{effectiveDiscount.toLocaleString("en-IN")}</span>
-              </div>
-            )}
-
-            <div className="border-t border-outline-variant/40 pt-2 flex justify-between font-bold text-title-sm text-primary">
-              <span>{isProratedUpgrade ? "Net Payable Today" : "Total Due"}</span>
-              <span>₹{totalAmount.toLocaleString("en-IN")}</span>
-            </div>
-          </div>
-
-          <div className="p-3 bg-blue-50 text-blue-900 rounded-xl text-body-xs flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-blue-700 shrink-0">verified_user</span>
-            <span>
-              {isProratedUpgrade
-                ? `Completing this payment upgrades your plan to ${chosenPlanMeta.fullName} immediately for your remaining duration.`
-                : `Completing this payment activates the ${chosenPlanMeta.fullName} plan immediately.`}
-            </span>
-          </div>
-
-          <div className="flex gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowPayModal(false)}
-              className="flex-1 py-2.5 rounded-xl border border-outline-variant font-semibold text-label-md hover:bg-surface-container transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePay(false, "razorpay_gateway")}
-              disabled={loading}
-              className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-label-md shadow-xs hover:bg-inverse-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {loading ? "Processing..." : `Pay ₹${totalAmount.toLocaleString("en-IN")}`}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 }
