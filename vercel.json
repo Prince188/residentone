@@ -1,7 +1,5 @@
 {
-  "build": {
-    "env": {
-      "CI": "false"
-    }
-  }
+  "buildCommand": "npm run build:web",
+  "outputDirectory": "frontend/build",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

@@ -432,7 +432,6 @@ function SocietyFormFields({ values, errors, onChange, disabled = false }) {
             </div>
           </div>
         )}
-      </div>
 
         {/* Pay After Approval Trust Banner */}
         <div className="mt-3 p-3 rounded-xl bg-blue-50/80 border border-blue-200/80 flex items-start gap-2.5">
