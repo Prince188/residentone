@@ -116,13 +116,13 @@ const societySchema = new mongoose.Schema(
     subscriptionPlan: {
       type: String,
       enum: SUBSCRIPTION_PLANS,
-      default: "starter",
+      default: "standard",
       index: true,
     },
     subscriptionBilling: {
       type: String,
       enum: SUBSCRIPTION_BILLING,
-      default: "monthly",
+      default: "yearly",
     },
     subscriptionStartedAt: {
       type: Date,

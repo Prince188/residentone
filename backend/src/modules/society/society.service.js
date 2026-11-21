@@ -359,6 +359,17 @@ class SocietyService {
 
     // 3 Subscription Plans Breakdown (Starter/Basic, Professional/Standard, Enterprise/Premium)
     const plansBreakdown = {
+      standard: {
+        plan: "standard",
+        label: "Society All-In-One",
+        rate: "₹2,100 / 6m · ₹4,000 / 12m",
+        description: "Complete society management, automated billing, gates, notices & accounts",
+        societiesCount: 0,
+        activeSocietiesCount: 0,
+        totalUnits: 0,
+        estimatedMRR: 0,
+        societies: [],
+      },
       starter: {
         plan: "starter",
         label: "Basic",
@@ -1238,12 +1249,17 @@ class SocietyService {
       throw new AppError("Society not found", 404);
     }
 
-    const requestedPlan = data.plan || society.subscriptionPlan || "starter";
-    const requestedBillingCycle = data.billingCycle || society.subscriptionBilling || "monthly";
+    const requestedPlan = data.plan || society.subscriptionPlan || "standard";
+    const requestedBillingCycle = data.billingCycle || society.subscriptionBilling || "yearly";
     const units = Number(data.units || society.totalUnits || 1);
-    const requestedRate = PLAN_RATES[requestedPlan] || 6;
-    const multiplier = requestedBillingCycle === "yearly" ? 12 : 1;
-    let amount = units * requestedRate * multiplier;
+
+    // Flat Tier: ₹2,100 (6 months) / ₹4,000 (12 months) up to 200 units; ₹2/unit/month over 200 units
+    const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(requestedBillingCycle);
+    const months = isSemiAnnual ? 6 : 12;
+    const basePrice = isSemiAnnual ? 2100 : 4000;
+    const extraUnits = Math.max(0, units - 200);
+    const overageAmount = extraUnits * 2 * months;
+    let amount = basePrice + overageAmount;
 
     let appliedCouponInfo = null;
     let couponDiscountAmount = 0;
@@ -1380,9 +1396,15 @@ class SocietyService {
       paymentType = hasActiveSubscription ? "renewal" : "initial";
       plan = requestedPlan;
       billingCycle = requestedBillingCycle;
-      ratePerUnit = requestedRate;
-      const multiplier = billingCycle === "yearly" ? 12 : 1;
-      amount = units * ratePerUnit * multiplier;
+
+      // Flat Tier: ₹2,100 (6 months) / ₹4,000 (12 months) up to 200 units; ₹2/unit/month over 200 units
+      const isSemiAnnual = ["semi_annual", "half_yearly", "6months"].includes(billingCycle);
+      const months = isSemiAnnual ? 6 : 12;
+      const basePrice = isSemiAnnual ? 2100 : 4000;
+      const extraUnits = Math.max(0, units - 200);
+      const overageAmount = extraUnits * 2 * months;
+      amount = basePrice + overageAmount;
+      ratePerUnit = Math.round(amount / (units * months));
 
       if (hasActiveSubscription) {
         baseDate = existingExpiry;
@@ -1391,11 +1413,7 @@ class SocietyService {
       }
 
       expiresAt = new Date(baseDate);
-      if (billingCycle === "yearly") {
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      } else {
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-      }
+      expiresAt.setMonth(expiresAt.getMonth() + months);
     }
 
     // Coupon / Referral promo discount processing

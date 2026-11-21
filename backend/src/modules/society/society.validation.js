@@ -30,8 +30,8 @@ const registrationBaseSchema = z.object({
   contactMobile: phoneSchema,
   contactEmail: z.string().email("Invalid email address"),
   logoUrl: z.string().nullable().optional(),
-  subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional().default("starter"),
-  subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional().default("monthly"),
+  subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional().default("standard"),
+  subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional().default("yearly"),
   promoCode: z.string().optional(),
   referralCode: z.string().optional(),
   couponCode: z.string().optional(),
@@ -61,8 +61,8 @@ const manualCreateSchema = registrationBaseSchema.extend({
 });
 
 const paySubscriptionSchema = z.object({
-  plan: z.enum(SUBSCRIPTION_PLANS).optional(),
-  billingCycle: z.enum(SUBSCRIPTION_BILLING).optional().default("monthly"),
+  plan: z.enum(SUBSCRIPTION_PLANS).optional().default("standard"),
+  billingCycle: z.enum(SUBSCRIPTION_BILLING).optional().default("yearly"),
   units: z.number().optional(),
   isDemoSimulation: z.boolean().optional().default(false),
   paymentMethod: z.string().optional().default("demo_upi"),

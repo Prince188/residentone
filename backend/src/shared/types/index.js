@@ -37,11 +37,20 @@ const PROPERTY_TYPES = [
   "other",
 ];
 
-const SUBSCRIPTION_PLANS = ["starter", "professional", "enterprise"];
+const SUBSCRIPTION_PLANS = ["standard", "starter", "professional", "enterprise"];
 
-const SUBSCRIPTION_BILLING = ["monthly", "yearly"];
+const SUBSCRIPTION_BILLING = ["semi_annual", "yearly", "monthly", "half_yearly", "6months"];
+
+const SUBSCRIPTION_BASE_UNITS = 200;
+const SUBSCRIPTION_OVERAGE_RATE = 2; // ₹2/unit/month
+
+const SUBSCRIPTION_PRICING = {
+  semi_annual: { months: 6, basePrice: 2100, label: "6 Months" },
+  yearly: { months: 12, basePrice: 4000, label: "12 Months" },
+};
 
 const PLAN_RATES = {
+  standard: 0,
   starter: 6,
   professional: 10,
   enterprise: 15,
@@ -74,5 +83,8 @@ module.exports = {
   SOCIETY_TYPES,
   SUBSCRIPTION_PLANS,
   SUBSCRIPTION_BILLING,
+  SUBSCRIPTION_BASE_UNITS,
+  SUBSCRIPTION_OVERAGE_RATE,
+  SUBSCRIPTION_PRICING,
   PLAN_RATES,
 };
