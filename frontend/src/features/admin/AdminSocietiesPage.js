@@ -6,14 +6,18 @@ import {
   listSocieties,
   getSocietyStats,
   approveSociety,
+  extendSocietySubscription,
   SOCIETY_TYPE_LABELS,
   SUBSCRIPTION_PLAN_LABELS,
 } from "../../lib/societies";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { getSubscriptionRenewalMeta } from "../dashboard/SubscriptionStatusCard";
+import ExtendSubscriptionModal from "./ExtendSubscriptionModal";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
+  { value: "expiring_soon", label: "Expiring Soon (< 15d)" },
+  { value: "expired", label: "Expired" },
   { value: "active_paid", label: "Active (Paid)" },
   { value: "approved", label: "Approved" },
   { value: "pending", label: "Pending" },
@@ -38,6 +42,7 @@ export default function AdminSocietiesPage() {
   const statusFilter = searchParams.get("status") || "";
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [extendTarget, setExtendTarget] = useState(null);
 
   const statsQuery = useQuery({
     queryKey: ["society-stats"],
@@ -86,9 +91,62 @@ export default function AdminSocietiesPage() {
     setSearchParams(next);
   };
 
+  const handleExportCSV = () => {
+    if (!societies || societies.length === 0) return;
+    const headers = [
+      "Society Name",
+      "City",
+      "State",
+      "Type",
+      "Total Units",
+      "Subscription Plan",
+      "Billing Frequency",
+      "Payment Status",
+      "Renewal Date",
+      "Days Remaining",
+      "Status",
+      "Contact Person",
+      "Contact Phone",
+      "Contact Email",
+      "Created At",
+    ];
+
+    const rows = societies.map((s) => {
+      const meta = getSubscriptionRenewalMeta(s);
+      return [
+        `"${(s.name || "").replace(/"/g, '""')}"`,
+        `"${(s.city || "").replace(/"/g, '""')}"`,
+        `"${(s.state || "").replace(/"/g, '""')}"`,
+        `"${SOCIETY_TYPE_LABELS[s.societyType] || s.societyType || ""}"`,
+        s.totalUnits ?? 0,
+        `"${SUBSCRIPTION_PLAN_LABELS[s.subscriptionPlan] || s.subscriptionPlan || "Standard"}"`,
+        `"${s.subscriptionBilling || "yearly"}"`,
+        s.isSubscriptionPaid ? (meta.isExpired ? "Expired" : "Paid") : "Unpaid",
+        meta.formattedDate || "-",
+        meta.daysRemaining !== undefined ? meta.daysRemaining : "-",
+        `"${s.status || ""}"`,
+        `"${(s.contactPersonName || "").replace(/"/g, '""')}"`,
+        `"${(s.contactPhone || "").replace(/"/g, '""')}"`,
+        `"${(s.contactEmail || "").replace(/"/g, '""')}"`,
+        formatDate(s.createdAt),
+      ].join(",");
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ResidentOne_Societies_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const statCards = [
     { label: "Total Societies", value: stats?.societies?.total ?? stats?.total ?? "-", status: "" },
     { label: "Active (Paid)", value: stats?.societies?.active ?? stats?.active ?? "-", tone: "success", status: "active_paid" },
+    { label: "Expiring Soon", value: stats?.societies?.expiringSoon ?? stats?.expiringSoon ?? 0, tone: "caution", status: "expiring_soon" },
+    { label: "Expired", value: stats?.societies?.expired ?? stats?.expired ?? 0, tone: "danger", status: "expired" },
     { label: "Approved", value: stats?.societies?.approved ?? stats?.approved ?? "-", tone: "primary", status: "approved" },
     { label: "Pending", value: stats?.societies?.pending ?? stats?.pending ?? "-", tone: "warning", status: "pending" },
     { label: "Unpaid", value: stats?.societies?.unpaid ?? stats?.unpaid ?? "-", tone: "caution", status: "unpaid" },
@@ -107,13 +165,24 @@ export default function AdminSocietiesPage() {
             Manage society registrations across the ResidentOne platform.
           </p>
         </div>
-        <Link
-          to="/admin/societies/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-label-md text-label-md text-on-primary transition-colors hover:bg-inverse-surface no-underline"
-        >
-          <span className="material-symbols-outlined text-[18px]">add_business</span>
-          Create Society
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 font-label-md text-label-md font-semibold text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer shadow-xs"
+            title="Download societies report as CSV"
+          >
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            Export CSV
+          </button>
+          <Link
+            to="/admin/societies/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-label-md text-label-md text-on-primary transition-colors hover:bg-inverse-surface no-underline shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_business</span>
+            Create Society
+          </Link>
+        </div>
       </div>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -303,15 +372,26 @@ export default function AdminSocietiesPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2.5">
                         {society.status === "active" && (
-                          <button
-                            type="button"
-                            onClick={() => handleEnterSociety(society)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-label-sm font-semibold text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
-                            title="Enter and manage this society as Super Admin"
-                          >
-                            <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
-                            Manage
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleEnterSociety(society)}
+                              className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-label-sm font-semibold text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
+                              title="Enter and manage this society as Super Admin"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
+                              Manage
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExtendTarget(society)}
+                              className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-label-sm font-semibold text-amber-800 hover:bg-amber-600 hover:text-white transition-colors cursor-pointer border border-amber-200/70"
+                              title="Extend subscription validity or grant grace period"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">update</span>
+                              Extend
+                            </button>
+                          </>
                         )}
                         {society.status === "rejected" && (
                           <button
@@ -340,6 +420,18 @@ export default function AdminSocietiesPage() {
           </div>
         )}
       </section>
+
+      {extendTarget && (
+        <ExtendSubscriptionModal
+          society={extendTarget}
+          onClose={() => setExtendTarget(null)}
+          onSuccess={() => {
+            setExtendTarget(null);
+            queryClient.invalidateQueries({ queryKey: ["societies"] });
+            queryClient.invalidateQueries({ queryKey: ["society-stats"] });
+          }}
+        />
+      )}
     </div>
   );
 }

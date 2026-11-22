@@ -411,6 +411,19 @@ class SocietyController {
       next(error);
     }
   }
+
+  async extendSubscription(req, res, next) {
+    try {
+      const society = await societyService.extendSubscription(
+        req.params.id,
+        req.body,
+        req.userId
+      );
+      res.json({ success: true, data: society });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new SocietyController();

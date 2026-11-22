@@ -20,6 +20,8 @@ export const getPlatformMaintenanceAnalytics = (params) =>
 export const getPlatformCollectionsAnalytics = (params) =>
   api.get("/societies/collections-analytics", { params });
 export const updateSociety = (id, payload) => api.patch(`/societies/${id}`, payload);
+export const extendSocietySubscription = (id, payload) =>
+  api.post(`/societies/${id}/extend-subscription`, payload);
 export const createSubscriptionOrder = (id, payload) =>
   api.post(`/societies/${id}/subscription/order`, payload);
 export const paySocietySubscription = (id, payload) =>

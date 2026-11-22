@@ -14,6 +14,7 @@ const {
   rejectSocietySchema,
   updatePermissionsSchema,
   paySubscriptionSchema,
+  extendSubscriptionSchema,
 } = require("./society.validation");
 const multer = require("multer");
 const { uploadBuffer, uploadBase64 } = require("../../shared/utils/cloudinary");
@@ -215,6 +216,13 @@ router.post(
   authenticate,
   validate(paySubscriptionSchema),
   (req, res, next) => societyController.paySubscription(req, res, next)
+);
+router.post(
+  "/:id/extend-subscription",
+  authenticate,
+  requirePlatformAdmin,
+  validate(extendSubscriptionSchema),
+  (req, res, next) => societyController.extendSubscription(req, res, next)
 );
 router.patch(
   "/:id",

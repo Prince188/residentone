@@ -12,6 +12,7 @@ import {
   unarchiveSociety,
   deleteSocietyPermanently,
   updateSociety,
+  extendSocietySubscription,
   SOCIETY_TYPE_LABELS,
   SUBSCRIPTION_PLAN_LABELS,
   calculateSocietySubscriptionAmount,
@@ -19,6 +20,8 @@ import {
 } from "../../lib/societies";
 import StatusBadge from "../../components/ui/StatusBadge";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import { getSubscriptionRenewalMeta } from "../dashboard/SubscriptionStatusCard";
+import ExtendSubscriptionModal from "./ExtendSubscriptionModal";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -51,6 +54,7 @@ export default function AdminSocietyDetailPage() {
   const [dialog, setDialog] = useState(null);
   const [actionError, setActionError] = useState("");
   const [approvedAccount, setApprovedAccount] = useState(null);
+  const [extendModalOpen, setExtendModalOpen] = useState(false);
 
   const societyQuery = useQuery({
     queryKey: ["society", id],
@@ -386,19 +390,29 @@ export default function AdminSocietyDetailPage() {
               SaaS Subscription Plan & Billing Tier
             </h2>
             <p className="text-label-sm text-on-surface-variant mt-0.5">
-              Current plan assignment, billing mode, and fee calculations for this society.
+              Current plan assignment, validity status, and fee calculations for this society.
             </p>
           </div>
-          <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-bold ${
-            society.subscriptionPlan === "enterprise"
-              ? "bg-violet-100 text-violet-800"
-              : society.subscriptionPlan === "professional"
-              ? "bg-primary/10 text-primary"
-              : "bg-emerald-100 text-emerald-800"
-          }`}>
-            <span className="h-2 w-2 rounded-full bg-current" />
-            {SUBSCRIPTION_PLAN_LABELS[society.subscriptionPlan] || "Basic"} Tier
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExtendModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-3 py-1.5 text-label-md font-bold text-white transition-colors cursor-pointer shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[18px]">update</span>
+              Extend Validity / Grace Period
+            </button>
+            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-bold ${
+              society.subscriptionPlan === "enterprise"
+                ? "bg-violet-100 text-violet-800"
+                : society.subscriptionPlan === "professional"
+                ? "bg-primary/10 text-primary"
+                : "bg-emerald-100 text-emerald-800"
+            }`}>
+              <span className="h-2 w-2 rounded-full bg-current" />
+              {SUBSCRIPTION_PLAN_LABELS[society.subscriptionPlan] || "Basic"} Tier
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -465,6 +479,55 @@ export default function AdminSocietyDetailPage() {
             })()}
           </div>
         </div>
+
+        {/* Real-time Validity Status & Unit Economics Comparison */}
+        {(() => {
+          const meta = getSubscriptionRenewalMeta(society);
+          const calc6m = calculateSocietySubscriptionAmount(society.totalUnits, "semi_annual");
+          const calc12m = calculateSocietySubscriptionAmount(society.totalUnits, "yearly");
+          return (
+            <div className="rounded-xl border border-outline-variant/80 bg-surface-container-low/30 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant/60 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${meta.isExpired ? "bg-red-500" : meta.isExpiringSoon ? "bg-amber-500" : "bg-emerald-500"}`} />
+                  <span className="text-body-sm font-bold text-on-surface">
+                    Subscription Validity & Status:
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                    meta.isExpired ? "bg-red-100 text-red-800" : meta.isExpiringSoon ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                  }`}>
+                    {meta.isExpired ? `Expired (${Math.abs(meta.daysRemaining)} days ago)` : `${meta.daysRemaining} days remaining`}
+                  </span>
+                </div>
+                <div className="text-label-sm text-on-surface-variant font-medium">
+                  Valid Until: <strong className="text-on-surface">{meta.formattedDate || "Not Set"}</strong> ({society.isSubscriptionPaid ? "Paid Active" : "Unpaid / Trial"})
+                </div>
+              </div>
+
+              {/* Pricing breakdown for this society */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="rounded-lg border border-outline-variant/60 bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-body-sm font-bold text-on-surface">6 Months Option</span>
+                    <span className="text-label-sm font-black text-emerald-700">₹{calc6m.totalBase.toLocaleString("en-IN")}</span>
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant mt-1">
+                    Base ₹2,100 (up to 200 units) {calc6m.extraUnits > 0 ? `+ ₹${calc6m.overageAmount.toLocaleString("en-IN")} (${calc6m.extraUnits} extra units × ₹2 × 6)` : ""}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-outline-variant/60 bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-body-sm font-bold text-on-surface">12 Months Option (Annual)</span>
+                    <span className="text-label-sm font-black text-primary">₹{calc12m.totalBase.toLocaleString("en-IN")}</span>
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant mt-1">
+                    Base ₹4,000 (up to 200 units) {calc12m.extraUnits > 0 ? `+ ₹${calc12m.overageAmount.toLocaleString("en-IN")} (${calc12m.extraUnits} extra units × ₹2 × 12)` : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* Danger Zone / Lifecycle Controls */}
@@ -596,6 +659,14 @@ export default function AdminSocietyDetailPage() {
         onConfirm={() => permanentDeleteMutation.mutate(society._id)}
         onClose={closeDialog}
       />
+
+      {extendModalOpen && (
+        <ExtendSubscriptionModal
+          society={society}
+          onClose={() => setExtendModalOpen(false)}
+          onSuccess={invalidate}
+        />
+      )}
     </div>
   );
 }

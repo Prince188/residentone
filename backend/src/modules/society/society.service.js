@@ -32,6 +32,16 @@ class SocietyService {
       } else if (filters.status === "unpaid") {
         query.status = "active";
         query.isSubscriptionPaid = { $ne: true };
+      } else if (filters.status === "expiring_soon") {
+        query.status = "active";
+        query.isSubscriptionPaid = true;
+        const now = new Date();
+        const in15d = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
+        query.subscriptionExpiresAt = { $gte: now, $lte: in15d };
+      } else if (filters.status === "expired") {
+        query.status = "active";
+        query.isSubscriptionPaid = true;
+        query.subscriptionExpiresAt = { $lt: new Date() };
       } else if (filters.status === "churned" || filters.status === "freeze") {
         query.status = { $in: ["churned", "archived"] };
       } else {
@@ -521,6 +531,12 @@ class SocietyService {
       return daysToRenewal >= 0 && daysToRenewal <= 14;
     }).length;
 
+    const expiredSubscriptions = paidSocietiesOnly.filter((soc) => {
+      if (soc.status !== "active") return false;
+      let renewalDate = soc.subscriptionExpiresAt ? new Date(soc.subscriptionExpiresAt) : null;
+      return renewalDate && renewalDate < now;
+    }).length;
+
     // Genuine subscription revenue mapping
     const monthlySubscriptionMap = new Map();
     (monthlySubscriptionPaymentsRaw || []).forEach((p) => {
@@ -697,6 +713,8 @@ class SocietyService {
         rejected: rejectedSocieties,
         churned: churnedSocieties, // freeze/churned (churned or archived)
         trial: trialSocieties,
+        expiringSoon: expiringSubscriptions,
+        expired: expiredSubscriptions,
         newThisMonth: newSocietiesThisMonth,
       },
       // Top-level aliases for direct component access
@@ -709,6 +727,8 @@ class SocietyService {
       rejected: rejectedSocieties,
       churned: churnedSocieties,
       trial: trialSocieties,
+      expiringSoon: expiringSubscriptions,
+      expired: expiredSubscriptions,
 
       // 3. Action Required
       actionRequired: {
@@ -1592,6 +1612,66 @@ class SocietyService {
     } catch (_) {}
 
     return { society, payment, paymentType, proratedDetails: paymentType === "upgrade" ? { daysLeft, amount } : null };
+  }
+
+  async extendSubscription(id, data = {}, adminUserId) {
+    const crypto = require("crypto");
+    const society = await this.findRawById(id);
+    if (!society) throw new AppError("Society not found", 404);
+
+    const { days = 0, months = 0, customDate, isSubscriptionPaid = true, notes, plan, billingCycle } = data;
+
+    let targetExpiry;
+    if (customDate) {
+      targetExpiry = new Date(customDate);
+    } else {
+      let base = society.subscriptionExpiresAt && new Date(society.subscriptionExpiresAt) > new Date()
+        ? new Date(society.subscriptionExpiresAt)
+        : new Date();
+
+      targetExpiry = new Date(base);
+      if (Number(months) > 0) {
+        targetExpiry.setMonth(targetExpiry.getMonth() + Number(months));
+      }
+      if (Number(days) > 0) {
+        targetExpiry.setDate(targetExpiry.getDate() + Number(days));
+      }
+    }
+
+    society.subscriptionExpiresAt = targetExpiry;
+    society.isSubscriptionPaid = Boolean(isSubscriptionPaid);
+    if (plan) society.subscriptionPlan = plan;
+    if (billingCycle) society.subscriptionBilling = billingCycle;
+    if (!society.subscriptionStartedAt) society.subscriptionStartedAt = new Date();
+
+    await society.save();
+
+    let payment = null;
+    try {
+      const { SubscriptionPayment } = require("./subscription-payment.model");
+      payment = await SubscriptionPayment.create({
+        societyId: society._id,
+        plan: society.subscriptionPlan || "standard",
+        billingCycle: society.subscriptionBilling || "yearly",
+        units: Math.max(1, society.totalUnits || 1),
+        ratePerUnit: 0,
+        amount: Number(data.recordedAmount) || 0,
+        status: "paid",
+        gateway: data.paymentMode || "Super Admin Manual Grant",
+        transactionId: `GRANT-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`,
+        periodStart: new Date(),
+        periodEnd: targetExpiry,
+        notes: notes || `Super Admin grant: ${days ? `+${days}d ` : ""}${months ? `+${months}m ` : ""}${customDate ? `Until ${new Date(customDate).toLocaleDateString()}` : ""}`,
+      });
+    } catch (_) {}
+
+    try {
+      const s = require("../../socket");
+      if (s.emitSocietyChange) s.emitSocietyChange("update", society);
+      if (s.emitToSuperAdmins) s.emitToSuperAdmins("subscription:grant", { payment, society });
+    } catch (_) {}
+
+    return society;
   }
 
   async getHistoricalAnalytics({ startYear, endYear }) {

@@ -87,6 +87,9 @@ const updateSocietySchema = z.object({
   logoUrl: z.string().nullable().optional(),
   subscriptionPlan: z.enum(SUBSCRIPTION_PLANS).optional(),
   subscriptionBilling: z.enum(SUBSCRIPTION_BILLING).optional(),
+  subscriptionExpiresAt: z.coerce.date().nullable().optional(),
+  subscriptionStartedAt: z.coerce.date().nullable().optional(),
+  isSubscriptionPaid: z.boolean().optional(),
   bankDetails: z
     .object({
       accountNumber: z.string().optional(),
@@ -108,6 +111,18 @@ const updatePermissionsSchema = z.object({
   permissions: z.record(z.array(z.string())),
 });
 
+const extendSubscriptionSchema = z.object({
+  days: z.coerce.number().optional(),
+  months: z.coerce.number().optional(),
+  customDate: z.coerce.date().optional(),
+  isSubscriptionPaid: z.boolean().optional(),
+  plan: z.enum(SUBSCRIPTION_PLANS).optional(),
+  billingCycle: z.enum(SUBSCRIPTION_BILLING).optional(),
+  notes: z.string().max(500).optional(),
+  recordedAmount: z.coerce.number().min(0).optional(),
+  paymentMode: z.string().max(100).optional(),
+});
+
 module.exports = {
   publicRegistrationSchema,
   manualCreateSchema,
@@ -115,4 +130,5 @@ module.exports = {
   rejectSocietySchema,
   updatePermissionsSchema,
   paySubscriptionSchema,
+  extendSubscriptionSchema,
 };
