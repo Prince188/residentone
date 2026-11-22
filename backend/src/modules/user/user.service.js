@@ -293,6 +293,17 @@ class UserService {
       await Membership.deleteMany({ userId: targetUserId });
     } catch (_) {}
 
+    try {
+      const { Unit } = require("../unit/unit.model");
+      await Unit.updateMany({ ownerId: targetUserId }, { $set: { ownerId: null } });
+      await Unit.updateMany({ tenantId: targetUserId }, { $set: { tenantId: null } });
+    } catch (_) {}
+
+    try {
+      const { FamilyMember } = require("../family-member/family-member.model");
+      await FamilyMember.updateMany({ addedBy: targetUserId }, { $set: { isActive: false } });
+    } catch (_) {}
+
     const { invalidateUserSecurityCache } = require("../../middlewares/auth.middleware");
     invalidateUserSecurityCache(targetUserId);
 
@@ -341,6 +352,17 @@ class UserService {
     await User.findByIdAndDelete(userId);
     try {
       await Membership.deleteMany({ userId });
+    } catch (_) {}
+
+    try {
+      const { Unit } = require("../unit/unit.model");
+      await Unit.updateMany({ ownerId: userId }, { $set: { ownerId: null } });
+      await Unit.updateMany({ tenantId: userId }, { $set: { tenantId: null } });
+    } catch (_) {}
+
+    try {
+      const { FamilyMember } = require("../family-member/family-member.model");
+      await FamilyMember.updateMany({ addedBy: userId }, { $set: { isActive: false } });
     } catch (_) {}
 
     return { message: "Your account has been deleted successfully" };

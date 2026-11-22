@@ -311,6 +311,27 @@ class UnitService {
     }
     const unit = await Unit.findOne({ _id: unitId, societyId });
     if (!unit) throw new AppError("House not found", 404);
+
+    // Auto-heal dangling references if referenced resident was deleted
+    let dirty = false;
+    if (unit.ownerId) {
+      const ownerExists = await User.exists({ _id: unit.ownerId });
+      if (!ownerExists) {
+        unit.ownerId = null;
+        dirty = true;
+      }
+    }
+    if (unit.tenantId) {
+      const tenantExists = await User.exists({ _id: unit.tenantId });
+      if (!tenantExists) {
+        unit.tenantId = null;
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      await unit.save();
+    }
+
     return unit;
   }
 
@@ -649,6 +670,13 @@ class UnitService {
     const unit = await Unit.findOne({ inviteToken: token });
     if (!unit || !unit.inviteExpiresAt || new Date(unit.inviteExpiresAt) < new Date()) {
       throw new AppError("This invite link is invalid or has expired", 410);
+    }
+    if (unit.ownerId) {
+      const ownerExists = await User.exists({ _id: unit.ownerId });
+      if (!ownerExists) {
+        unit.ownerId = null;
+        await unit.save();
+      }
     }
     if (unit.ownerId) {
       throw new AppError("This house has already been claimed", 409);
