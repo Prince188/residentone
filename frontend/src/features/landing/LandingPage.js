@@ -2,38 +2,33 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import SEO from "../../components/SEO";
 
-const ROTATING_WORDS = [
-  { word: "Living", tag: "Residential Living", icon: "home" },
-  { word: "Security", tag: "Gate Intercom & Passes", icon: "shield_person" },
-  { word: "Finances", tag: "Zero-Fee UPI Collections", icon: "payments" },
-  { word: "Management", tag: "Transparent Voting & Ops", icon: "forum" },
-  { word: "Governance", tag: "Digital Audit Ledgers", icon: "account_balance" },
-];
-
-const LIVE_EVENTS = [
+const LIVE_GATE_EVENTS = [
   {
-    icon: "door_front",
-    title: "Visitor at Main Gate",
-    subtitle: "Amazon Delivery • Gate 1 Pass Verified",
-    badge: "Pre-Approved",
-    tint: "bg-[#E8FDF2] text-[#006948]",
-    isBeacon: true,
+    tag: "Gate 1 Pass",
+    icon: "local_shipping",
+    title: "Amazon Logistics Delivery",
+    details: "Rajesh Kumar • KA-04-E-1982",
+    status: "Awaiting Approval",
+    statusColor: "bg-amber-100 text-amber-800 border-amber-200",
+    time: "Just now",
   },
   {
-    icon: "payments",
-    title: "Maintenance Settled",
-    subtitle: "Flat A-402 • ₹4,500 via UPI QR Auto-Receipt",
-    badge: "Paid Instantly",
-    tint: "bg-[#E0F2FE] text-[#0369A1]",
-    isBeacon: false,
+    tag: "UPI Auto-Receipt",
+    icon: "verified",
+    title: "Maintenance Settled ₹2,500",
+    details: "Flat B-402 • Green Valley Heights",
+    status: "Receipt Generated",
+    statusColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    time: "2 mins ago",
   },
   {
-    icon: "ring_volume",
-    title: "Audible Gate Intercom",
-    subtitle: "Security guard connected with Resident",
-    badge: "Calling Live",
-    tint: "bg-[#FEF3C7] text-[#B45309]",
-    isBeacon: true,
+    tag: "Guard Intercom",
+    icon: "call",
+    title: "Visitor for Flat B-402",
+    details: "Main Gate Intercom • Audio Connected",
+    status: "Calling Resident",
+    statusColor: "bg-sky-100 text-sky-800 border-sky-200",
+    time: "Live",
   },
 ];
 
@@ -109,38 +104,23 @@ const landingSchema = {
 };
 
 export default function LandingPage() {
-  const [wordIdx, setWordIdx] = useState(0);
   const [eventIdx, setEventIdx] = useState(0);
-  const [animatingWord, setAnimatingWord] = useState(false);
 
-  // Cycle rotating words in Hero Title
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAnimatingWord(true);
-      setTimeout(() => {
-        setWordIdx((prev) => (prev + 1) % ROTATING_WORDS.length);
-        setAnimatingWord(false);
-      }, 250);
-    }, 2800);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Cycle live events in the floating Apple Mockup Card
+  // Cycle realistic activity alerts in the smartphone preview
   useEffect(() => {
     const eventTimer = setInterval(() => {
-      setEventIdx((prev) => (prev + 1) % LIVE_EVENTS.length);
-    }, 3600);
+      setEventIdx((prev) => (prev + 1) % LIVE_GATE_EVENTS.length);
+    }, 3800);
     return () => clearInterval(eventTimer);
   }, []);
 
-  const currentWord = ROTATING_WORDS[wordIdx];
-  const currentEvent = LIVE_EVENTS[eventIdx];
+  const currentEvent = LIVE_GATE_EVENTS[eventIdx];
 
   return (
     <div className="bg-surface overflow-hidden">
       <SEO
         title="Smart Society & Apartment Management Platform"
-        description="Streamline maintenance requests, automate billing, enhance gate security with visitor approvals, and unite your residential community with ResidentOne."
+        description="Streamline maintenance requests, automate billing with UPI, enhance gate security with visitor approvals, and unite your residential community with ResidentOne."
         keywords={[
           "residential society management",
           "apartment billing system",
@@ -153,187 +133,230 @@ export default function LandingPage() {
         schema={landingSchema}
       />
 
-      {/* 🍏 Apple HIG Hero Section with High-Impact Animations */}
-      <header className="relative pt-24 pb-16 md:pt-36 md:pb-28 overflow-hidden bg-gradient-to-b from-[#E8FDF2]/50 via-surface to-surface">
-        {/* Animated Ambient Apple Glow Backdrops */}
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[720px] h-[380px] bg-primary/12 rounded-full blur-[130px] pointer-events-none animate-float-slow" />
-        <div className="absolute -top-24 right-[-100px] w-[460px] h-[460px] bg-tertiary/12 rounded-full blur-[140px] pointer-events-none animate-float-reverse" />
-        <div className="absolute top-1/2 left-[-100px] w-[350px] h-[350px] bg-primary-fixed/20 rounded-full blur-[110px] pointer-events-none animate-pulse-glow" />
+      {/* Grounded, High-Trust Hero Section */}
+      <header className="relative pt-20 pb-16 md:pt-32 md:pb-24 overflow-hidden bg-gradient-to-b from-[#EBFBF3]/70 via-[#F7FCF9]/80 to-surface">
+        {/* Subtle, architectural grid pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(#006948_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.04] pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-[520px] h-[320px] bg-primary/[0.06] rounded-full blur-[90px] pointer-events-none" />
 
         <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-            {/* Left Copy */}
+            {/* Left Copy Column */}
             <div className="lg:col-span-7 flex flex-col gap-6 text-center lg:text-left items-center lg:items-start">
-              {/* Apple Pill Tag with Pulsing Beacon */}
-              <div className="inline-flex items-center gap-2.5 bg-white/95 backdrop-blur-xl px-4 py-1.5 rounded-full border border-black/[0.06] shadow-xs hover:border-primary/30 transition-colors">
+              {/* Category Pill Tag */}
+              <div className="inline-flex items-center gap-2.5 bg-white/95 px-3.5 py-1.5 rounded-full border border-black/[0.08] shadow-2xs hover:border-primary/30 transition-colors">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                 </span>
                 <span className="text-xs font-semibold text-on-surface tracking-wide flex items-center gap-1.5">
-                  <span>Smart Society Platform</span>
+                  <span>The Operating System for Housing Societies</span>
                   <span className="text-on-surface-muted">•</span>
                   <span className="text-primary font-bold">Trusted by 500+ Societies</span>
                 </span>
               </div>
 
-              {/* 🍏 Dynamic Animated Hero Title — Structured in 3 Lines for Desktop */}
-              <h1 className="text-[38px] sm:text-[50px] lg:text-[58px] xl:text-[66px] font-bold leading-[1.08] tracking-tight text-on-surface font-display min-h-[140px] sm:min-h-[175px] lg:min-h-[200px] xl:min-h-[225px]">
-                <span className="block">Community</span>
-                <span className="block">
-                  <span
-                    key={currentWord.word}
-                    className={`italic text-gradient-shimmer inline-block pr-2 transition-all duration-300 transform ${
-                      animatingWord
-                        ? "opacity-0 -translate-y-3 scale-95"
-                        : "opacity-100 translate-y-0 scale-100"
-                    }`}
-                  >
-                    {currentWord.word}
-                  </span>
-                  {" "}
-                </span>
-                <span className="block text-on-surface">Perfected.</span>
+              {/* Grounded, Authoritative Headline */}
+              <h1 className="text-[34px] sm:text-[46px] lg:text-[54px] font-bold leading-[1.14] tracking-tight text-on-surface font-display">
+                Smart Society Management &amp; Gate Security,{" "}
+                <span className="text-primary block sm:inline">Without the Chaos.</span>
               </h1>
 
+              {/* Practical, Indian Society Specific Value Proposition */}
               <p className="text-body-md md:text-body-lg text-on-surface-variant max-w-xl leading-relaxed">
-                Streamline maintenance billing, approve gate visitors in real time, and foster transparent residential governance with an intelligent, high-trust management platform built for modern residential communities.
+                Say goodbye to manual guard registers and endless WhatsApp follow-ups. Automate monthly maintenance collection with instant UPI auto-receipts, verify visitors at the gate in seconds, and keep audit-ready financial books for your AGM.
               </p>
 
-              {/* Apple Capsule Buttons with Tactile Spring */}
-              <div className="flex flex-col sm:flex-row gap-3.5 w-full sm:w-auto mt-2">
+              {/* Concrete Value Chips */}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5 text-xs font-medium text-on-surface-variant">
+                <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-black/[0.07] shadow-2xs">
+                  <span className="material-symbols-outlined text-[15px] text-primary">check_circle</span>
+                  Instant Cashfree UPI Receipts
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-black/[0.07] shadow-2xs">
+                  <span className="material-symbols-outlined text-[15px] text-primary">check_circle</span>
+                  2-Tap Gate Visitor Pass
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-black/[0.07] shadow-2xs">
+                  <span className="material-symbols-outlined text-[15px] text-primary">check_circle</span>
+                  AGM-Ready Audit Ledgers
+                </span>
+              </div>
+
+              {/* Direct Conversion CTAs */}
+              <div className="flex flex-col sm:flex-row gap-3.5 w-full sm:w-auto mt-1">
                 <Link
                   to="/register"
                   className="ios-btn-primary px-8 py-3.5 text-body-sm no-underline shadow-[0_4px_16px_rgba(0,105,72,0.25)] group"
                 >
-                  <span>Get Started Free</span>
+                  <span>Create Society Free</span>
                   <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">
                     arrow_forward
                   </span>
                 </Link>
                 <Link
-                  to="/features"
+                  to="/pricing"
                   className="ios-btn-secondary px-7 py-3.5 text-body-sm no-underline group"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-primary group-hover:rotate-90 transition-transform">
-                    grid_view
+                  <span className="material-symbols-outlined text-[18px] text-primary">
+                    calculate
                   </span>
-                  <span>Explore Modules</span>
+                  <span>Pricing &amp; Calculator</span>
                 </Link>
               </div>
 
-              {/* Social Proof Avatars */}
-              <div className="flex items-center gap-3.5 mt-4 pt-6 border-t border-black/[0.06] w-full justify-center lg:justify-start">
-                <div className="flex -space-x-2.5">
-                  {["P", "A", "N", "R"].map((initial, i) => (
-                    <div
-                      key={i}
-                      className="w-9 h-9 rounded-full border-2 border-white bg-primary-light flex items-center justify-center text-xs font-bold text-primary shadow-xs hover:-translate-y-0.5 transition-transform"
-                    >
-                      {initial}
-                    </div>
+              {/* Credible Social Proof Strip */}
+              <div className="flex items-center gap-3 mt-2 pt-5 border-t border-black/[0.06] w-full justify-center lg:justify-start">
+                <div className="flex items-center gap-1 text-amber-500">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className="material-symbols-outlined text-[17px] fill-current">star</span>
                   ))}
                 </div>
-                <div className="text-left text-body-sm text-on-surface-variant">
-                  <span className="font-bold text-on-surface">50,000+</span> Residents connected across 500+ societies
+                <div className="text-left text-xs sm:text-body-sm text-on-surface-variant">
+                  <span className="font-bold text-on-surface">4.9 / 5.0</span> • Trusted by Management Committees &amp; RWAs across India
                 </div>
               </div>
             </div>
 
-            {/* Right Mockup Card with Floating Elements and Live Activity Ticker */}
-            <div className="lg:col-span-5 relative w-full flex justify-center">
-              {/* Floating Badge 1 (Top Left) */}
-              <div className="absolute -top-6 -left-6 z-20 hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-xl px-4 py-2 rounded-full border border-black/[0.08] shadow-apple animate-float">
-                <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[15px]">verified_user</span>
+            {/* Right Column: Realistic Smartphone App Mockup */}
+            <div className="lg:col-span-5 relative w-full flex justify-center py-4">
+              {/* Floating Verified Badge 1 (Top Left) */}
+              <div className="absolute -top-3 -left-2 sm:-left-4 z-20 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-black/[0.08] shadow-[0_12px_30px_rgba(0,35,22,0.10)]">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">verified</span>
                 </div>
-                <span className="text-xs font-bold text-on-surface">256-Bit Gate Security</span>
+                <div>
+                  <div className="text-[11px] font-bold text-on-surface leading-tight">₹2,500 Settled via UPI</div>
+                  <div className="text-[10px] text-on-surface-muted leading-tight">Instant auto-receipt generated</div>
+                </div>
               </div>
 
-              {/* Floating Badge 2 (Bottom Right) */}
-              <div className="absolute -bottom-5 -right-5 z-20 hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-xl px-4 py-2 rounded-full border border-black/[0.08] shadow-apple floating-delayed">
-                <div className="w-6 h-6 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[15px]">bolt</span>
+              {/* Floating Verified Badge 2 (Bottom Right) */}
+              <div className="absolute -bottom-2 -right-2 sm:-right-4 z-20 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-black/[0.08] shadow-[0_12px_30px_rgba(0,35,22,0.10)]">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">shield</span>
                 </div>
-                <span className="text-xs font-bold text-on-surface">Instant UPI Receipts</span>
+                <div>
+                  <div className="text-[11px] font-bold text-on-surface leading-tight">Gate 1 Pass Approved</div>
+                  <div className="text-[10px] text-on-surface-muted leading-tight">Delivery partner cleared entry</div>
+                </div>
               </div>
 
-              {/* Central Floating Apple Window */}
-              <div className="w-full max-w-[460px] bg-white rounded-3xl border border-black/[0.08] shadow-[0_20px_50px_rgba(0,33,22,0.12)] p-5 relative hover:shadow-[0_24px_60px_rgba(0,33,22,0.16)] transition-shadow duration-300">
-                {/* Mockup Header Bar */}
-                <div className="flex items-center justify-between pb-4 border-b border-black/[0.06]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-rose-400" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                  </div>
-                  <div className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider bg-surface-container px-3 py-1 rounded-full flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <span>ResidentOne OS</span>
-                  </div>
-                </div>
-
-                {/* Mockup Content Widgets */}
-                <div className="mt-4 space-y-3.5">
-                  {/* Digital Wallet Card with Apple Shimmer */}
-                  <div className="rounded-2xl bg-gradient-to-br from-[#004730] to-[#006948] p-4 text-white shadow-md relative overflow-hidden group">
-                    <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform" />
-                    
-                    <div className="flex justify-between items-center text-xs opacity-85">
-                      <span>Society Maintenance Balance</span>
-                      <span className="material-symbols-outlined text-[16px]">contactless</span>
+              {/* Smartphone Frame Bezel */}
+              <div className="w-full max-w-[340px] sm:max-w-[365px] bg-slate-900 rounded-[44px] p-2.5 shadow-[0_25px_60px_-15px_rgba(0,40,25,0.28)] ring-1 ring-slate-800">
+                {/* Inner Mobile Screen */}
+                <div className="bg-[#F8FAF9] rounded-[36px] overflow-hidden flex flex-col border border-slate-700/20 text-slate-800">
+                  {/* Top Status Bar & Dynamic Island */}
+                  <div className="bg-white px-5 pt-3 pb-2 flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                    <span>9:41</span>
+                    {/* Dynamic Island Notch */}
+                    <div className="w-20 h-4 bg-slate-900 rounded-full flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[9px] text-slate-300 font-mono">ResidentOne</span>
                     </div>
-                    <div className="text-2xl font-bold mt-2 font-display">
-                      ₹ 4,500 <span className="text-xs font-normal opacity-75">Due in 5 days</span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-white/15 text-[11px]">
-                      <span>Flat A-402 • Green Valley</span>
-                      <span className="bg-white/20 px-2 py-0.5 rounded-full font-semibold">Active Member</span>
+                    <div className="flex items-center gap-1.5 text-slate-600">
+                      <span className="material-symbols-outlined text-[13px]">signal_cellular_alt</span>
+                      <span className="material-symbols-outlined text-[13px]">wifi</span>
+                      <span className="material-symbols-outlined text-[13px]">battery_full</span>
                     </div>
                   </div>
 
-                  {/* 🍏 Dynamic Live Event Card (Transitions smoothly between 3 events) */}
-                  <div
-                    key={currentEvent.title}
-                    className="rounded-2xl bg-[#E8FDF2] border border-primary/20 p-3.5 flex items-center gap-3 transition-all duration-300 animate-fade-slide-up"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-xs">
-                      <span className="material-symbols-outlined text-[20px]">{currentEvent.icon}</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-on-surface flex items-center gap-1.5">
-                        <span>{currentEvent.title}</span>
-                        {currentEvent.isBeacon && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-                        )}
+                  {/* Mobile App Header */}
+                  <div className="bg-white px-4 pb-3 pt-1 border-b border-black/[0.05] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                        <span className="material-symbols-outlined text-[18px]">apartment</span>
                       </div>
-                      <div className="text-[11px] text-on-surface-variant truncate">
-                        {currentEvent.subtitle}
+                      <div>
+                        <div className="text-xs font-bold text-on-surface leading-tight">Green Valley Heights</div>
+                        <div className="text-[10px] text-on-surface-muted">Flat B-402 • Wing B</div>
                       </div>
                     </div>
-                    <span className="text-[11px] font-bold text-primary bg-white px-2.5 py-1 rounded-full border border-primary/20 shadow-xs shrink-0">
-                      {currentEvent.badge}
-                    </span>
+                    <div className="relative w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                      <span className="material-symbols-outlined text-[17px]">notifications</span>
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+                    </div>
                   </div>
 
-                  {/* Quick Feature Metric Strip */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-2xl bg-surface-container/60 p-3 border border-black/[0.04] hover:bg-surface-container transition-colors">
-                      <div className="text-xs text-on-surface-variant">Active Complaints</div>
-                      <div className="text-lg font-bold text-on-surface mt-0.5 font-display">0 Pending</div>
-                      <div className="text-[10px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[13px]">check</span>
-                        <span>100% Resolved</span>
+                  {/* Mobile Screen Body Content */}
+                  <div className="p-3.5 space-y-3">
+                    {/* 1. Maintenance Due Card */}
+                    <div className="rounded-2xl bg-gradient-to-br from-[#004730] to-[#006948] p-3.5 text-white shadow-sm">
+                      <div className="flex items-center justify-between text-[10px] text-emerald-200 uppercase tracking-wider font-semibold">
+                        <span>Maintenance Due</span>
+                        <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[9px] text-white">Due 5th Dec</span>
+                      </div>
+                      <div className="text-xl font-bold font-display mt-1 flex items-baseline gap-1.5">
+                        ₹2,500 <span className="text-[10px] font-normal text-emerald-200 font-sans">/ month</span>
+                      </div>
+                      <div className="text-[10px] text-emerald-100/90 mt-0.5">
+                        Maintenance + Water Cess + Lift AMC
+                      </div>
+                      <div className="mt-2.5 pt-2 border-t border-white/15 flex items-center justify-between">
+                        <span className="text-[10px] text-emerald-200 flex items-center gap-1 font-medium">
+                          <span className="material-symbols-outlined text-[13px]">qr_code_2</span> Cashfree UPI
+                        </span>
+                        <button
+                          type="button"
+                          className="bg-white text-primary text-[11px] font-bold px-3 py-1 rounded-lg shadow-xs hover:bg-emerald-50 transition-colors"
+                        >
+                          Pay via UPI
+                        </button>
                       </div>
                     </div>
-                    <div className="rounded-2xl bg-surface-container/60 p-3 border border-black/[0.04] hover:bg-surface-container transition-colors">
-                      <div className="text-xs text-on-surface-variant">Clubhouse Slots</div>
-                      <div className="text-lg font-bold text-on-surface mt-0.5 font-display">Reserved</div>
-                      <div className="text-[10px] text-primary font-medium mt-1 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[13px]">schedule</span>
-                        <span>Today 6:00 PM</span>
+
+                    {/* 2. Real-time Live Gate Event */}
+                    <div className="rounded-xl bg-white border border-black/[0.07] p-3 shadow-2xs">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold text-on-surface-muted uppercase tracking-wider flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px] text-primary">{currentEvent.icon}</span>
+                          {currentEvent.tag}
+                        </span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${currentEvent.statusColor}`}>
+                          {currentEvent.status}
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-on-surface">{currentEvent.title}</div>
+                      <div className="text-[11px] text-on-surface-variant mt-0.5">{currentEvent.details}</div>
+                      <div className="mt-2.5 flex gap-1.5">
+                        <button
+                          type="button"
+                          className="flex-1 bg-primary text-white text-[10px] font-bold py-1.5 rounded-lg shadow-xs hover:bg-primary-hover transition-colors"
+                        >
+                          Allow Entry
+                        </button>
+                        <button
+                          type="button"
+                          className="flex-1 bg-slate-100 text-slate-700 text-[10px] font-medium py-1.5 rounded-lg border border-black/[0.05] hover:bg-slate-200 transition-colors"
+                        >
+                          Leave at Gate
+                        </button>
                       </div>
                     </div>
+
+                    {/* 3. Quick Actions Grid */}
+                    <div className="grid grid-cols-4 gap-1.5 text-center">
+                      {[
+                        { icon: "badge", label: "Gate Pass" },
+                        { icon: "receipt_long", label: "Ledger" },
+                        { icon: "campaign", label: "Notices" },
+                        { icon: "support_agent", label: "Helpdesk" },
+                      ].map((item, i) => (
+                        <div key={i} className="bg-white rounded-xl p-2 border border-black/[0.05] shadow-2xs">
+                          <span className="material-symbols-outlined text-[18px] text-primary block mx-auto">
+                            {item.icon}
+                          </span>
+                          <span className="text-[9px] font-medium text-slate-600 block mt-0.5">
+                            {item.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Home Indicator Bar */}
+                  <div className="bg-white py-1.5 flex justify-center">
+                    <div className="w-24 h-1 bg-slate-300 rounded-full" />
                   </div>
                 </div>
               </div>
