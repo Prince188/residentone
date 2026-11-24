@@ -363,6 +363,3 @@ export default function Navbar() {
     </>
   );
 }
-    </>
-  );
-}
