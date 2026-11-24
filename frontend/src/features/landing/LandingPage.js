@@ -32,34 +32,74 @@ const LIVE_GATE_EVENTS = [
   },
 ];
 
-const features = [
+const PRODUCT_MODULES = [
   {
-    icon: "build",
-    title: "Automated Maintenance",
-    desc: "Automate monthly billing, zero-commission UPI payments, transparent expense tracking, and real-time dues ledgers.",
-    tint: "bg-[#E0F2FE] text-[#0369A1]",
-    tag: "Finance",
+    id: "finance",
+    title: "Maintenance & UPI",
+    navLabel: "Maintenance & UPI",
+    tag: "Automated Society Finances",
+    icon: "payments",
+    headline: "Zero-Hassle Dues Collection with Instant Bank Settlement",
+    description: "Generate 1st-of-the-month invoices automatically and collect dues via UPI, Cards, or Netbanking. Money settles directly into the society's current bank account with zero manual reconciliation.",
+    benefits: [
+      "Auto-generated invoices with wing, flat number & custom line items",
+      "Instant WhatsApp & SMS payment links with Dynamic UPI QR codes",
+      "Zero manual bank reconciliation: receipts issue instantly upon payment",
+      "Automated late fee penalties with configurable grace period rules",
+    ],
+    ctaText: "Explore Billing Features",
+    ctaLink: "/features",
   },
   {
+    id: "gate",
+    title: "Gate Security & Passes",
+    navLabel: "Gate Security",
+    tag: "Digital Gatekeeper OS",
     icon: "shield_person",
-    title: "Smart Gate & Visitors",
-    desc: "Digital visitor pre-approvals, instantaneous guard intercom calls, delivery leave-at-gate logs, and staff registry.",
-    tint: "bg-[#E8FDF2] text-[#006948]",
-    tag: "Security",
+    headline: "2-Tap Visitor Approvals & Fast Digital Entry at the Gate",
+    description: "Replace soggy paper guard registers with a fast, touch-friendly guard tablet console. Residents pre-approve guests and deliveries, and get notified instantly when visitors arrive.",
+    benefits: [
+      "Instant guest pre-approvals with 4-digit PIN / QR entry passes",
+      "One-tap delivery 'Leave at Gate' verification with photo proof",
+      "Daily domestic staff (maids, drivers, cooks) biometric / PIN attendance",
+      "Audible guard-to-resident intercom calling over internet without intercom wiring",
+    ],
+    ctaText: "Explore Gate Security",
+    ctaLink: "/features",
   },
   {
-    icon: "forum",
-    title: "Community & Voting",
-    desc: "Moderated society noticeboard, digital ballot polling, resident directory with privacy masking, and emergency SOS alerts.",
-    tint: "bg-[#EDE9FE] text-[#6D28D9]",
-    tag: "Community",
+    id: "accounting",
+    title: "Audit Ledgers & AGM",
+    navLabel: "Audit & AGM Ledgers",
+    tag: "Treasurer & CA Transparency",
+    icon: "account_balance",
+    headline: "Audit-Ready Books Ready for Your Next General Body Meeting",
+    description: "Give your Treasurer, Managing Committee, and Chartered Accountant instant access to clean income & expenditure statements, vendor AMC payment logs, and verified dues reports.",
+    benefits: [
+      "Live Income vs Expenditure statements with category-wise breakdown",
+      "Sinking fund, repair reserve, and investment deposit tracking",
+      "1-Click Export to Excel & PDF formatted for society statutory audits",
+      "Transparent resident ledger access eliminates billing disputes",
+    ],
+    ctaText: "View Accounting Modules",
+    ctaLink: "/features",
   },
   {
-    icon: "event_available",
-    title: "Facility & Amenities",
-    desc: "Instant self-service reservations for clubhouses, swimming pools, tennis courts, and party halls with slot conflict prevention.",
-    tint: "bg-[#FEF3C7] text-[#B45309]",
-    tag: "Amenities",
+    id: "helpdesk",
+    title: "Helpdesk & Amenities",
+    navLabel: "Helpdesk & Amenities",
+    tag: "Resident Operations & Comfort",
+    icon: "support_agent",
+    headline: "Structured Complaint Resolution & Self-Service Amenities",
+    description: "Eliminate chaotic WhatsApp complaints. Residents raise tickets for plumbing, electrical, or lift issues with photos, and book clubhouses, tennis courts, and party halls in seconds.",
+    benefits: [
+      "Ticket routing to assigned facility managers with SLA deadlines",
+      "Clubhouse & party hall calendar with automatic slot conflict blocking",
+      "Integrated amenity deposit and refundable advance fee collection",
+      "Official committee broadcast noticeboard with read-receipt tracking",
+    ],
+    ctaText: "Explore Community Features",
+    ctaLink: "/features",
   },
 ];
 
@@ -105,6 +145,7 @@ const landingSchema = {
 
 export default function LandingPage() {
   const [eventIdx, setEventIdx] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
 
   // Cycle realistic activity alerts in the smartphone preview
   useEffect(() => {
@@ -115,6 +156,7 @@ export default function LandingPage() {
   }, []);
 
   const currentEvent = LIVE_GATE_EVENTS[eventIdx];
+  const activeModule = PRODUCT_MODULES[activeTab];
 
   return (
     <div className="bg-surface overflow-hidden">
@@ -365,48 +407,333 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* 🍏 Features Grid (Apple Squircles & Micro Hover Animations) */}
+      {/* Interactive Tabbed Product Deep-Dive */}
       <section className="py-20 md:py-28 bg-white border-y border-black/[0.05]">
         <div className="max-w-container mx-auto px-4 sm:px-margin-mobile md:px-margin-desktop">
-          <div className="text-center max-w-2xl mx-auto mb-14 md:mb-20">
+          <div className="text-center max-w-3xl mx-auto mb-12 md:mb-16">
             <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary-light px-3.5 py-1 rounded-full border border-primary/15 inline-block">
-              Comprehensive Platform
+              Core Platform Architecture
             </span>
-            <h2 className="text-[30px] md:text-[40px] font-bold text-on-surface mt-4 tracking-tight font-display">
-              Engineered for Peace of Mind.
+            <h2 className="text-[30px] md:text-[42px] font-bold text-on-surface mt-4 tracking-tight font-display">
+              Built for Every Stakeholder in Your Society.
             </h2>
-            <p className="text-body-md text-on-surface-variant mt-3 leading-relaxed">
-              Replace chaotic WhatsApp chats and manual registers with intelligent, structured workflows designed for clarity and peace of mind.
+            <p className="text-body-md md:text-body-lg text-on-surface-variant mt-3 leading-relaxed">
+              Whether you are a resident paying maintenance, a guard at the gate, or a treasurer presenting the annual AGM audit, ResidentOne delivers dedicated, purpose-built workflows.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className="ios-card p-6 md:p-7 flex flex-col justify-between group cursor-pointer"
-              >
+          {/* Interactive Module Tabs */}
+          <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto pb-4 sm:pb-0 mb-10 no-scrollbar">
+            {PRODUCT_MODULES.map((m, idx) => {
+              const isActive = activeTab === idx;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setActiveTab(idx)}
+                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-body-sm font-semibold transition-all shrink-0 cursor-pointer ${
+                    isActive
+                      ? "bg-primary text-white shadow-[0_4px_14px_rgba(0,105,72,0.28)] scale-[1.02]"
+                      : "bg-surface-container/70 text-on-surface-variant hover:text-on-surface hover:bg-surface-container border border-black/[0.05]"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">{m.icon}</span>
+                  <span>{m.navLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab Content Display */}
+          <div className="rounded-3xl bg-surface-container/40 border border-black/[0.06] p-6 sm:p-8 md:p-12 transition-all">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              {/* Left Column: Deep Dive Copy */}
+              <div className="lg:col-span-6 flex flex-col justify-between">
                 <div>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-5 ${f.tint} shadow-xs group-hover:scale-110 group-hover:rotate-2 transition-transform duration-200`}>
-                    <span className="material-symbols-outlined text-[24px]">{f.icon}</span>
+                  <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full mb-3">
+                    <span className="material-symbols-outlined text-[15px]">{activeModule.icon}</span>
+                    <span>{activeModule.tag}</span>
                   </div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-on-surface-muted mb-1">
-                    {f.tag}
-                  </div>
-                  <h3 className="text-lg font-bold text-on-surface mb-2 font-display group-hover:text-primary transition-colors">
-                    {f.title}
+                  <h3 className="text-2xl sm:text-3xl font-bold text-on-surface font-display leading-tight mb-3">
+                    {activeModule.headline}
                   </h3>
-                  <p className="text-body-sm text-on-surface-variant leading-relaxed">
-                    {f.desc}
+                  <p className="text-body-md text-on-surface-variant leading-relaxed mb-6">
+                    {activeModule.description}
                   </p>
+
+                  <div className="space-y-3 mb-8">
+                    {activeModule.benefits.map((benefit, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="material-symbols-outlined text-[14px]">check</span>
+                        </div>
+                        <span className="text-body-sm text-on-surface font-medium leading-snug">
+                          {benefit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-black/[0.04] flex items-center text-xs font-semibold text-primary group-hover:translate-x-1.5 transition-transform duration-200">
-                  <span>Learn more</span>
-                  <span className="material-symbols-outlined text-[16px] ml-1">arrow_forward</span>
+                <div>
+                  <Link
+                    to={activeModule.ctaLink}
+                    className="inline-flex items-center gap-2 text-body-sm font-bold text-primary hover:text-primary-hover group no-underline"
+                  >
+                    <span>{activeModule.ctaText}</span>
+                    <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">
+                      arrow_forward
+                    </span>
+                  </Link>
                 </div>
               </div>
-            ))}
+
+              {/* Right Column: Interactive Real-World UI Canvas */}
+              <div className="lg:col-span-6 relative">
+                {/* Module 0: Maintenance & UPI */}
+                {activeModule.id === "finance" && (
+                  <div className="rounded-2xl bg-slate-900 text-white p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,35,22,0.18)] border border-slate-800 animate-fade-slide-up">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-100">Monthly Dues Auto-Invoice</div>
+                          <div className="text-[11px] text-slate-400">#INV-2026-11-042 • Flat B-402</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        PAID via UPI
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-2 text-xs">
+                      <div className="flex justify-between py-1.5 border-b border-slate-800/80 text-slate-300">
+                        <span>Society Maintenance (Flat B-402)</span>
+                        <span className="font-semibold text-white">₹1,800.00</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-slate-800/80 text-slate-300">
+                        <span>Lift AMC &amp; DG Backup Surcharge</span>
+                        <span className="font-semibold text-white">₹350.00</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-slate-800/80 text-slate-300">
+                        <span>Water Cess &amp; Borewell AMC</span>
+                        <span className="font-semibold text-white">₹200.00</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-slate-800/80 text-slate-300">
+                        <span>Sinking Fund Mandatory Allocation</span>
+                        <span className="font-semibold text-white">₹150.00</span>
+                      </div>
+                      <div className="flex justify-between pt-2 text-sm font-bold text-white">
+                        <span>Total Settled</span>
+                        <span className="text-emerald-400 font-display text-base">₹2,500.00</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 pt-4 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-emerald-400">verified</span>
+                        <span>Settled directly to HDFC Society A/C #...8812</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors w-fit"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">download</span>
+                        <span>Download PDF Receipt</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Module 1: Gate Security & Passes */}
+                {activeModule.id === "gate" && (
+                  <div className="rounded-2xl bg-white p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,35,22,0.12)] border border-black/[0.08] animate-fade-slide-up">
+                    <div className="flex items-center justify-between pb-3.5 border-b border-black/[0.06]">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[20px]">shield</span>
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-on-surface">Gate 1 Guard Console</div>
+                          <div className="text-[11px] text-on-surface-muted">Security Guard: Suresh P. (Terminal #1)</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Shift Active
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {/* Entry 1 */}
+                      <div className="p-3 rounded-xl bg-surface-container/60 border border-black/[0.05] flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[18px]">local_shipping</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-on-surface">Amazon Logistics • Delivery</div>
+                            <div className="text-[11px] text-on-surface-variant">Rajesh Kumar (Pass #8291) • Flat B-402</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Pre-Approved
+                        </span>
+                      </div>
+
+                      {/* Entry 2 */}
+                      <div className="p-3 rounded-xl bg-surface-container/60 border border-black/[0.05] flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[18px]">directions_car</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-on-surface">Guest: Amit V. (White City)</div>
+                            <div className="text-[11px] text-on-surface-variant">DL-3C-8912 • Intercom calling Flat C-104</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                          Audio Intercom
+                        </span>
+                      </div>
+
+                      {/* Entry 3 */}
+                      <div className="p-3 rounded-xl bg-surface-container/60 border border-black/[0.05] flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[18px]">badge</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-on-surface">Rukmini (Housekeeper #14)</div>
+                            <div className="text-[11px] text-on-surface-variant">Biometric entry logged at 08:30 AM</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                          Inside Society
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Module 2: Audit Ledgers & AGM */}
+                {activeModule.id === "accounting" && (
+                  <div className="rounded-2xl bg-white p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,35,22,0.12)] border border-black/[0.08] animate-fade-slide-up">
+                    <div className="flex items-center justify-between pb-3.5 border-b border-black/[0.06]">
+                      <div>
+                        <div className="text-xs font-bold text-on-surface">Annual Society Financial Health</div>
+                        <div className="text-[11px] text-on-surface-muted">FY 2026–27 Statutory Audit Ledger</div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">verified</span>
+                        AGM Ready
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2.5 my-4">
+                      <div className="bg-surface-container/60 p-3 rounded-xl border border-black/[0.04]">
+                        <div className="text-[10px] uppercase font-semibold text-on-surface-muted">Collections</div>
+                        <div className="text-base sm:text-lg font-bold text-emerald-700 font-display mt-0.5">₹ 28.45 L</div>
+                        <div className="text-[10px] text-emerald-600 font-medium">96.4% on-time</div>
+                      </div>
+                      <div className="bg-surface-container/60 p-3 rounded-xl border border-black/[0.04]">
+                        <div className="text-[10px] uppercase font-semibold text-on-surface-muted">Sinking Fund</div>
+                        <div className="text-base sm:text-lg font-bold text-on-surface font-display mt-0.5">₹ 12.50 L</div>
+                        <div className="text-[10px] text-primary font-medium">Bank FD Verified</div>
+                      </div>
+                      <div className="bg-surface-container/60 p-3 rounded-xl border border-black/[0.04]">
+                        <div className="text-[10px] uppercase font-semibold text-on-surface-muted">Overdue Dues</div>
+                        <div className="text-base sm:text-lg font-bold text-rose-600 font-display mt-0.5">₹ 1.05 L</div>
+                        <div className="text-[10px] text-rose-600 font-medium">Down 78% YoY</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-on-surface-muted mb-1">
+                        Major Monthly Society AMC Contracts
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-black/[0.04] text-on-surface-variant">
+                        <span>Security Agency Contract (6 Guards, 24/7)</span>
+                        <span className="font-semibold text-on-surface">₹1,20,000 / mo</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-black/[0.04] text-on-surface-variant">
+                        <span>Otis Elevator Comprehensive AMC (4 Lifts)</span>
+                        <span className="font-semibold text-on-surface">₹24,500 / mo</span>
+                      </div>
+                      <div className="flex justify-between py-1 text-on-surface-variant">
+                        <span>DG Generator Diesel &amp; Backup Maintenance</span>
+                        <span className="font-semibold text-on-surface">₹18,200 / mo</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-black/[0.06] flex items-center justify-between text-xs">
+                      <span className="text-[11px] text-on-surface-muted">1-Click export for CA audit</span>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary-light px-3 py-1.5 rounded-lg border border-primary/20 hover:bg-primary-fixed/40 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">file_download</span>
+                        <span>CA Audit Pack (.xlsx)</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Module 3: Helpdesk & Amenities */}
+                {activeModule.id === "helpdesk" && (
+                  <div className="rounded-2xl bg-white p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,35,22,0.12)] border border-black/[0.08] animate-fade-slide-up">
+                    <div className="flex items-center justify-between pb-3.5 border-b border-black/[0.06]">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[20px]">handyman</span>
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-on-surface">Helpdesk &amp; Resident Services</div>
+                          <div className="text-[11px] text-on-surface-muted">Real-time SLAs &amp; Conflict-free Bookings</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full">
+                        Zero WhatsApp Spam
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {/* Ticket 1 */}
+                      <div className="p-3 rounded-xl bg-surface-container/60 border border-black/[0.05]">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-on-surface">Ticket #184: Wing B Passenger Lift Sensor</span>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                            In Progress
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-on-surface-variant">
+                          Assigned to Otis AMC Technician • SLA Target: 2h remaining
+                        </div>
+                      </div>
+
+                      {/* Amenity Reservation */}
+                      <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/60">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[15px] text-emerald-700">celebration</span>
+                            Clubhouse Banquet Hall Reservation
+                          </span>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Confirmed
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-emerald-800">
+                          Flat A-201 • Saturday 6:00 PM – 10:00 PM • ₹5,000 Refundable Deposit Paid
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </section>
